@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>LUX INTERACTIVE</title>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      font-family: "Futura PT", sans-serif;
+    }
+
+    #video-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===============================
+       SCREENSHOT OVERLAY
+    =============================== */
+
+    #screenshotOverlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      pointer-events: none;
+    }
+
+    .overlayBox {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 24px 32px;
+      border-radius: 16px;
+      color: white;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 22px;
+      height: 22px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top: 3px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+
+  <script type="module">
+    let Application;
+    let screenshotCounter = 1;
+
+    import * as PixelStreamingWebSdk from 
+    "https://unpkg.com/@arcware-cloud/pixelstreaming-websdk@1.3.32/index.mjs";
+
+    (() => {
+      const { ArcwareInit } = PixelStreamingWebSdk;
+
+      /* ===============================
+         RANDOM SEAT SELECTION
+      =============================== */
+
+      const shareIds = [
+        "share-53e1b508-2ea9-43cc-900f-b160b7654fdb",
+        "share-26d724db-7a70-40f2-893c-25c18deb0e29",
+        "share-a913ed5d-44d6-42e6-bc9d-2e4ea72c4eba"
+      ];
+
+      const selectedShareId =
+        shareIds[Math.floor(Math.random() * shareIds.length)];
+
+      console.log("Arcware seat selected:", selectedShareId);
+
+      const initResult = new ArcwareInit(
+        { shareId: selectedShareId },
+        {
+          initialSettings: {
+            AutoConnect: false,
+            AutoPlayVideo: true,
+            StartVideoMuted: false
+          },
+          settings: {
+            infoButton: false,
+            micButton: false,
+            audioButton: false,
+            fullscreenButton: false,
+            settingsButton: false,
+            connectionStrengthIcon: false
+          }
+        }
+      );
+
+      Application = initResult.Application;
+
+      Application.getApplicationResponse((response) => {
+        try {
+          const parsed = JSON.parse(response);
+
+          if (parsed.screenshot === "generating") {
+            showOverlay("Generating high resolution image");
+          }
+        } catch (e) {}
+
+        if (response.startsWith("CreateScreenshot")) {
+          createFile(window.file);
+        }
+      });
+
+      setTimeout(() => {
+        document
+          .getElementById("video-container")
+          .appendChild(Application.rootElement);
+      });
+
+      window.file = Application.webRtcController.file;
+    })();
+
+    function showOverlay(message) {
+      document.getElementById("overlayText").innerText = message;
+      document.getElementById("screenshotOverlay").style.display = "flex";
+    }
+
+    function hideOverlay() {
+      document.getElementById("screenshotOverlay").style.display = "none";
+    }
+
+    function createFile(file) {
+      const blob = new Blob(file.data, { type: file.mimetype });
+      const counterString = String(screenshotCounter).padStart(2, "0");
+      const fileName = `screenshot${counterString}${file.extension}`;
+
+      if (window.showSaveFilePicker) {
+        (async () => {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: fileName,
+              types: [{ description: "PNG Image", accept: { "image/png": [".png"] } }]
+            });
+
+            hideOverlay();
+
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+          } catch (err) {
+            hideOverlay();
+          }
+        })();
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        document.getElementById("overlayText").innerText =
+          "Your image has been saved";
+
+        setTimeout(hideOverlay, 2000);
+      }
+
+      screenshotCounter++;
+    }
+  </script>
+</head>
+
+<body>
+
+  <div id="video-container"></div>
+
+  <!-- ===============================
+       SCREENSHOT STATUS OVERLAY
+  =============================== -->
+  <div id="screenshotOverlay">
+    <div class="overlayBox">
+      <div class="spinner"></div>
+      <div id="overlayText">Generating high resolution image</div>
+    </div>
+  </div>
+
+  <!--
+  ===============================
+  FRONTEND UI (DISABLED FOR NOW)
+  ===============================
+  Header / footer / buttons intentionally commented out
+  Unreal backend UI is active
+  -->
+
+</body>
+</html>
