@@ -1,340 +1,2344 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home View Solutions</title>
 
-<!-- Helps minimize Safari UI appearance -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#000000">
-
-<title>DAN DALE - LUX ARCHITECTURAL PRODUCTS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 
 <style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
 
-    *{
-        margin:0;
-        padding:0;
-        box-sizing:border-box;
-    }
+html,body{
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    font-family:Arial, Helvetica, sans-serif;
+    background:#000;
+    color:white;
+}
 
-    html, body{
-        width:100%;
-        height:100%;
-        overflow:hidden;
-        font-family:Arial, Helvetica, sans-serif;
-        background:black;
-    }
+/* =========================
+   INTRO
+========================= */
 
-    body{
-        display:flex;
-        justify-content:center;
-        align-items:center;
-        color:white;
-    }
+#intro{
+    position:fixed;
+    inset:0;
+    z-index:100;
+}
 
-    video{
-        position:fixed;
-        top:0;
-        left:0;
-        width:100%;
-        height:100%;
-        object-fit:cover;
-    }
+#introVideoWrap{
+    position:absolute;
+    inset:0;
+    overflow:hidden;
+    background:#000;
+}
 
-    #introVideo{
-        z-index:10;
-        background:black;
-    }
+#introVideo{
+    position:absolute;
+    inset:-12%;
+    width:124%;
+    height:124%;
+    object-fit:cover;
+}
 
-    #bgVideo{
-        z-index:1;
+.introVignette{
+    position:absolute;
+    inset:0;
+    z-index:2;
+    pointer-events:none;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,0) 38%, rgba(0,0,0,.12) 60%, rgba(0,0,0,.36) 80%, rgba(0,0,0,.82) 100%);
+}
+
+.introOverlay{
+    position:absolute;
+    inset:0;
+    z-index:3;
+    background:rgba(0,0,0,0.3);
+}
+
+.center-wrap{
+    position:absolute;
+    z-index:4;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:30px;
+}
+
+#lottie{
+    width:640px;
+    max-width:90vw;
+}
+
+.enter-btn{
+    border:1px solid rgba(255,255,255,.18);
+    padding:14px 38px;
+    border-radius:999px;
+    background:rgba(255,255,255,0.10);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    cursor:pointer;
+    color:white;
+    font-weight:bold;
+    letter-spacing:3px;
+    transition:border-color .35s ease, background .35s ease, opacity .35s ease;
+}
+
+.enter-btn:hover{
+    border-color:rgba(255,255,255,.32);
+    background:rgba(255,255,255,.18);
+    transform:translateY(-2px);
+}
+
+.enter-btn.hide{
+    opacity:0;
+    transform:scale(.85);
+    pointer-events:none;
+}
+
+.fadeOut{
+    animation:fadeOut .8s forwards;
+}
+
+@keyframes fadeOut{
+    to{
         opacity:0;
-        transition:opacity 1.5s ease;
+        visibility:hidden;
     }
+}
 
-    .overlay{
-        position:relative;
-        z-index:5;
-        width:100%;
-        max-width:500px;
-        padding:30px;
-        text-align:center;
+/* =========================
+   MAIN SCREEN
+========================= */
 
-        opacity:0;
-        transform:translateY(30px);
+#mainSite{
+    position:fixed;
+    inset:0;
+    opacity:0;
+    visibility:hidden;
+    transition:opacity 1s ease;
+    background:#000;
+}
 
-        transition:
-            opacity 1.2s ease,
-            transform 1.2s ease;
-    }
+#mainSite.show{
+    opacity:1;
+    visibility:visible;
+}
 
-    .overlay.show{
-        opacity:1;
-        transform:translateY(0);
-    }
+.mainVignette{
+    position:absolute;
+    inset:0;
+    z-index:8;
+    pointer-events:none;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,0) 42%, rgba(0,0,0,.10) 62%, rgba(0,0,0,.30) 82%, rgba(0,0,0,.78) 100%);
+}
 
-    .logo{
-        width:240px;
-        max-width:80%;
-        margin-bottom:35px;
+#mainPlane{
+    position:absolute;
+    inset:0;
+    z-index:1;
+    overflow:hidden;
+    transform-origin:center center;
+    will-change:transform;
+}
 
-        opacity:0;
-        transform:scale(0.92);
+.hotspotAnchorSvg{
+    position:absolute;
+    inset:0;
+    z-index:9;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+    overflow:visible;
+}
 
-        transition:
-            opacity 1s ease,
-            transform 1s ease;
+.hotspotAnchorLine{
+    stroke:rgba(255,255,255,.46);
+    stroke-width:1;
+    vector-effect:non-scaling-stroke;
+    filter:drop-shadow(0 2px 8px rgba(0,0,0,.55));
+}
 
-        transition-delay:0.2s;
-    }
+.hotspotAnchorDot{
+    fill:rgba(255,255,255,.88);
+    filter:drop-shadow(0 2px 8px rgba(0,0,0,.55));
+}
 
-    .overlay.show .logo{
-        opacity:1;
+.hotspotAnchorGroup{
+    opacity:.72;
+    transition:opacity .28s ease;
+}
+
+.hotspotAnchorGroup.is-hidden{
+    opacity:0;
+}
+
+.hotspotAnchorGroup.is-active{
+    opacity:1;
+}
+
+#mainImage{
+    position:absolute;
+    inset:-4%;
+    width:108%;
+    height:108%;
+    object-fit:cover;
+    object-position:center center;
+    user-select:none;
+    -webkit-user-drag:none;
+}
+
+#featureVideo{
+    position:absolute;
+    inset:-4%;
+    z-index:2;
+    width:108%;
+    height:108%;
+    object-fit:cover;
+    object-position:center center;
+    display:none;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .35s ease;
+}
+
+#featureVideo.show{
+    opacity:1;
+}
+
+#logoVideo{
+    position:absolute;
+    z-index:6;
+    display:none;
+    height:auto;
+    object-fit:contain;
+    object-position:left top;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .65s ease;
+    transform-origin:left top;
+    will-change:transform;
+    -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent 100%);
+    mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent 100%);
+}
+
+#logoVideo.show{
+    opacity:1;
+}
+
+.backBtn{
+    position:fixed;
+    top:24px;
+    left:24px;
+    z-index:22;
+    border:1px solid rgba(255,255,255,.18);
+    cursor:pointer;
+    padding:13px 22px;
+    border-radius:999px;
+    background:rgba(0,0,0,.32);
+    color:white;
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    letter-spacing:1px;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform:translateY(-8px);
+    transition:opacity .45s ease, transform .45s ease, visibility .45s ease, background .35s ease;
+}
+
+.backBtn.show{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:translateY(0);
+}
+
+.backBtn:hover{
+    background:rgba(255,255,255,.18);
+    transform:translateY(-2px);
+}
+
+.infoPanel{
+    position:fixed;
+    right:6vw;
+    top:50%;
+    z-index:18;
+    width:min(470px, 86vw);
+    padding:28px;
+    border-radius:24px;
+    background:rgba(0,0,0,.34);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 24px 70px rgba(0,0,0,.38);
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform:translateY(-50%) scale(.88);
+    transition:
+        opacity 1.4s cubic-bezier(.22, 1, .36, 1),
+        transform 1.4s cubic-bezier(.22, 1, .36, 1),
+        visibility 1.4s ease;
+}
+
+.infoPanel.show{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:translateY(-50%) scale(1);
+}
+
+.infoPanel h2{
+    margin-bottom:15px;
+    font-size:26px;
+}
+
+.infoPanel p{
+    line-height:1.7;
+    color:rgba(255,255,255,.88);
+}
+
+.infoPanel .nextBtn{
+    margin-top:24px;
+    border:1px solid rgba(255,255,255,.18);
+    cursor:pointer;
+    padding:12px 22px;
+    border-radius:999px;
+    background:rgba(255,255,255,.10);
+    color:white;
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    transition:border-color .32s ease, background .32s ease, opacity .32s ease;
+    letter-spacing:1px;
+}
+
+.infoPanel .nextBtn:hover{
+    border-color:rgba(255,255,255,.32);
+    background:rgba(255,255,255,.18);
+    transform:translateY(-2px);
+}
+
+.hotspot{
+    position:absolute;
+    z-index:10;
+    width:42px;
+    height:42px;
+    border:none;
+    border-radius:999px;
+    transform:translate(-50%,-50%);
+    background:rgba(255,255,255,.18);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    cursor:pointer;
+    box-shadow:0 0 0 1px rgba(255,255,255,.35), 0 0 28px rgba(255,255,255,.55);
+    transition:opacity .3s ease, box-shadow .3s ease, background .3s ease;
+}
+
+.hotspot:before{
+    content:"";
+    position:absolute;
+    inset:11px;
+    border-radius:999px;
+    background:white;
+}
+
+.hotspot:after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.55);
+    animation:pulse 1.6s ease-out infinite;
+}
+
+.hotspot:hover{
+    transform:translate(-50%,-50%) scale(1.08);
+}
+
+.hotspot.hide{
+    opacity:0;
+    pointer-events:none;
+}
+
+@keyframes pulse{
+    from{
+        opacity:.75;
         transform:scale(1);
     }
-
-    .name{
-        font-size:2rem;
-        margin-bottom:15px;
-        letter-spacing:0.5px;
-
+    to{
         opacity:0;
-        transform:translateY(15px);
-
-        transition:
-            opacity 1s ease,
-            transform 1s ease;
-
-        transition-delay:0.5s;
+        transform:scale(2.15);
     }
+}
 
-    .overlay.show .name{
-        opacity:1;
-        transform:translateY(0);
+/* =========================
+   TOP CONTACT BUTTON
+========================= */
+
+.topContactBtn{
+    position:fixed;
+    top:24px;
+    right:24px;
+    z-index:20;
+    width:58px;
+    height:58px;
+    border:none;
+    border-radius:999px;
+    cursor:pointer;
+    background:rgba(0,0,0,.32);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:border-color .32s ease, background .32s ease, opacity .32s ease;
+}
+
+.topContactBtn:hover{
+    background:rgba(255,255,255,.20);
+    transform:scale(1.06);
+}
+
+.topContactBtn img{
+    width:34px;
+    height:34px;
+    object-fit:contain;
+    pointer-events:none;
+}
+
+.bottomBrainBtn{
+    position:fixed;
+    left:24px;
+    bottom:24px;
+    z-index:20;
+    width:58px;
+    height:58px;
+    border:none;
+    border-radius:999px;
+    cursor:pointer;
+    background:rgba(0,0,0,.32);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:border-color .32s ease, background .32s ease, opacity .32s ease;
+}
+
+.bottomBrainBtn:hover{
+    background:rgba(255,255,255,.20);
+}
+
+.bottomBrainBtn img{
+    width:34px;
+    height:34px;
+    object-fit:contain;
+    pointer-events:none;
+}
+
+
+
+/* =========================
+   CUSTOM CURSOR + PARALLAX
+========================= */
+
+html,
+body,
+body *,
+button,
+a{
+    cursor:none !important;
+}
+
+#customCursor{
+    position:fixed;
+    left:50%;
+    top:50%;
+    z-index:9999;
+    width:18px;
+    height:18px;
+    border-radius:999px;
+    pointer-events:none;
+    opacity:0;
+    background:rgba(255,255,255,.50);
+    border:1px solid rgba(255,255,255,.60);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    box-shadow:0 0 22px rgba(255,255,255,.25);
+    transform:translate(-50%,-50%) scale(1);
+    transition:
+        width .25s ease,
+        height .25s ease,
+        background .25s ease,
+        border-color .25s ease,
+        box-shadow .25s ease,
+        opacity .25s ease;
+}
+
+#customCursor.show{
+    opacity:1;
+}
+
+#customCursor.hovering{
+    width:46px;
+    height:46px;
+    background:rgba(255,255,255,.30);
+    border-color:rgba(255,255,255,.72);
+    box-shadow:0 0 34px rgba(255,255,255,.38);
+}
+
+#customCursorPulse{
+    position:fixed;
+    left:50%;
+    top:50%;
+    z-index:9998;
+    width:46px;
+    height:46px;
+    border-radius:999px;
+    pointer-events:none;
+    opacity:0;
+    border:1px solid rgba(255,255,255,.55);
+    transform:translate(-50%,-50%) scale(1);
+}
+
+#customCursorPulse.hovering{
+    animation:cursorPulse 1.35s ease-out infinite;
+}
+
+@keyframes cursorPulse{
+    0%{
+        opacity:.55;
+        transform:translate(-50%,-50%) scale(.65);
     }
-
-    .name strong{
-        font-weight:800;
-    }
-
-    .details{
-        font-size:1rem;
-        line-height:1.8;
-        margin-bottom:35px;
-
+    100%{
         opacity:0;
-        transform:translateY(15px);
+        transform:translate(-50%,-50%) scale(2.4);
+    }
+}
 
-        transition:
-            opacity 1s ease,
-            transform 1s ease;
+#introVideoWrap,
+#mainPlane{
+    transform-origin:center center;
+    will-change:transform;
+}
 
-        transition-delay:0.8s;
+.center-wrap{
+    --parallaxX:0px;
+    --parallaxY:0px;
+    transform:translate(-50%,-50%) translate3d(var(--parallaxX), var(--parallaxY), 0);
+    will-change:transform;
+}
+
+.infoPanel{
+    --parallaxX:0px;
+    --parallaxY:0px;
+}
+
+.infoPanel.show{
+    transform:translateY(-50%) scale(1) translate3d(var(--parallaxX), var(--parallaxY), 0);
+}
+
+.hotspot{
+    --parallaxX:0px;
+    --parallaxY:0px;
+    transform:translate(-50%,-50%) translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale));
+}
+
+.hotspot:hover{
+    transform:translate(-50%,-50%) translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(calc(var(--magnetScale) * 1.08));
+}
+
+.hotspot .hotspotLabel{
+    position:absolute;
+    left:50%;
+    top:50%;
+    pointer-events:none;
+    color:white;
+    font-weight:800;
+    font-size:8px;
+    letter-spacing:1.55px;
+    text-transform:uppercase;
+    white-space:nowrap;
+    text-shadow:0 3px 14px rgba(0,0,0,.65);
+    opacity:0;
+    transform:translate(-50%,-50%) translateY(-18px) scale(.12);
+    transform-origin:center center;
+    transition:
+        opacity .42s cubic-bezier(.05, .9, .12, 1),
+        transform .82s cubic-bezier(.03, 1.55, .18, 1);
+    will-change:transform, opacity;
+}
+
+.hotspot.label-active .hotspotLabel{
+    opacity:1;
+    transform:translate(-50%,-50%) translateY(-47px) scale(1);
+}
+
+.hotspot.hide .hotspotLabel{
+    opacity:0;
+}
+
+.backBtn,
+.topContactBtn,
+.bottomBrainBtn,
+.contactPanel,
+#lottie,
+.enter-btn{
+    --parallaxX:0px;
+    --parallaxY:0px;
+    --magnetX:0px;
+    --magnetY:0px;
+    --magnetScale:1;
+    will-change:transform;
+}
+
+button,
+a,
+[role="button"],
+.hotspot{
+    --magnetX:0px;
+    --magnetY:0px;
+    --magnetScale:1;
+}
+
+.backBtn.show{
+    transform:translateY(0) translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale));
+}
+
+.backBtn:hover{
+    background:rgba(255,255,255,.18);
+    transform:translateY(-2px) translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale));
+}
+
+.topContactBtn{
+    transform:translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale));
+}
+
+.topContactBtn:hover{
+    background:rgba(255,255,255,.20);
+    transform:translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(calc(var(--magnetScale) * 1.06));
+}
+
+.bottomBrainBtn{
+    transform:translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale));
+}
+
+.bottomBrainBtn:hover{
+    background:rgba(255,255,255,.20);
+    transform:translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(calc(var(--magnetScale) * 1.06));
+}
+
+.enter-btn{
+    transform:translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale));
+}
+
+.enter-btn:hover{
+    border-color:rgba(255,255,255,.32);
+    background:rgba(255,255,255,.18);
+    transform:translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) translateY(-2px) scale(var(--magnetScale));
+}
+
+.enter-btn.hide{
+    opacity:0;
+    transform:translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(.85);
+    pointer-events:none;
+}
+
+#contactOverlay.show .contactPanel{
+    transform:translateY(0) scale(1) translate3d(var(--parallaxX), var(--parallaxY), 0);
+}
+
+@media (pointer:coarse){
+    html,
+    body,
+    button,
+    a{
+        cursor:auto;
     }
 
-    .overlay.show .details{
-        opacity:1;
-        transform:translateY(0);
+    #customCursor,
+    #customCursorPulse{
+        display:none;
+    }
+}
+
+/* =========================
+   CONTACT OVERLAY
+========================= */
+
+#contactOverlay{
+    position:fixed;
+    inset:0;
+    z-index:80;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:30px;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .45s ease, visibility .45s ease;
+}
+
+#contactOverlay.show{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+}
+
+.contactBackdrop{
+    position:absolute;
+    inset:0;
+    background:rgba(0,0,0,.68);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+}
+
+.contactPanel{
+    position:relative;
+    z-index:2;
+    width:100%;
+    max-width:620px;
+    padding:34px 34px 38px;
+    border-radius:26px;
+    background:rgba(0,0,0,.46);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:0 30px 80px rgba(0,0,0,.45);
+    text-align:center;
+    transform:translateY(20px) scale(.96);
+    transition:transform .45s ease;
+}
+
+#contactOverlay.show .contactPanel{
+    transform:translateY(0) scale(1);
+}
+
+.contactLogo{
+    width:190px;
+    max-width:65%;
+    margin:0 auto 24px;
+    display:block;
+    transform:perspective(850px) translate3d(var(--logoMoveX, 0px), var(--logoMoveY, 0px), 0) rotateX(var(--logoRotateX, 0deg)) rotateY(var(--logoRotateY, 0deg));
+    transform-origin:center center;
+    will-change:transform;
+}
+
+.closeContactBtn{
+    position:absolute;
+    top:16px;
+    right:16px;
+    width:42px;
+    height:42px;
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:999px;
+    cursor:pointer;
+    background:rgba(255,255,255,.10);
+    color:white;
+    font-size:26px;
+    line-height:1;
+    transition:border-color .3s ease, background .3s ease, opacity .3s ease;
+}
+
+.closeContactBtn:hover{
+    border-color:rgba(255,255,255,.32);
+    background:rgba(255,255,255,.18);
+    transform:rotate(90deg);
+}
+
+.contactPanel h2{
+    font-size:28px;
+    letter-spacing:2px;
+    margin-bottom:12px;
+    text-transform:uppercase;
+}
+
+.contactIntro{
+    max-width:460px;
+    margin:0 auto 28px;
+    line-height:1.6;
+    color:rgba(255,255,255,.82);
+}
+
+.contactCard{
+    padding:24px;
+    border-radius:20px;
+    background:rgba(255,255,255,.10);
+    border:1px solid rgba(255,255,255,.12);
+}
+
+.contactCard h3{
+    font-size:24px;
+    margin-bottom:18px;
+}
+
+.contactCard p{
+    margin:12px 0;
+    font-size:18px;
+}
+
+.contactCard a{
+    color:white;
+    text-decoration:none;
+    border-bottom:1px solid rgba(255,255,255,.45);
+    transition:border-color .3s ease, background .3s ease, opacity .3s ease;
+}
+
+.contactCard a:hover{
+    border-bottom-color:white;
+    opacity:.78;
+}
+
+@media(max-width:900px){
+    #lottie{
+        width:520px;
     }
 
-    .phone{
-        color:white;
+    .topContactBtn{
+        top:16px;
+        right:16px;
+        width:52px;
+        height:52px;
     }
 
-    .email{
-        color:white;
+    .bottomBrainBtn{
+        left:16px;
+        bottom:16px;
+        width:52px;
+        height:52px;
     }
 
-    .button{
-        display:inline-block;
-        padding:14px 28px;
-
-        border:1px solid rgba(255,255,255,0.5);
-        border-radius:40px;
-
-        color:white;
-        text-decoration:none;
-        font-size:1rem;
-
-        backdrop-filter:blur(8px);
-        background:rgba(255,255,255,0.08);
-
-        transition:
-            transform 0.3s ease,
-            background 0.3s ease,
-            border-color 0.3s ease,
-            opacity 1s ease;
-
-        opacity:0;
-        transform:translateY(15px);
-
-        transition-delay:1.1s;
-
-        cursor:pointer;
+    .backBtn{
+        top:16px;
+        left:16px;
+        padding:12px 18px;
     }
 
-    .overlay.show .button{
-        opacity:1;
-        transform:translateY(0);
+    .infoPanel{
+        right:50%;
+        top:auto;
+        bottom:28px;
+        transform:translateX(50%) scale(.88);
+        padding:22px;
     }
 
-    .button:hover{
-        background:rgba(255,255,255,0.16);
-        border-color:rgba(255,255,255,0.9);
-        transform:scale(1.04);
+    .infoPanel.show{
+        transform:translateX(50%) scale(1);
     }
 
-    @media (max-width:600px){
-
-        .name{
-            font-size:1.7rem;
-        }
-
-        .details{
-            font-size:0.95rem;
-        }
-
-        .logo{
-            width:200px;
-        }
+    .infoPanel h2{
+        font-size:21px;
     }
+
+    .topContactBtn img,
+    .bottomBrainBtn img{
+        width:30px;
+        height:30px;
+    }
+
+    .hotspot{
+        width:38px;
+        height:38px;
+    }
+
+    .contactPanel{
+        padding:34px 24px 30px;
+    }
+
+    .contactLogo{
+        width:160px;
+        margin-bottom:22px;
+    }
+
+    .contactPanel h2{
+        font-size:22px;
+    }
+
+    .contactCard p{
+        font-size:16px;
+    }
+}
+/* Keep the browser hand cursor hidden everywhere on desktop. */
+@media (pointer:fine){
+    *,
+    *:hover,
+    button,
+    button:hover,
+    a,
+    a:hover{
+        cursor:none !important;
+    }
+}
+
+
+/* Magnetic overrides for smaller buttons defined earlier/later in the file. */
+.infoPanel .nextBtn,
+.closeContactBtn{
+    --magnetX:0px;
+    --magnetY:0px;
+    --magnetScale:1;
+    transform:translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale));
+    will-change:transform;
+}
+
+.infoPanel .nextBtn:hover{
+    transform:translate3d(var(--magnetX), var(--magnetY), 0) translateY(-2px) scale(calc(var(--magnetScale) * 1.06));
+}
+
+.closeContactBtn:hover{
+    transform:translate3d(var(--magnetX), var(--magnetY), 0) rotate(90deg) scale(calc(var(--magnetScale) * 1.04));
+}
+
+/* Contact phone/email links keep the custom cursor pulse, but do not magnetically move or scale. */
+.contactCard a{
+    display:inline;
+    transform:none !important;
+}
+
+
+/* =========================
+   CHESS PUZZLE OVERLAY
+========================= */
+
+#chessOverlay{
+    position:fixed;
+    inset:0;
+    z-index:85;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:26px;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .45s ease, visibility .45s ease;
+}
+#chessOverlay.show{ opacity:1; visibility:visible; pointer-events:auto; }
+.chessBackdrop{ position:absolute; inset:0; background:rgba(0,0,0,.72); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); }
+.chessPanel{ position:relative; z-index:2; width:min(1060px,96vw); max-height:92vh; overflow:auto; padding:30px; border-radius:26px; background:rgba(0,0,0,.50); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border:1px solid rgba(255,255,255,.18); box-shadow:0 30px 80px rgba(0,0,0,.48); text-align:center; --parallaxX:0px; --parallaxY:0px; --magnetX:0px; --magnetY:0px; --magnetScale:1; transform:translateY(20px) scale(.96); transition:transform .45s ease; }
+#chessOverlay.show .chessPanel{ transform:translateY(0) scale(1) translate3d(var(--parallaxX), var(--parallaxY), 0); }
+.chessLogo{ position:absolute; top:18px; left:20px; width:74px; max-width:16vw; height:auto; object-fit:contain; pointer-events:none; opacity:.96; filter:drop-shadow(0 8px 22px rgba(0,0,0,.42)); }
+.closeChessBtn{ position:absolute; top:16px; right:16px; width:42px; height:42px; border:1px solid rgba(255,255,255,.18); border-radius:999px; cursor:pointer; background:rgba(255,255,255,.10); color:white; font-size:26px; line-height:1; transition:border-color .3s ease, background .3s ease, opacity .3s ease; --magnetX:0px; --magnetY:0px; --magnetScale:1; transform:translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale)); will-change:transform; }
+.closeChessBtn:hover{ border-color:rgba(255,255,255,.32); background:rgba(255,255,255,.18); transform:translate3d(var(--magnetX), var(--magnetY), 0) rotate(90deg) scale(calc(var(--magnetScale) * 1.04)); }
+.chessPanel h2{ font-size:28px; letter-spacing:2px; margin-bottom:10px; text-transform:uppercase; }
+.chessMessage{ min-height:28px; margin:0 auto 18px; color:rgba(255,255,255,.86); line-height:1.45; }
+.chessLayout{ display:flex; justify-content:center; align-items:flex-start; gap:26px; flex-wrap:wrap; }
+.chessBoardShell{ display:grid; grid-template-columns:28px auto; grid-template-rows:auto 28px; gap:7px; }
+.chessRanks{ display:grid; grid-template-rows:repeat(8, min(8.4vw, 68px)); grid-column:1; grid-row:1; }
+.chessRankLabel,.chessFileLabel{ display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.78); font-weight:bold; font-size:15px; }
+.chessFiles{ display:grid; grid-template-columns:repeat(8, min(8.4vw, 68px)); grid-column:2; grid-row:2; }
+.chessBoard{ grid-column:2; grid-row:1; display:grid; grid-template-columns:repeat(8, min(8.4vw, 68px)); grid-template-rows:repeat(8, min(8.4vw, 68px)); border:1px solid rgba(255,255,255,.32); box-shadow:0 22px 60px rgba(0,0,0,.45); }
+.chessSquare{ width:min(8.4vw,68px); height:min(8.4vw,68px); display:flex; align-items:center; justify-content:center; font-size:min(6.4vw,48px); user-select:none; position:relative; transition:box-shadow .22s ease, transform .22s ease, background .22s ease; }
+.chessSquare.light{ background:#d9c49a; }
+.chessSquare.dark{ background:#7f583d; }
+.chessSquare.white-piece{ color:white; text-shadow:0 3px 10px rgba(0,0,0,.75); }
+.chessSquare.black-piece{ color:#050505; text-shadow:0 0 2px rgba(255,255,255,.85), 0 2px 8px rgba(255,255,255,.35); }
+.chessSquare.selectable{ cursor:pointer; }
+.chessSquare.selected{ box-shadow:inset 0 0 0 4px rgba(255,255,255,.95), inset 0 0 28px rgba(255,255,255,.35); }
+.chessSquare.legal::after{ content:""; width:24%; height:24%; border-radius:50%; background:rgba(255,255,255,.64); box-shadow:0 0 18px rgba(255,255,255,.55); position:absolute; }
+.chessSquare.captureLegal::after{ content:""; position:absolute; inset:7px; border-radius:8px; border:3px solid rgba(255,255,255,.68); box-shadow:0 0 18px rgba(255,255,255,.44); }
+.chessSquare.hintFrom{ box-shadow:inset 0 0 0 4px rgba(138,255,164,.95), 0 0 30px rgba(138,255,164,.45); }
+.chessSquare.hintTo{ box-shadow:inset 0 0 0 4px rgba(255,255,255,.95), 0 0 34px rgba(255,255,255,.48); }
+.chessPanel.wrong{ animation:chessWrong .38s ease; }
+@keyframes chessWrong{ 0%,100%{ transform:translateY(0) scale(1); } 22%{ transform:translateX(-9px) scale(1); } 48%{ transform:translateX(9px) scale(1); } 72%{ transform:translateX(-5px) scale(1); } }
+.chessSidePanel{ width:min(310px,86vw); text-align:left; padding:20px; border-radius:20px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); }
+.chessSidePanel h3{ margin-bottom:12px; font-size:19px; }
+.chessMoveList{ min-height:88px; line-height:1.7; color:rgba(255,255,255,.82); margin-bottom:16px; }
+.chessControls{ display:flex; gap:10px; flex-wrap:wrap; }
+.chessControls .chessControlBtn{ display:inline-flex; align-items:center; justify-content:center; }
+.chessControlBtn{ border:1px solid rgba(255,255,255,.18); cursor:pointer; padding:11px 15px; border-radius:999px; background:rgba(255,255,255,.10); color:white; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); transition:border-color .32s ease, background .32s ease, opacity .32s ease; --magnetX:0px; --magnetY:0px; --magnetScale:1; transform:translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale)); will-change:transform; }
+.chessControlBtn:hover{ border-color:rgba(255,255,255,.32); background:rgba(255,255,255,.18); transform:translate3d(var(--magnetX), var(--magnetY), 0) translateY(-2px) scale(calc(var(--magnetScale) * 1.04)); }
+.chessCompleteBox{ display:none; margin-top:18px; padding:18px; border-radius:18px; background:rgba(138,255,164,.10); border:1px solid rgba(138,255,164,.32); text-align:center; }
+.chessCompleteBox.show{ display:block; }
+@media(max-width:760px){ .chessLogo{ width:58px; top:14px; left:14px; } .chessPanel{ padding:26px 16px 20px; } .chessBoardShell{ grid-template-columns:22px auto; gap:5px; } .chessRanks{ grid-template-rows:repeat(8, min(10.5vw,48px)); } .chessFiles{ grid-template-columns:repeat(8, min(10.5vw,48px)); } .chessBoard{ grid-template-columns:repeat(8, min(10.5vw,48px)); grid-template-rows:repeat(8, min(10.5vw,48px)); } .chessSquare{ width:min(10.5vw,48px); height:min(10.5vw,48px); font-size:min(8.5vw,36px); } }
 
 </style>
 </head>
-
 <body>
 
-<!-- INTRO VIDEO -->
-<video id="introVideo" autoplay muted playsinline>
-    <source src="logo 01.mp4" type="video/mp4">
-</video>
+<div id="customCursor" aria-hidden="true"></div>
+<div id="customCursorPulse" aria-hidden="true"></div>
 
-<!-- LOOPING BACKGROUND VIDEO -->
-<video id="bgVideo" autoplay muted loop playsinline>
-    <source src="LOADING_BG.mp4" type="video/mp4">
-</video>
+<!-- INTRO -->
 
-<!-- CONTENT -->
-<div class="overlay" id="overlay">
-
-    <img src="logo_2.png" alt="Company Logo" class="logo">
-
-    <div class="name">
-        <strong>DAN</strong> DALE
+<div id="intro">
+    <div id="introVideoWrap">
+        <video id="introVideo" autoplay muted loop playsinline>
+            <source src="blue fog.mp4" type="video/mp4">
+        </video>
     </div>
 
-    <div class="details">
-        <div class="phone">780 897-8550</div>
-        <div class="email">dan@luxarpro.com</div>
+    <div class="introVignette" aria-hidden="true"></div>
+    <div class="introOverlay"></div>
+
+    <div class="center-wrap">
+        <div id="lottie"></div>
+        <button class="enter-btn" id="enterBtn">START EXPLORING</button>
+    </div>
+</div>
+
+<!-- MAIN SITE -->
+
+<div id="mainSite">
+    <div id="mainPlane">
+        <img id="mainImage" src="to screen/screen00.jpg" alt="Home View Solutions preview">
+
+        <video id="logoVideo" muted playsinline preload="auto">
+            <source src="HV_Logo.mp4" type="video/mp4">
+        </video>
+
+        <video id="featureVideo" muted playsinline preload="auto">
+            <source src="pc_zoom.mp4" type="video/mp4">
+        </video>
     </div>
 
-    <a class="button" id="downloadContact">
-        Download Contact
-    </a>
+    <div class="mainVignette" aria-hidden="true"></div>
 
+    <svg id="hotspotAnchorSvg" class="hotspotAnchorSvg" aria-hidden="true"></svg>
+
+    <button id="hotspot01" class="hotspot" aria-label="Open product hotspot">
+        <span class="hotspotLabel" aria-hidden="true">THE PRODUCT</span>
+    </button>
+
+    <button id="hotspot02" class="hotspot" aria-label="Open contact hotspot">
+        <span class="hotspotLabel" aria-hidden="true">CONTACT</span>
+    </button>
+
+    <button id="hotspot03" class="hotspot" aria-label="Open how we do it hotspot">
+        <span class="hotspotLabel" aria-hidden="true">HOW WE DO IT</span>
+    </button>
+
+    <button id="hotspot04" class="hotspot" aria-label="Open about us hotspot">
+        <span class="hotspotLabel" aria-hidden="true">ABOUT US</span>
+    </button>
+
+    <button id="backBtn" class="backBtn">◀ Back</button>
+
+    <div id="infoPanel" class="infoPanel">
+        <h2>Customize Finishes in Real Time</h2>
+        <p>
+            Explore a digital show home and instantly personalize finishes, colours, fixtures and materials.
+            Every selection updates pricing in real time, helping buyers understand the impact of their choices immediately.
+            No software installation is required — everything runs directly in a web browser on desktop, tablet or mobile.
+        </p>
+        <button class="nextBtn" type="button">Next ▶</button>
+    </div>
+
+    <button class="topContactBtn contactOpenBtn" aria-label="Contact us">
+        <img src="contact.png" alt="Contact">
+    </button>
+
+    <button class="bottomBrainBtn" aria-label="AI guide">
+        <img src="brain.png" alt="AI guide">
+    </button>
+</div>
+
+
+<!-- CHESS OVERLAY -->
+
+<div id="chessOverlay" aria-hidden="true">
+    <div class="chessBackdrop chessCloseArea"></div>
+    <div class="chessPanel" role="dialog" aria-modal="true" aria-labelledby="chessTitle">
+        <img src="logo.png" class="chessLogo" alt="Home View Solutions">
+        <button class="closeChessBtn" id="closeChessBtn" aria-label="Close chess puzzle">×</button>
+        <h2 id="chessTitle">Find the Best Move for White</h2>
+        <p id="chessMessage" class="chessMessage">Move 1 of 3. Find White's best move.</p>
+        <div class="chessLayout">
+            <div class="chessBoardShell" aria-label="Chess board with a1 at bottom left">
+                <div id="chessRanks" class="chessRanks" aria-hidden="true"></div>
+                <div id="chessBoard" class="chessBoard"></div>
+                <div id="chessFiles" class="chessFiles" aria-hidden="true"></div>
+            </div>
+            <div class="chessSidePanel">
+                <h3>Puzzle Progress</h3>
+                <div id="chessMoveList" class="chessMoveList">No moves yet.</div>
+                <div class="chessControls">
+                    <button id="chessHintBtn" class="chessControlBtn" type="button">Hint</button>
+                    <button id="chessShowMoveBtn" class="chessControlBtn" type="button">Show Move</button>
+                    <button id="chessResetBtn" class="chessControlBtn" type="button">Reset</button>
+                </div>
+                <div id="chessCompleteBox" class="chessCompleteBox">
+                    <h3>Well done!</h3>
+                    <p>You found the winning combination.</p>
+                    <button id="chessTryAnotherBtn" class="chessControlBtn" type="button">Try Another Puzzle</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CONTACT OVERLAY -->
+
+<div id="contactOverlay" aria-hidden="true">
+    <div class="contactBackdrop contactCloseArea"></div>
+
+    <div class="contactPanel" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+        <button class="closeContactBtn" id="closeContactBtn" aria-label="Close contact page">×</button>
+
+        <img src="logo.png" class="contactLogo" alt="Home View Solutions">
+
+        <h2 id="contactTitle">Request a Real-Time Demo</h2>
+
+        <p class="contactIntro">
+            Contact Home View Solutions to request a live demo or learn more about the interactive home visualization experience.
+        </p>
+
+        <div class="contactCard">
+            <h3>Marie Du Toit</h3>
+
+            <p>
+                <strong>Phone:</strong>
+                <a href="tel:8259634410">825 963 4410</a>
+            </p>
+
+            <p>
+                <strong>Email:</strong>
+                <a href="mailto:marie@homeviewsolutions.com">marie@homeviewsolutions.com</a>
+            </p>
+        </div>
+    </div>
 </div>
 
 <script>
 
-    const introVideo = document.getElementById('introVideo');
-    const bgVideo = document.getElementById('bgVideo');
-    const overlay = document.getElementById('overlay');
+/* =========================
+   IMAGE SEQUENCES + HOTSPOTS
+========================= */
 
-    // Fake tiny scroll to minimize Safari UI
-    window.addEventListener('load', () => {
+const imageNaturalWidth = 1920;
+const imageNaturalHeight = 1080;
+const frameRate = 40;
+const frameHold = 1000 / frameRate;
+const contactFrameHold = frameHold * 2; // Contact sequence plays at about half speed
+const defaultFeatureId = 'finishes';
 
-        setTimeout(() => {
-            window.scrollTo(0, 1);
-        }, 500);
+const features = {
+    finishes: {
+        folder: 'to screen',
+        prefix: 'screen',
+        firstFrame: 0,
+        lastFrame: 63,
+        hotspotElementId: 'hotspot01',
+        useVideoToLastFrame: true,
+        videoSrc: 'pc_zoom.mp4',
+        x: 805,
+        y: 556,
+        leftPercent: 41.93,
+        topPercent: 51.48,
+        showInfoPanel: true,
+        infoPanelTriggerFrame: 22,
+        playLogoVideos: true
+    },
+    contact: {
+        folder: 'to contact',
+        prefix: 'contact',
+        firstFrame: 0,
+        lastFrame: 90,
+        hotspotElementId: 'hotspot02',
+        useVideoToLastFrame: true,
+        videoSrc: 'contact.mp4',
+        x: 1224,
+        y: 670,
+        leftPercent: 63.75,
+        topPercent: 62.04,
+        showInfoPanel: false,
+        playLogoVideos: false
+    },
+    howWeDoIt: {
+        hotspotElementId: 'hotspot03',
+        x: 286,
+        y: 478,
+        leftPercent: 14.90,
+        topPercent: 44.26,
+        disabledUntilSequenceIsAdded: true
+    },
+    aboutUs: {
+        hotspotElementId: 'hotspot04',
+        x: 1587,
+        y: 465,
+        leftPercent: 82.66,
+        topPercent: 43.06,
+        disabledUntilSequenceIsAdded: true
+    }
+};
 
-    });
+const mainImage = document.getElementById('mainImage');
+const logoVideo = document.getElementById('logoVideo');
+const featureVideo = document.getElementById('featureVideo');
+const logoVideoFiles = ['HV_Logo.mp4', 'HV_Logo_02.mp4'];
+const backBtn = document.getElementById('backBtn');
+const infoPanel = document.getElementById('infoPanel');
+const sequenceImages = {};
 
-    // Intro video finished
-    introVideo.addEventListener('ended', () => {
+let activeFeature = null;
+let sequenceStarted = false;
+let isAnimatingSequence = false;
+let preloadStarted = false;
+let infoPanelShownDuringSequence = false;
+let currentLogoVideoIndex = 0;
 
-        // Fade in background video
-        bgVideo.style.opacity = '1';
+function frameName(feature, index){
+    return `${feature.folder}/${feature.prefix}${String(index).padStart(2,'0')}.jpg`;
+}
 
-        // Fade out intro
-        introVideo.style.transition = 'opacity 1s ease';
-        introVideo.style.opacity = '0';
+function setMainImageToDefaultFrame(){
+    const defaultFeature = features[defaultFeatureId];
+    mainImage.src = frameName(defaultFeature, defaultFeature.firstFrame);
+}
 
-        // Remove intro after fade
-        setTimeout(() => {
-            introVideo.style.display = 'none';
-        }, 1000);
+function getDisplayedImageRect(){
+    /*
+       This returns the real visible 1920x1080 image plane inside #mainPlane.
 
-        // Show overlay content
-        setTimeout(() => {
-            overlay.classList.add('show');
-        }, 400);
+       Important:
+       #mainImage is not just 100vw x 100vh. It is deliberately enlarged with
+       inset:-4%; width:108%; height:108%; and object-fit:cover.
 
-    });
+       The overlaid monitor MP4 must use this exact same image-plane rectangle,
+       not the viewport rectangle, otherwise it will appear to drift away from
+       the monitor when the parent plane rotates/parallaxes.
+    */
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const imageAspect = imageNaturalWidth / imageNaturalHeight;
 
-    // Convert image to Base64
-    async function getBase64Image(url){
+    const imageBoxLeft = viewportWidth * -0.04;
+    const imageBoxTop = viewportHeight * -0.04;
+    const imageBoxWidth = viewportWidth * 1.08;
+    const imageBoxHeight = viewportHeight * 1.08;
+    const imageBoxAspect = imageBoxWidth / imageBoxHeight;
 
-        const response = await fetch(url);
-        const blob = await response.blob();
+    let displayedWidth;
+    let displayedHeight;
+    let left;
+    let top;
 
-        return new Promise((resolve) => {
-
-            const reader = new FileReader();
-
-            reader.onloadend = () => {
-
-                const base64data = reader.result.split(',')[1];
-                resolve(base64data);
-
-            };
-
-            reader.readAsDataURL(blob);
-
-        });
+    if(imageBoxAspect > imageAspect){
+        displayedWidth = imageBoxWidth;
+        displayedHeight = imageBoxWidth / imageAspect;
+        left = imageBoxLeft;
+        top = imageBoxTop + (imageBoxHeight - displayedHeight) / 2;
+    }else{
+        displayedHeight = imageBoxHeight;
+        displayedWidth = imageBoxHeight * imageAspect;
+        left = imageBoxLeft + (imageBoxWidth - displayedWidth) / 2;
+        top = imageBoxTop;
     }
 
-    // Download contact
-    document.getElementById('downloadContact').addEventListener('click', async () => {
+    return {left, top, width: displayedWidth, height: displayedHeight};
+}
 
-        const base64Logo = await getBase64Image('logo_2.png');
+function positionHotspot(feature){
+    const hotspotButton = document.getElementById(feature.hotspotElementId);
+    const rect = getDisplayedImageRect();
+    const x = rect.left + (feature.x / imageNaturalWidth) * rect.width;
+    const y = rect.top + (feature.y / imageNaturalHeight) * rect.height;
 
-        const vCardData =
-`BEGIN:VCARD
-VERSION:3.0
-N:Dale;Dan;;;
-FN:Dan Dale
-ORG:Lux Architectural Products
-TITLE:LUX ARCHITECTURAL PRODUCTS
-TEL;TYPE=CELL:7808978550
-EMAIL;TYPE=INTERNET:dan@luxarpro.com
-PHOTO;ENCODING=b;TYPE=PNG:${base64Logo}
-END:VCARD`;
+    hotspotButton.style.left = `${x}px`;
+    hotspotButton.style.top = `${y}px`;
+}
 
-        const blob = new Blob(
-            [vCardData],
-            { type: 'text/vcard;charset=utf-8' }
-        );
+function positionAllHotspots(){
+    Object.values(features).forEach(positionHotspot);
+}
 
-        const url = window.URL.createObjectURL(blob);
+function hideAllHotspots(){
+    Object.values(features).forEach(feature=>{
+        document.getElementById(feature.hotspotElementId).classList.add('hide');
+        document.getElementById(feature.hotspotElementId).classList.remove('label-active');
+    });
+}
 
-        const a = document.createElement('a');
+function showAllHotspots(){
+    Object.values(features).forEach(feature=>{
+        document.getElementById(feature.hotspotElementId).classList.remove('hide');
+    });
+}
 
-        a.href = url;
-        a.download = 'Dan_Dale.vcf';
+function positionLogoVideo(){
+    /*
+       IMPORTANT FUTURE NOTE:
+       Any future MP4s that replace this monitor video with the Next buttons
+       must be positioned through this same function / same image-plane rect.
 
-        document.body.appendChild(a);
+       Pin the MP4 to the exact same 1920x1080 image plane as the paused JPG.
+       The MP4 can be narrow, but its LEFT EDGE and HEIGHT now follow the still
+       frame's true image rect, so it behaves like part of the same surface.
 
-        a.click();
+       Do not position future monitor MP4s separately with viewport values,
+       or they will drift away from the monitor during mouse parallax.
+    */
+    const rect = getDisplayedImageRect();
 
-        document.body.removeChild(a);
+    logoVideo.style.left = `${rect.left}px`;
+    logoVideo.style.top = `${rect.top}px`;
+    logoVideo.style.height = `${rect.height}px`;
+    logoVideo.style.width = 'auto';
+    logoVideo.style.transform = 'translate3d(0,0,0)';
+    logoVideo.style.transformOrigin = 'left top';
+}
 
-        window.URL.revokeObjectURL(url);
+function preloadAssets(){
+    if(preloadStarted){
+        return;
+    }
 
+    preloadStarted = true;
+
+    Object.entries(features).forEach(([featureId, feature])=>{
+        if(feature.disabledUntilSequenceIsAdded || feature.useVideoToLastFrame){
+            return;
+        }
+
+        sequenceImages[featureId] = [];
+
+        for(let i = feature.firstFrame; i <= feature.lastFrame; i++){
+            const img = new Image();
+            img.src = frameName(feature, i);
+            sequenceImages[featureId][i] = img;
+        }
     });
 
-</script>
+    logoVideo.src = logoVideoFiles[0];
+    logoVideo.load();
 
+    if(featureVideo){
+        featureVideo.src = features[defaultFeatureId].videoSrc || 'pc_zoom.mp4';
+        featureVideo.load();
+    }
+
+    ['pc_zoom.mp4', 'contact.mp4'].forEach(file=>{
+        const preloadFeatureVideo = document.createElement('video');
+        preloadFeatureVideo.preload = 'auto';
+        preloadFeatureVideo.muted = true;
+        preloadFeatureVideo.playsInline = true;
+        preloadFeatureVideo.src = file;
+        preloadFeatureVideo.load();
+    });
+
+    logoVideoFiles.forEach(file=>{
+        const preloadVideo = document.createElement('video');
+        preloadVideo.preload = 'auto';
+        preloadVideo.muted = true;
+        preloadVideo.playsInline = true;
+        preloadVideo.src = file;
+        preloadVideo.load();
+    });
+}
+
+function showInfoPanel(){
+    if(infoPanelShownDuringSequence){
+        return;
+    }
+
+    infoPanelShownDuringSequence = true;
+    infoPanel.classList.add('show');
+}
+
+function playLogoVideo(index){
+    currentLogoVideoIndex = index;
+    logoVideo.src = logoVideoFiles[index];
+    logoVideo.load();
+    logoVideo.currentTime = 0;
+
+    const playPromise = logoVideo.play();
+
+    if(playPromise !== undefined){
+        playPromise.catch(()=>{});
+    }
+}
+
+function showLogoVideo(){
+    positionLogoVideo();
+    logoVideo.style.display = 'block';
+
+    requestAnimationFrame(()=>{
+        logoVideo.classList.add('show');
+        playLogoVideo(0);
+    });
+}
+
+function hideLogoVideo(callback){
+    logoVideo.classList.remove('show');
+
+    setTimeout(()=>{
+        logoVideo.pause();
+        currentLogoVideoIndex = 0;
+        logoVideo.src = logoVideoFiles[0];
+        logoVideo.load();
+        logoVideo.currentTime = 0;
+        logoVideo.style.display = 'none';
+
+        if(typeof callback === 'function'){
+            callback();
+        }
+    }, 700);
+}
+
+function hideFeatureOverlays(callback){
+    infoPanel.classList.remove('show');
+    backBtn.classList.remove('show');
+    infoPanelShownDuringSequence = false;
+
+    if(activeFeature && activeFeature.playLogoVideos){
+        hideLogoVideo(callback);
+    }else{
+        setTimeout(()=>{
+            if(typeof callback === 'function'){
+                callback();
+            }
+        }, 350);
+    }
+}
+
+function playSequence(feature, start, end, onComplete, onFrame){
+    if(isAnimatingSequence){
+        return;
+    }
+
+    isAnimatingSequence = true;
+
+    const direction = start <= end ? 1 : -1;
+    let frame = start;
+    let lastTime = 0;
+
+    function animate(time){
+        if(!lastTime){
+            lastTime = time;
+        }
+
+        const currentFrameHold = feature.prefix === 'contact' ? contactFrameHold : frameHold;
+
+        if(time - lastTime >= currentFrameHold){
+            mainImage.src = frameName(feature, frame);
+
+            if(typeof onFrame === 'function'){
+                onFrame(frame);
+            }
+
+            frame += direction;
+            lastTime = time;
+        }
+
+        const stillInRange = direction === 1 ? frame <= end : frame >= end;
+
+        if(stillInRange){
+            requestAnimationFrame(animate);
+        }else{
+            mainImage.src = frameName(feature, end);
+            isAnimatingSequence = false;
+
+            if(typeof onComplete === 'function'){
+                onComplete();
+            }
+        }
+    }
+
+    requestAnimationFrame(animate);
+}
+
+let reverseVideoAnimationFrame = null;
+
+function showDefaultFeatureVideoFirstFrame(){
+    if(!featureVideo){
+        return;
+    }
+
+    const defaultFeature = features[defaultFeatureId];
+    featureVideo.src = defaultFeature.videoSrc || 'pc_zoom.mp4';
+    featureVideo.style.display = 'block';
+    featureVideo.classList.add('show');
+    featureVideo.pause();
+    featureVideo.load();
+
+    const holdFirstFrame = ()=>{
+        try{
+            featureVideo.currentTime = 0;
+        }catch(error){}
+        featureVideo.pause();
+    };
+
+    if(featureVideo.readyState >= 1){
+        holdFirstFrame();
+    }else{
+        featureVideo.addEventListener('loadedmetadata', holdFirstFrame, {once:true});
+    }
+}
+
+function cancelReverseVideo(){
+    if(reverseVideoAnimationFrame){
+        cancelAnimationFrame(reverseVideoAnimationFrame);
+        reverseVideoAnimationFrame = null;
+    }
+}
+
+function playVideoFeature(feature){
+    if(!featureVideo){
+        return;
+    }
+
+    cancelReverseVideo();
+    featureVideo.pause();
+    featureVideo.src = feature.videoSrc || 'contact.mp4';
+    featureVideo.style.display = 'block';
+    featureVideo.classList.add('show');
+    featureVideo.playbackRate = 1;
+    featureVideo.currentTime = 0;
+    featureVideo.load();
+
+    const startPlayback = ()=>{
+        featureVideo.currentTime = 0;
+        const playPromise = featureVideo.play();
+
+        if(playPromise !== undefined){
+            playPromise.catch(()=>{});
+        }
+    };
+
+    if(featureVideo.readyState >= 1){
+        startPlayback();
+    }else{
+        featureVideo.addEventListener('loadedmetadata', startPlayback, {once:true});
+    }
+}
+
+function completeVideoFeatureForward(){
+    if(!activeFeature || !activeFeature.useVideoToLastFrame || !featureVideo){
+        return;
+    }
+
+    featureVideo.pause();
+
+    if(Number.isFinite(featureVideo.duration) && featureVideo.duration > 0){
+        try{
+            featureVideo.currentTime = Math.max(0, featureVideo.duration - 0.035);
+        }catch(error){}
+    }
+
+    backBtn.classList.add('show');
+
+    if(activeFeature.showInfoPanel){
+        showInfoPanel();
+    }
+
+    if(activeFeature.playLogoVideos){
+        showLogoVideo();
+    }
+}
+
+function reverseFeatureVideoToFirstFrame(callback){
+    if(!featureVideo){
+        if(typeof callback === 'function'){
+            callback();
+        }
+        return;
+    }
+
+    cancelReverseVideo();
+    featureVideo.pause();
+    featureVideo.style.display = 'block';
+    featureVideo.classList.add('show');
+
+    const finishReverse = ()=>{
+        cancelReverseVideo();
+        featureVideo.onended = null;
+        featureVideo.onerror = null;
+        featureVideo.ontimeupdate = null;
+
+        try{
+            featureVideo.pause();
+            featureVideo.playbackRate = 1;
+            featureVideo.currentTime = 0;
+        }catch(error){}
+
+        featureVideo.classList.add('show');
+        featureVideo.style.display = 'block';
+
+        if(typeof callback === 'function'){
+            callback();
+        }
+    };
+
+    /*
+       Smooth reverse note:
+       Browsers do not reliably support true reverse playback for MP4.
+       This first tries native negative playbackRate. If the browser refuses it,
+       it falls back to a requestAnimationFrame seek loop with smaller, time-based
+       steps. For perfectly smooth reverse, export a dedicated reversed MP4 too,
+       but this is the smoothest single-file fallback the browser allows.
+    */
+    const tryNativeReverse = ()=>{
+        try{
+            if(Number.isFinite(featureVideo.duration) && featureVideo.duration > 0){
+                featureVideo.currentTime = Math.max(0, featureVideo.duration - 0.045);
+            }
+
+            featureVideo.playbackRate = -1;
+
+            const watchNativeReverse = ()=>{
+                if(featureVideo.currentTime <= 0.045 || featureVideo.ended){
+                    finishReverse();
+                    return;
+                }
+                reverseVideoAnimationFrame = requestAnimationFrame(watchNativeReverse);
+            };
+
+            const playPromise = featureVideo.play();
+
+            if(playPromise !== undefined){
+                playPromise.then(()=>{
+                    reverseVideoAnimationFrame = requestAnimationFrame(watchNativeReverse);
+                }).catch(()=>{
+                    featureVideo.playbackRate = 1;
+                    fallbackSeekReverse();
+                });
+            }else{
+                reverseVideoAnimationFrame = requestAnimationFrame(watchNativeReverse);
+            }
+        }catch(error){
+            try{ featureVideo.playbackRate = 1; }catch(innerError){}
+            fallbackSeekReverse();
+        }
+    };
+
+    const fallbackSeekReverse = ()=>{
+        featureVideo.pause();
+        featureVideo.playbackRate = 1;
+
+        const reverseSpeed = 1.35;
+        let lastTime = performance.now();
+        let lastSetTime = featureVideo.currentTime;
+
+        function reverseFrame(now){
+            const deltaSeconds = Math.min(0.04, (now - lastTime) / 1000);
+            lastTime = now;
+
+            const nextTime = Math.max(0, lastSetTime - (deltaSeconds * reverseSpeed));
+
+            if(nextTime <= 0.035){
+                finishReverse();
+                return;
+            }
+
+            try{
+                featureVideo.currentTime = nextTime;
+                lastSetTime = nextTime;
+            }catch(error){
+                finishReverse();
+                return;
+            }
+
+            reverseVideoAnimationFrame = requestAnimationFrame(reverseFrame);
+        }
+
+        reverseVideoAnimationFrame = requestAnimationFrame(reverseFrame);
+    };
+
+    const startReverse = ()=>{
+        if(featureVideo.currentTime <= 0.05 && Number.isFinite(featureVideo.duration) && featureVideo.duration > 0){
+            try{
+                featureVideo.currentTime = Math.max(0, featureVideo.duration - 0.045);
+            }catch(error){}
+        }
+        tryNativeReverse();
+    };
+
+    if(featureVideo.readyState >= 1){
+        startReverse();
+    }else{
+        featureVideo.addEventListener('loadedmetadata', startReverse, {once:true});
+    }
+}
+
+function resetAfterVideoReverse(){
+    activeFeature = null;
+    sequenceStarted = false;
+    showDefaultFeatureVideoFirstFrame();
+    setMainImageToDefaultFrame();
+    showAllHotspots();
+    positionAllHotspots();
+}
+
+function playForwardSequence(featureId){
+    if(sequenceStarted || isAnimatingSequence){
+        return;
+    }
+
+    activeFeature = features[featureId];
+
+    if(!activeFeature || activeFeature.disabledUntilSequenceIsAdded){
+        activeFeature = null;
+        return;
+    }
+    sequenceStarted = true;
+    infoPanelShownDuringSequence = false;
+    hideAllHotspots();
+
+    if(activeFeature.useVideoToLastFrame){
+        playVideoFeature(activeFeature);
+        return;
+    }
+
+    playSequence(activeFeature, activeFeature.firstFrame, activeFeature.lastFrame, ()=>{
+        backBtn.classList.add('show');
+
+        if(activeFeature.playLogoVideos){
+            showLogoVideo();
+        }
+    }, (frame)=>{
+        if(activeFeature.showInfoPanel && frame >= activeFeature.infoPanelTriggerFrame){
+            showInfoPanel();
+        }
+    });
+}
+
+function goBackToDefaultFrame(){
+    if(!sequenceStarted || isAnimatingSequence || !activeFeature){
+        return;
+    }
+
+    const featureToReverse = activeFeature;
+
+    if(featureToReverse.useVideoToLastFrame){
+        hideFeatureOverlays(()=>{
+            reverseFeatureVideoToFirstFrame(resetAfterVideoReverse);
+        });
+        return;
+    }
+
+    hideFeatureOverlays(()=>{
+        playSequence(featureToReverse, featureToReverse.lastFrame, featureToReverse.firstFrame, ()=>{
+            activeFeature = null;
+            sequenceStarted = false;
+            setMainImageToDefaultFrame();
+            showAllHotspots();
+            positionAllHotspots();
+        });
+    });
+}
+
+Object.entries(features).forEach(([featureId, feature])=>{
+    const hotspotButton = document.getElementById(feature.hotspotElementId);
+
+    if(!hotspotButton){
+        return;
+    }
+
+    if(feature.disabledUntilSequenceIsAdded){
+        hotspotButton.addEventListener('click', ()=>{});
+        return;
+    }
+
+    hotspotButton.addEventListener('click', ()=>playForwardSequence(featureId));
+});
+
+backBtn.addEventListener('click', goBackToDefaultFrame);
+
+logoVideo.addEventListener('ended', ()=>{
+    if(currentLogoVideoIndex === 0){
+        playLogoVideo(1);
+    }
+});
+
+if(featureVideo){
+    featureVideo.addEventListener('ended', completeVideoFeatureForward);
+}
+
+window.addEventListener('resize', ()=>{
+    positionAllHotspots();
+    positionLogoVideo();
+    refreshMagneticTargets();
+});
+
+mainImage.addEventListener('load', ()=>{
+    positionAllHotspots();
+    positionLogoVideo();
+});
+
+/* =========================
+   LOTTIE
+========================= */
+
+const animation = lottie.loadAnimation({
+    container: document.getElementById('lottie'),
+    renderer: 'svg',
+    loop: false,
+    autoplay: false,
+    path: 'logo merge.json'
+});
+
+animation.addEventListener('DOMLoaded', () => {
+    animation.goToAndStop(0,true);
+});
+
+document.getElementById('enterBtn').addEventListener('click', ()=>{
+    document.getElementById('enterBtn').classList.add('hide');
+    preloadAssets();
+    animation.play();
+});
+
+animation.addEventListener('complete', ()=>{
+    const intro = document.getElementById('intro');
+    const mainSite = document.getElementById('mainSite');
+
+    setMainImageToDefaultFrame();
+    mainSite.classList.add('show');
+    positionAllHotspots();
+    positionLogoVideo();
+    preloadAssets();
+
+    setTimeout(()=>{
+        intro.classList.add('fadeOut');
+    },250);
+});
+
+/* Start preloading as early as possible while the first screen is still open. */
+preloadAssets();
+setMainImageToDefaultFrame();
+showDefaultFeatureVideoFirstFrame();
+positionAllHotspots();
+positionLogoVideo();
+
+
+/* =========================
+   CUSTOM CURSOR + PAGE PARALLAX
+========================= */
+
+const customCursor = document.getElementById('customCursor');
+const intro = document.getElementById('intro');
+const introVideoWrap = document.getElementById('introVideoWrap');
+const mainPlane = document.getElementById('mainPlane');
+const customCursorPulse = document.getElementById('customCursorPulse');
+const hoverTargetsSelector = 'button, a, [role="button"], .hotspot';
+
+let cursorTargetX = window.innerWidth / 2;
+let cursorTargetY = window.innerHeight / 2;
+let cursorX = cursorTargetX;
+let cursorY = cursorTargetY;
+let parallaxX = 0;
+let parallaxY = 0;
+let targetParallaxX = 0;
+let targetParallaxY = 0;
+let cursorHasMoved = false;
+let orientationX = 0;
+let orientationY = 0;
+const magneticTargets = [];
+let activeHotspotLabelElement = null;
+const hotspotAnchorSvg = document.getElementById('hotspotAnchorSvg');
+const hotspotAnchorElements = {};
+
+function createHotspotAnchorElements(){
+    if(!hotspotAnchorSvg){
+        return;
+    }
+
+    hotspotAnchorSvg.innerHTML = '';
+
+    Object.entries(features).forEach(([featureId])=>{
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        group.classList.add('hotspotAnchorGroup');
+        group.dataset.featureId = featureId;
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.classList.add('hotspotAnchorLine');
+
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.classList.add('hotspotAnchorDot');
+        dot.setAttribute('r', '3.2');
+
+        group.appendChild(line);
+        group.appendChild(dot);
+        hotspotAnchorSvg.appendChild(group);
+
+        hotspotAnchorElements[featureId] = {group, line, dot};
+    });
+}
+
+function getHotspotDepth(index){
+    return index === 0 ? 18 : (index % 2 === 0 ? 14 : -15);
+}
+
+function getStaticImagePixelPoint(feature){
+    const rect = getDisplayedImageRect();
+
+    return {
+        x: rect.left + (feature.x / imageNaturalWidth) * rect.width,
+        y: rect.top + (feature.y / imageNaturalHeight) * rect.height
+    };
+}
+
+function getTransformedMainPlanePoint(point){
+    if(!mainPlane || !mainSite.classList.contains('show')){
+        return point;
+    }
+
+    const style = window.getComputedStyle(mainPlane);
+    const transform = style.transform;
+
+    if(!transform || transform === 'none'){
+        return point;
+    }
+
+    const planeWidth = window.innerWidth;
+    const planeHeight = window.innerHeight;
+    const originX = planeWidth / 2;
+    const originY = planeHeight / 2;
+
+    try{
+        const matrix = new DOMMatrixReadOnly(transform);
+        const transformed = matrix.transformPoint(
+            new DOMPoint(
+                point.x - originX,
+                point.y - originY,
+                0,
+                1
+            )
+        );
+
+        /*
+           The main plane uses perspective + rotateX/rotateY, so points farther
+           from the centre get a perspective W value. Without dividing by W,
+           anchor dots near the edges drift away from the real image pixel.
+           This keeps every white dot locked to the exact original still-frame
+           pixel while the background plane parallaxes.
+        */
+        const perspectiveW = transformed.w || 1;
+
+        return {
+            x: (transformed.x / perspectiveW) + originX,
+            y: (transformed.y / perspectiveW) + originY
+        };
+    }catch(error){
+        return point;
+    }
+}
+
+function getHotspotHomePoint(feature){
+    return getTransformedMainPlanePoint(getStaticImagePixelPoint(feature));
+}
+
+function updateHotspotAnchorLines(){
+    if(!hotspotAnchorSvg){
+        return;
+    }
+
+    hotspotAnchorSvg.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
+
+    Object.entries(features).forEach(([featureId, feature], index)=>{
+        const anchor = hotspotAnchorElements[featureId];
+        const hotspot = document.getElementById(feature.hotspotElementId);
+
+        if(!anchor || !hotspot){
+            return;
+        }
+
+        const computedStyle = window.getComputedStyle(hotspot);
+        const hidden = hotspot.classList.contains('hide') || computedStyle.pointerEvents === 'none' || computedStyle.visibility === 'hidden' || computedStyle.display === 'none' || parseFloat(computedStyle.opacity || '1') < 0.04;
+
+        anchor.group.classList.toggle('is-hidden', hidden);
+        anchor.group.classList.toggle('is-active', hotspot.classList.contains('label-active'));
+
+        if(hidden){
+            return;
+        }
+
+        const home = getHotspotHomePoint(feature, index);
+        const hotspotRect = hotspot.getBoundingClientRect();
+        const centerX = hotspotRect.left + hotspotRect.width / 2;
+        const centerY = hotspotRect.top + hotspotRect.height / 2;
+
+        anchor.line.setAttribute('x1', home.x.toFixed(2));
+        anchor.line.setAttribute('y1', home.y.toFixed(2));
+        anchor.line.setAttribute('x2', centerX.toFixed(2));
+        anchor.line.setAttribute('y2', centerY.toFixed(2));
+        anchor.dot.setAttribute('cx', home.x.toFixed(2));
+        anchor.dot.setAttribute('cy', home.y.toFixed(2));
+    });
+}
+
+function setParallaxVars(element, x, y){
+    if(!element){
+        return;
+    }
+
+    element.style.setProperty('--parallaxX', `${x.toFixed(2)}px`);
+    element.style.setProperty('--parallaxY', `${y.toFixed(2)}px`);
+}
+
+function updateHoverState(target){
+    const hoveringClickable = !!target.closest(hoverTargetsSelector);
+    customCursor.classList.toggle('hovering', hoveringClickable);
+    customCursorPulse.classList.toggle('hovering', hoveringClickable);
+}
+
+function refreshMagneticTargets(){
+    magneticTargets.length = 0;
+    document.querySelectorAll(hoverTargetsSelector).forEach(element=>{
+        /* Phone/email links and chess control buttons still trigger the custom cursor hover pulse,
+           but they should not physically pull toward the mouse. */
+        if(element.closest('.contactCard') || element.closest('.chessControls')){
+            element.style.setProperty('--magnetX', '0px');
+            element.style.setProperty('--magnetY', '0px');
+            element.style.setProperty('--magnetScale', '1');
+            return;
+        }
+
+        magneticTargets.push({
+            element,
+            x:0,
+            y:0,
+            scale:1
+        });
+    });
+}
+
+function applyDeviceParallax(event){
+    if(cursorHasMoved){
+        return;
+    }
+
+    const gamma = Math.max(-28, Math.min(28, event.gamma || 0));
+    const beta = Math.max(-28, Math.min(28, event.beta || 0));
+
+    orientationX = gamma / 28;
+    orientationY = beta / 28;
+
+    targetParallaxX = orientationX;
+    targetParallaxY = orientationY;
+}
+
+window.addEventListener('deviceorientation', applyDeviceParallax);
+
+function enableIOSMotionIfNeeded(){
+    if(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function'){
+        DeviceOrientationEvent.requestPermission().catch(()=>{});
+    }
+}
+
+document.addEventListener('pointerdown', enableIOSMotionIfNeeded, {once:true});
+refreshMagneticTargets();
+
+document.addEventListener('mousemove', (event)=>{
+    cursorHasMoved = true;
+    customCursor.classList.add('show');
+
+    cursorTargetX = event.clientX;
+    cursorTargetY = event.clientY;
+
+    const normalizedX = (event.clientX / window.innerWidth - 0.5) * 2;
+    const normalizedY = (event.clientY / window.innerHeight - 0.5) * 2;
+
+    targetParallaxX = normalizedX;
+    targetParallaxY = normalizedY;
+
+    updateHoverState(event.target);
+});
+
+document.addEventListener('mouseover', (event)=>{
+    updateHoverState(event.target);
+});
+
+document.addEventListener('mouseleave', ()=>{
+    customCursor.classList.remove('show');
+    customCursor.classList.remove('hovering');
+    customCursorPulse.classList.remove('hovering');
+    activeHotspotLabelElement = null;
+    document.querySelectorAll('.hotspot.label-active').forEach(hotspot=>hotspot.classList.remove('label-active'));
+});
+
+function animateCursorAndParallax(){
+    cursorX += (cursorTargetX - cursorX) * 0.28;
+    cursorY += (cursorTargetY - cursorY) * 0.28;
+
+    parallaxX += (targetParallaxX - parallaxX) * 0.055;
+    parallaxY += (targetParallaxY - parallaxY) * 0.055;
+
+    if(cursorHasMoved){
+        customCursor.style.left = `${cursorX}px`;
+        customCursor.style.top = `${cursorY}px`;
+        customCursorPulse.style.left = `${cursorX}px`;
+        customCursorPulse.style.top = `${cursorY}px`;
+    }
+
+    const bgRotateY = parallaxX * 5.2;
+    const bgRotateX = parallaxY * -3.4;
+    const bgMoveX = parallaxX * -18;
+    const bgMoveY = parallaxY * -12;
+
+    /* Intro background gets a much more dramatic 3D plane response. */
+    const introRotateY = bgRotateY * 3.2;
+    const introRotateX = bgRotateX * 3.2;
+    const introMoveX = bgMoveX * 4.4;
+    const introMoveY = bgMoveY * 4.4;
+
+    if(!intro.classList.contains('fadeOut')){
+        introVideoWrap.style.transform = `perspective(1100px) translate3d(${introMoveX}px, ${introMoveY}px, 0) rotateX(${introRotateX}deg) rotateY(${introRotateY}deg) scale(1.28)`;
+    }
+
+    if(mainSite.classList.contains('show')){
+        const mainRotateY = bgRotateY * 1.45;
+        const mainRotateX = bgRotateX * 1.45;
+        const mainMoveX = bgMoveX * 1.58;
+        const mainMoveY = bgMoveY * 1.58;
+        mainPlane.style.transform = `perspective(1150px) translate3d(${mainMoveX}px, ${mainMoveY}px, 0) rotateX(${mainRotateX}deg) rotateY(${mainRotateY}deg) scale(1.13)`;
+    }
+
+    setParallaxVars(document.querySelector('.center-wrap'), parallaxX * 20, parallaxY * 14);
+    setParallaxVars(document.getElementById('lottie'), parallaxX * 12, parallaxY * 8);
+    setParallaxVars(document.getElementById('enterBtn'), parallaxX * 28, parallaxY * 20);
+    setParallaxVars(infoPanel, parallaxX * 26, parallaxY * 18);
+    setParallaxVars(backBtn, parallaxX * 12, parallaxY * 9);
+    setParallaxVars(document.querySelector('.topContactBtn'), parallaxX * -15, parallaxY * -11);
+    setParallaxVars(document.querySelector('.bottomBrainBtn'), parallaxX * -13, parallaxY * 10);
+    setParallaxVars(document.querySelector('.contactPanel'), parallaxX * 15, parallaxY * 11);
+    setParallaxVars(document.querySelector('.chessPanel'), parallaxX * 12, parallaxY * 9);
+
+    const contactLogo = document.querySelector('.contactLogo');
+    if(contactLogo){
+        contactLogo.style.setProperty('--logoMoveX', `${(parallaxX * -8).toFixed(2)}px`);
+        contactLogo.style.setProperty('--logoMoveY', `${(parallaxY * -6).toFixed(2)}px`);
+        contactLogo.style.setProperty('--logoRotateX', `${(parallaxY * -7).toFixed(2)}deg`);
+        contactLogo.style.setProperty('--logoRotateY', `${(parallaxX * 10).toFixed(2)}deg`);
+    }
+
+    Object.values(features).forEach((feature, index)=>{
+        const hotspot = document.getElementById(feature.hotspotElementId);
+        const depth = getHotspotDepth(index);
+        const hotX = parallaxX * depth;
+        const hotY = parallaxY * depth * .78;
+        setParallaxVars(hotspot, hotX, hotY);
+    });
+    activeHotspotLabelElement = null;
+
+    if(cursorHasMoved){
+        let closestHotspot = null;
+        let closestDistance = Infinity;
+        const labelActivationRadius = 190;
+
+        Object.values(features).forEach(feature=>{
+            const hotspot = document.getElementById(feature.hotspotElementId);
+
+            if(!hotspot || hotspot.classList.contains('hide')){
+                return;
+            }
+
+            const computedStyle = window.getComputedStyle(hotspot);
+            if(computedStyle.pointerEvents === 'none' || computedStyle.visibility === 'hidden' || computedStyle.display === 'none' || parseFloat(computedStyle.opacity || '1') < 0.04){
+                return;
+            }
+
+            const rect = hotspot.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = cursorTargetX - centerX;
+            const dy = cursorTargetY - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if(distance < labelActivationRadius && distance < closestDistance){
+                closestDistance = distance;
+                closestHotspot = hotspot;
+            }
+        });
+
+        activeHotspotLabelElement = closestHotspot;
+    }
+
+    document.querySelectorAll('.hotspot.label-active').forEach(hotspot=>{
+        if(hotspot !== activeHotspotLabelElement){
+            hotspot.classList.remove('label-active');
+        }
+    });
+
+    if(activeHotspotLabelElement){
+        activeHotspotLabelElement.classList.add('label-active');
+    }
+
+    magneticTargets.forEach(target=>{
+        const element = target.element;
+
+        if(!element || element.classList.contains('hide')){
+            return;
+        }
+
+        const computedStyle = window.getComputedStyle(element);
+        if(computedStyle.pointerEvents === 'none' || computedStyle.visibility === 'hidden' || computedStyle.display === 'none' || parseFloat(computedStyle.opacity || '1') < 0.04){
+            element.style.setProperty('--magnetX', '0px');
+            element.style.setProperty('--magnetY', '0px');
+            element.style.setProperty('--magnetScale', '1');
+            return;
+        }
+
+        let desiredX = 0;
+        let desiredY = 0;
+        let desiredScale = 1;
+
+        if(cursorHasMoved){
+            const rect = element.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = cursorTargetX - centerX;
+            const dy = cursorTargetY - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            const baseSize = Math.max(rect.width, rect.height);
+            const isHotspot = element.classList.contains('hotspot');
+            const isTinyRoundButton = rect.width <= 70 && rect.height <= 70;
+            const isEnterButton = element.id === 'enterBtn';
+
+            const radius = isEnterButton
+                ? Math.max(95, Math.min(145, baseSize * 1.45))
+                : (isHotspot || isTinyRoundButton
+                    ? Math.max(235, baseSize * 7.2)
+                    : Math.max(220, Math.min(390, baseSize * 4.8)));
+
+            if(distance < radius){
+                const closeness = 1 - (distance / radius);
+                const easedPull = closeness * closeness * (3 - 2 * closeness);
+                const closeBoost = Math.pow(closeness, 1.18);
+                const pullStrength = isEnterButton ? 0.10 : (isHotspot || isTinyRoundButton ? 0.50 : 0.42);
+                const extraPull = isEnterButton ? 0.025 : 0.12;
+                const scaleLift = isEnterButton ? 0.035 : 0.13;
+
+                desiredX = dx * (pullStrength * easedPull + extraPull * closeBoost);
+                desiredY = dy * (pullStrength * easedPull + extraPull * closeBoost);
+                desiredScale = 1 + easedPull * scaleLift + closeBoost * scaleLift;
+            }
+        }
+
+        target.x += (desiredX - target.x) * 0.23;
+        target.y += (desiredY - target.y) * 0.23;
+        target.scale += (desiredScale - target.scale) * 0.22;
+
+        const magnetXValue = `${target.x.toFixed(2)}px`;
+        const magnetYValue = `${target.y.toFixed(2)}px`;
+        const magnetScaleValue = target.scale.toFixed(4);
+
+        element.style.setProperty('--magnetX', magnetXValue);
+        element.style.setProperty('--magnetY', magnetYValue);
+        element.style.setProperty('--magnetScale', magnetScaleValue);
+    });
+
+    updateHotspotAnchorLines();
+
+    requestAnimationFrame(animateCursorAndParallax);
+}
+
+createHotspotAnchorElements();
+updateHotspotAnchorLines();
+animateCursorAndParallax();
+
+
+/* =========================
+   CHESS PUZZLE OVERLAY
+========================= */
+
+const chessOverlay = document.getElementById('chessOverlay');
+const chessBoard = document.getElementById('chessBoard');
+const chessRanks = document.getElementById('chessRanks');
+const chessFiles = document.getElementById('chessFiles');
+const closeChessBtn = document.getElementById('closeChessBtn');
+const chessCloseArea = document.querySelector('.chessCloseArea');
+const chessMessage = document.getElementById('chessMessage');
+const chessMoveList = document.getElementById('chessMoveList');
+const chessPanel = document.querySelector('.chessPanel');
+const chessCompleteBox = document.getElementById('chessCompleteBox');
+const chessHintBtn = document.getElementById('chessHintBtn');
+const chessShowMoveBtn = document.getElementById('chessShowMoveBtn');
+const chessResetBtn = document.getElementById('chessResetBtn');
+const chessTryAnotherBtn = document.getElementById('chessTryAnotherBtn');
+const bottomBrainBtn = document.querySelector('.bottomBrainBtn');
+
+const chessFilesArray = ['a','b','c','d','e','f','g','h'];
+const whitePieces = {K:'♔', Q:'♕', R:'♖', B:'♗', N:'♘', P:'♙'};
+const blackPieces = {K:'♚', Q:'♛', R:'♜', B:'♝', N:'♞', P:'♟'};
+const chessStartPosition = {
+    f7:{color:'w', type:'N'}, c4:{color:'w', type:'Q'}, b3:{color:'w', type:'P'}, a2:{color:'w', type:'P'}, g2:{color:'w', type:'P'}, h2:{color:'w', type:'P'}, e1:{color:'w', type:'R'}, g1:{color:'w', type:'K'},
+    f8:{color:'b', type:'R'}, g8:{color:'b', type:'K'}, a7:{color:'b', type:'P'}, g7:{color:'b', type:'P'}, h7:{color:'b', type:'P'}, b6:{color:'b', type:'P'}, c6:{color:'b', type:'Q'}, c5:{color:'b', type:'P'}, h4:{color:'b', type:'N'}
+};
+const chessSolution = [
+    {from:'f7', to:'h6', notation:'Nh6+', black:{from:'g8', to:'h8', notation:'Kh8'}},
+    {from:'c4', to:'g8', notation:'Qg8+', black:{from:'f8', to:'g8', notation:'Rxg8'}},
+    {from:'h6', to:'f7', notation:'Nf7#', black:null}
+];
+let chessPosition = {};
+let selectedChessSquare = null;
+let currentPuzzleStep = 0;
+let playedChessMoves = [];
+let chessCompleted = false;
+function cloneChessPosition(source){ const copy={}; Object.entries(source).forEach(([s,p])=>copy[s]={color:p.color,type:p.type}); return copy; }
+function squareToCoords(square){ return {file:chessFilesArray.indexOf(square[0]), rank:parseInt(square[1],10)-1}; }
+function coordsToSquare(file, rank){ if(file<0||file>7||rank<0||rank>7) return null; return `${chessFilesArray[file]}${rank+1}`; }
+function getPieceSymbol(piece){ if(!piece) return ''; return piece.color==='w'?whitePieces[piece.type]:blackPieces[piece.type]; }
+function buildChessBoardLabels(){ chessRanks.innerHTML=''; chessFiles.innerHTML=''; for(let rank=8; rank>=1; rank--){ const label=document.createElement('div'); label.className='chessRankLabel'; label.textContent=rank; chessRanks.appendChild(label); } chessFilesArray.forEach(file=>{ const label=document.createElement('div'); label.className='chessFileLabel'; label.textContent=file; chessFiles.appendChild(label); }); }
+function buildChessBoard(){ buildChessBoardLabels(); chessBoard.innerHTML=''; for(let rank=8; rank>=1; rank--){ for(let file=0; file<8; file++){ const squareName=`${chessFilesArray[file]}${rank}`; const square=document.createElement('div'); square.className=`chessSquare ${(rank+file)%2===0?'light':'dark'}`; square.dataset.square=squareName; square.addEventListener('click',()=>handleChessSquareClick(squareName)); chessBoard.appendChild(square); } } }
+function renderChessBoard(){ document.querySelectorAll('.chessSquare').forEach(square=>{ const squareName=square.dataset.square; const piece=chessPosition[squareName]; square.textContent=getPieceSymbol(piece); square.classList.remove('white-piece','black-piece','selectable','selected','legal','captureLegal','hintFrom','hintTo'); if(piece){ square.classList.add(piece.color==='w'?'white-piece':'black-piece'); if(piece.color==='w'&&!chessCompleted) square.classList.add('selectable'); } }); }
+function clearChessHighlights(){ document.querySelectorAll('.chessSquare').forEach(square=>square.classList.remove('selected','legal','captureLegal','hintFrom','hintTo')); }
+function highlightLegalMoves(fromSquare){ clearChessHighlights(); const fromElement=document.querySelector(`[data-square="${fromSquare}"]`); if(fromElement) fromElement.classList.add('selected'); getLegalMoves(fromSquare).forEach(toSquare=>{ const target=document.querySelector(`[data-square="${toSquare}"]`); if(target) target.classList.add(chessPosition[toSquare]?'captureLegal':'legal'); }); }
+function getSlidingMoves(fromSquare,directions){ const piece=chessPosition[fromSquare]; const moves=[]; const {file,rank}=squareToCoords(fromSquare); directions.forEach(([df,dr])=>{ let f=file+df,r=rank+dr; while(f>=0&&f<=7&&r>=0&&r<=7){ const targetSquare=coordsToSquare(f,r); const targetPiece=chessPosition[targetSquare]; if(!targetPiece) moves.push(targetSquare); else{ if(targetPiece.color!==piece.color) moves.push(targetSquare); break; } f+=df; r+=dr; } }); return moves; }
+function getLegalMoves(fromSquare){ const piece=chessPosition[fromSquare]; if(!piece) return []; const {file,rank}=squareToCoords(fromSquare); const moves=[]; function addIfValid(f,r){ const targetSquare=coordsToSquare(f,r); if(!targetSquare) return; const targetPiece=chessPosition[targetSquare]; if(!targetPiece||targetPiece.color!==piece.color) moves.push(targetSquare); } if(piece.type==='N') [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]].forEach(([df,dr])=>addIfValid(file+df,rank+dr)); if(piece.type==='K') [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]].forEach(([df,dr])=>addIfValid(file+df,rank+dr)); if(piece.type==='R') return getSlidingMoves(fromSquare,[[1,0],[-1,0],[0,1],[0,-1]]); if(piece.type==='B') return getSlidingMoves(fromSquare,[[1,1],[1,-1],[-1,1],[-1,-1]]); if(piece.type==='Q') return getSlidingMoves(fromSquare,[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]); if(piece.type==='P'){ const direction=piece.color==='w'?1:-1; const oneForward=coordsToSquare(file,rank+direction); const twoForward=coordsToSquare(file,rank+direction*2); const startRank=piece.color==='w'?1:6; if(oneForward&&!chessPosition[oneForward]){ moves.push(oneForward); if(rank===startRank&&twoForward&&!chessPosition[twoForward]) moves.push(twoForward); } [file-1,file+1].forEach(f=>{ const cap=coordsToSquare(f,rank+direction); if(cap&&chessPosition[cap]&&chessPosition[cap].color!==piece.color) moves.push(cap); }); } return moves; }
+function moveChessPiece(from,to){ chessPosition[to]=chessPosition[from]; delete chessPosition[from]; selectedChessSquare=null; clearChessHighlights(); renderChessBoard(); }
+function handleChessSquareClick(squareName){ if(chessCompleted) return; const piece=chessPosition[squareName]; if(selectedChessSquare){ const legalMoves=getLegalMoves(selectedChessSquare); if(legalMoves.includes(squareName)){ attemptPuzzleMove(selectedChessSquare,squareName); return; } if(piece&&piece.color==='w'){ selectedChessSquare=squareName; highlightLegalMoves(squareName); return; } selectedChessSquare=null; clearChessHighlights(); return; } if(piece&&piece.color==='w'){ selectedChessSquare=squareName; highlightLegalMoves(squareName); } }
+function attemptPuzzleMove(from,to){ const expected=chessSolution[currentPuzzleStep]; if(expected&&from===expected.from&&to===expected.to){ moveChessPiece(from,to); playedChessMoves.push(`${currentPuzzleStep+1}. ${expected.notation}`); updateChessMoveList(); if(expected.black){ chessMessage.textContent='Great! Keep going...'; setTimeout(()=>{ moveChessPiece(expected.black.from,expected.black.to); playedChessMoves.push(`... ${expected.black.notation}`); currentPuzzleStep++; updateChessMoveList(); chessMessage.textContent=`Move ${currentPuzzleStep+1} of 3. Find White's next move.`; },650); }else{ currentPuzzleStep++; completeChessPuzzle(); } }else{ chessMessage.textContent='Not quite. Try another move.'; chessPanel.classList.remove('wrong'); void chessPanel.offsetWidth; chessPanel.classList.add('wrong'); } }
+function updateChessMoveList(){ chessMoveList.innerHTML=playedChessMoves.length?playedChessMoves.join('<br>'):'No moves yet.'; }
+function completeChessPuzzle(){ chessCompleted=true; clearChessHighlights(); renderChessBoard(); chessMessage.textContent='Excellent! Checkmate.'; chessCompleteBox.classList.add('show'); }
+function resetChessPuzzle(){ chessPosition=cloneChessPosition(chessStartPosition); selectedChessSquare=null; currentPuzzleStep=0; playedChessMoves=[]; chessCompleted=false; chessCompleteBox.classList.remove('show'); chessMessage.textContent="Move 1 of 3. Find White's best move."; updateChessMoveList(); renderChessBoard(); }
+function showChessHint(){ if(chessCompleted) return; clearChessHighlights(); const expected=chessSolution[currentPuzzleStep]; const from=document.querySelector(`[data-square="${expected.from}"]`); if(from) from.classList.add('hintFrom'); chessMessage.textContent='Hint: this is the piece to move.'; }
+function showCorrectChessMove(){ if(chessCompleted) return; const expected=chessSolution[currentPuzzleStep]; clearChessHighlights(); const from=document.querySelector(`[data-square="${expected.from}"]`); const to=document.querySelector(`[data-square="${expected.to}"]`); if(from) from.classList.add('hintFrom'); if(to) to.classList.add('hintTo'); setTimeout(()=>attemptPuzzleMove(expected.from,expected.to),520); }
+function openChessOverlay(){ chessOverlay.classList.add('show'); chessOverlay.setAttribute('aria-hidden','false'); resetChessPuzzle(); refreshMagneticTargets(); }
+function closeChessOverlay(){ chessOverlay.classList.remove('show'); chessOverlay.setAttribute('aria-hidden','true'); }
+buildChessBoard(); resetChessPuzzle();
+if(bottomBrainBtn) bottomBrainBtn.addEventListener('click', openChessOverlay);
+closeChessBtn.addEventListener('click', closeChessOverlay);
+chessCloseArea.addEventListener('click', closeChessOverlay);
+chessHintBtn.addEventListener('click', showChessHint);
+chessShowMoveBtn.addEventListener('click', showCorrectChessMove);
+chessResetBtn.addEventListener('click', resetChessPuzzle);
+chessTryAnotherBtn.addEventListener('click', resetChessPuzzle);
+
+/* =========================
+   CONTACT OVERLAY
+========================= */
+
+const contactOverlay = document.getElementById('contactOverlay');
+const closeContactBtn = document.getElementById('closeContactBtn');
+const contactOpenBtns = document.querySelectorAll('.contactOpenBtn');
+const contactCloseArea = document.querySelector('.contactCloseArea');
+
+function openContactOverlay(){
+    contactOverlay.classList.add('show');
+    contactOverlay.setAttribute('aria-hidden','false');
+}
+
+function closeContactOverlay(){
+    contactOverlay.classList.remove('show');
+    contactOverlay.setAttribute('aria-hidden','true');
+}
+
+contactOpenBtns.forEach(button=>{
+    button.addEventListener('click', openContactOverlay);
+});
+
+closeContactBtn.addEventListener('click', closeContactOverlay);
+contactCloseArea.addEventListener('click', closeContactOverlay);
+
+document.addEventListener('keydown', (event)=>{
+    if(event.key === 'Escape' && contactOverlay.classList.contains('show')){
+        closeContactOverlay();
+    }
+});
+
+</script>
 </body>
 </html>
