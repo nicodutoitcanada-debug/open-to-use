@@ -189,21 +189,17 @@ html,body{
 
 #mainImage{
     position:absolute;
-    inset:-4%;
-    width:108%;
-    height:108%;
-    object-fit:cover;
+    z-index:1;
+    object-fit:fill;
     object-position:center center;
     user-select:none;
     -webkit-user-drag:none;
 }
 
-#featureVideo{
+#featureVideo,
+#reverseFeatureVideo{
     position:absolute;
-    inset:-4%;
     z-index:2;
-    width:108%;
-    height:108%;
     object-fit:cover;
     object-position:center center;
     display:none;
@@ -212,7 +208,8 @@ html,body{
     transition:opacity .35s ease;
 }
 
-#featureVideo.show{
+#featureVideo.show,
+#reverseFeatureVideo.show{
     opacity:1;
 }
 
@@ -655,7 +652,8 @@ a,
     pointer-events:none;
 }
 
-#contactOverlay.show .contactPanel{
+#contactOverlay.show .contactPanel,
+#howOverlay.show .contactPanel{
     transform:translateY(0) scale(1) translate3d(var(--parallaxX), var(--parallaxY), 0);
 }
 
@@ -677,7 +675,8 @@ a,
    CONTACT OVERLAY
 ========================= */
 
-#contactOverlay{
+#contactOverlay,
+#howOverlay{
     position:fixed;
     inset:0;
     z-index:80;
@@ -691,7 +690,8 @@ a,
     transition:opacity .45s ease, visibility .45s ease;
 }
 
-#contactOverlay.show{
+#contactOverlay.show,
+#howOverlay.show{
     opacity:1;
     visibility:visible;
     pointer-events:auto;
@@ -703,6 +703,14 @@ a,
     background:rgba(0,0,0,.68);
     backdrop-filter:blur(16px);
     -webkit-backdrop-filter:blur(16px);
+}
+
+.howBackdrop{
+    position:absolute;
+    inset:0;
+    background:rgba(0,0,0,.28);
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
 }
 
 .contactPanel{
@@ -722,7 +730,8 @@ a,
     transition:transform .45s ease;
 }
 
-#contactOverlay.show .contactPanel{
+#contactOverlay.show .contactPanel,
+#howOverlay.show .contactPanel{
     transform:translateY(0) scale(1);
 }
 
@@ -770,6 +779,22 @@ a,
     margin:0 auto 28px;
     line-height:1.6;
     color:rgba(255,255,255,.82);
+}
+
+.howText{
+    max-width:520px;
+    margin:0 auto;
+    text-align:left;
+    line-height:1.65;
+    color:rgba(255,255,255,.86);
+}
+
+.howText p{
+    margin:0 0 16px;
+}
+
+.howText strong{
+    color:white;
 }
 
 .contactCard{
@@ -885,7 +910,8 @@ a,
 
 /* Magnetic overrides for smaller buttons defined earlier/later in the file. */
 .infoPanel .nextBtn,
-.closeContactBtn{
+.closeContactBtn,
+.closeHowBtn{
     --magnetX:0px;
     --magnetY:0px;
     --magnetScale:1;
@@ -897,7 +923,8 @@ a,
     transform:translate3d(var(--magnetX), var(--magnetY), 0) translateY(-2px) scale(calc(var(--magnetScale) * 1.06));
 }
 
-.closeContactBtn:hover{
+.closeContactBtn:hover,
+.closeHowBtn:hover{
     transform:translate3d(var(--magnetX), var(--magnetY), 0) rotate(90deg) scale(calc(var(--magnetScale) * 1.04));
 }
 
@@ -993,7 +1020,7 @@ a,
 
 <div id="mainSite">
     <div id="mainPlane">
-        <img id="mainImage" src="to screen/screen00.jpg" alt="Home View Solutions preview">
+        <img id="mainImage" src="default frame.jpg" alt="Home View Solutions preview">
 
         <video id="logoVideo" muted playsinline preload="auto">
             <source src="HV_Logo.mp4" type="video/mp4">
@@ -1002,6 +1029,8 @@ a,
         <video id="featureVideo" muted playsinline preload="auto">
             <source src="pc_zoom.mp4" type="video/mp4">
         </video>
+
+        <video id="reverseFeatureVideo" muted playsinline preload="auto"></video>
     </div>
 
     <div class="mainVignette" aria-hidden="true"></div>
@@ -1016,8 +1045,8 @@ a,
         <span class="hotspotLabel" aria-hidden="true">CONTACT</span>
     </button>
 
-    <button id="hotspot03" class="hotspot" aria-label="Open how we do it hotspot">
-        <span class="hotspotLabel" aria-hidden="true">HOW WE DO IT</span>
+    <button id="hotspot03" class="hotspot" aria-label="Open how it works hotspot">
+        <span class="hotspotLabel" aria-hidden="true">HOW IT WORKS</span>
     </button>
 
     <button id="hotspot04" class="hotspot" aria-label="Open about us hotspot">
@@ -1079,6 +1108,37 @@ a,
     </div>
 </div>
 
+<!-- HOW IT WORKS OVERLAY -->
+
+<div id="howOverlay" aria-hidden="true">
+    <div class="howBackdrop howCloseArea"></div>
+
+    <div class="contactPanel" role="dialog" aria-modal="true" aria-labelledby="howTitle">
+        <button class="closeContactBtn closeHowBtn" id="closeHowBtn" aria-label="Close how it works page">×</button>
+
+        <img src="logo.png" class="contactLogo" alt="Home View Solutions">
+
+        <h2 id="howTitle">How Pixel Streaming Works</h2>
+
+        <div class="howText">
+            <p>
+                <strong>The experience runs on a powerful cloud computer, not on the buyer’s device.</strong>
+                The real-time 3D home is rendered remotely, then streamed to the browser as a smooth interactive video feed.
+            </p>
+
+            <p>
+                When someone taps a finish, opens a floor plan, changes a colour, or moves through the space, their input is sent back to the cloud instantly.
+                The cloud updates the scene and streams the new view back in real time.
+            </p>
+
+            <p>
+                This means customers can explore a high-end visualizer on a phone, tablet, laptop, or showroom screen without installing software or needing expensive hardware.
+                They simply open a link and interact with the home.
+            </p>
+        </div>
+    </div>
+</div>
+
 <!-- CONTACT OVERLAY -->
 
 <div id="contactOverlay" aria-hidden="true">
@@ -1123,6 +1183,24 @@ const frameRate = 40;
 const frameHold = 1000 / frameRate;
 const contactFrameHold = frameHold * 2; // Contact sequence plays at about half speed
 const defaultFeatureId = 'finishes';
+const defaultFrameSrc = 'default frame.jpg';
+
+/*
+   Expanded default frame alignment:
+   - MP4s / old frames are 1920 x 1080.
+   - The new default JPG is 2346 x 1424.
+   - The original 1920 x 1080 area sits centered inside it.
+   These numbers keep the non-expanded part of default frame.jpg perfectly
+   locked to the first frame of every 1920 x 1080 MP4 sequence.
+*/
+const expandedDefaultWidth = 2346;
+const expandedDefaultHeight = 1424;
+const expandedDefaultInnerOffsetX = (expandedDefaultWidth - imageNaturalWidth) / 2;   // 213
+const expandedDefaultInnerOffsetY = (expandedDefaultHeight - imageNaturalHeight) / 2; // 172
+
+/* TWEAK ONLY THESE TWO LINES until default frame and MP4 first frames match perfectly. */
+const DEFAULT_FRAME_NUDGE_X = 22;
+const DEFAULT_FRAME_NUDGE_Y = 10;
 
 const features = {
     finishes: {
@@ -1158,11 +1236,16 @@ const features = {
     },
     howWeDoIt: {
         hotspotElementId: 'hotspot03',
+        useVideoToLastFrame: true,
+        videoSrc: 'space.mp4',
+        reverseVideoSrc: 'space_reverse.mp4',
         x: 286,
         y: 478,
         leftPercent: 14.90,
         topPercent: 44.26,
-        disabledUntilSequenceIsAdded: true
+        showInfoPanel: false,
+        playLogoVideos: false,
+        showHowOverlay: true
     },
     aboutUs: {
         hotspotElementId: 'hotspot04',
@@ -1177,6 +1260,7 @@ const features = {
 const mainImage = document.getElementById('mainImage');
 const logoVideo = document.getElementById('logoVideo');
 const featureVideo = document.getElementById('featureVideo');
+const reverseFeatureVideo = document.getElementById('reverseFeatureVideo');
 const logoVideoFiles = ['HV_Logo.mp4', 'HV_Logo_02.mp4'];
 const backBtn = document.getElementById('backBtn');
 const infoPanel = document.getElementById('infoPanel');
@@ -1194,21 +1278,18 @@ function frameName(feature, index){
 }
 
 function setMainImageToDefaultFrame(){
-    const defaultFeature = features[defaultFeatureId];
-    mainImage.src = frameName(defaultFeature, defaultFeature.firstFrame);
+    mainImage.src = defaultFrameSrc;
+    positionExpandedDefaultImage();
 }
 
 function getDisplayedImageRect(){
     /*
-       This returns the real visible 1920x1080 image plane inside #mainPlane.
+       This returns the real visible 1920 x 1080 sequence plane inside #mainPlane.
 
        Important:
-       #mainImage is not just 100vw x 100vh. It is deliberately enlarged with
-       inset:-4%; width:108%; height:108%; and object-fit:cover.
-
-       The overlaid monitor MP4 must use this exact same image-plane rectangle,
-       not the viewport rectangle, otherwise it will appear to drift away from
-       the monitor when the parent plane rotates/parallaxes.
+       The new default image is larger than 1920 x 1080, but the original
+       non-expanded area inside it must still align to this exact rectangle.
+       Hotspots, MP4s, logo videos and anchor dots all use this 1920 x 1080 rect.
     */
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -1238,6 +1319,35 @@ function getDisplayedImageRect(){
     }
 
     return {left, top, width: displayedWidth, height: displayedHeight};
+}
+
+function positionExpandedDefaultImage(){
+    if(!mainImage){
+        return;
+    }
+
+    const rect = getDisplayedImageRect();
+    const scale = rect.width / imageNaturalWidth;
+
+    mainImage.style.left = `${rect.left - (expandedDefaultInnerOffsetX * scale) + DEFAULT_FRAME_NUDGE_X}px`;
+    mainImage.style.top = `${rect.top - (expandedDefaultInnerOffsetY * scale) + DEFAULT_FRAME_NUDGE_Y}px`;
+    mainImage.style.width = `${expandedDefaultWidth * scale}px`;
+    mainImage.style.height = `${expandedDefaultHeight * scale}px`;
+}
+
+function positionFeatureVideo(){
+    const rect = getDisplayedImageRect();
+
+    [featureVideo, reverseFeatureVideo].forEach(video=>{
+        if(!video){
+            return;
+        }
+
+        video.style.left = `${rect.left}px`;
+        video.style.top = `${rect.top}px`;
+        video.style.width = `${rect.width}px`;
+        video.style.height = `${rect.height}px`;
+    });
 }
 
 function positionHotspot(feature){
@@ -1319,7 +1429,7 @@ function preloadAssets(){
         featureVideo.load();
     }
 
-    ['pc_zoom.mp4', 'contact.mp4'].forEach(file=>{
+    ['pc_zoom.mp4', 'contact.mp4', 'space.mp4', 'space_reverse.mp4'].forEach(file=>{
         const preloadFeatureVideo = document.createElement('video');
         preloadFeatureVideo.preload = 'auto';
         preloadFeatureVideo.muted = true;
@@ -1389,6 +1499,7 @@ function hideLogoVideo(callback){
 
 function hideFeatureOverlays(callback){
     infoPanel.classList.remove('show');
+    closeHowOverlay();
     backBtn.classList.remove('show');
     infoPanelShownDuringSequence = false;
 
@@ -1456,25 +1567,27 @@ function showDefaultFeatureVideoFirstFrame(){
         return;
     }
 
-    const defaultFeature = features[defaultFeatureId];
-    featureVideo.src = defaultFeature.videoSrc || 'pc_zoom.mp4';
-    featureVideo.style.display = 'block';
-    featureVideo.classList.add('show');
-    featureVideo.pause();
-    featureVideo.load();
+    /*
+       The default hotspot screen now uses the expanded JPG only.
+       Keeping the MP4 visible on the default screen can reveal its edges during
+       the mouse parallax, so every reverse finishes by hiding the feature video
+       and returning to default frame.jpg.
+    */
+    cancelReverseVideo();
+    [featureVideo, reverseFeatureVideo].forEach(video=>{
+        if(!video){
+            return;
+        }
 
-    const holdFirstFrame = ()=>{
+        video.pause();
+        video.classList.remove('show');
+        video.style.display = 'none';
+        video.playbackRate = 1;
+
         try{
-            featureVideo.currentTime = 0;
+            video.currentTime = 0;
         }catch(error){}
-        featureVideo.pause();
-    };
-
-    if(featureVideo.readyState >= 1){
-        holdFirstFrame();
-    }else{
-        featureVideo.addEventListener('loadedmetadata', holdFirstFrame, {once:true});
-    }
+    });
 }
 
 function cancelReverseVideo(){
@@ -1492,6 +1605,7 @@ function playVideoFeature(feature){
     cancelReverseVideo();
     featureVideo.pause();
     featureVideo.src = feature.videoSrc || 'contact.mp4';
+    positionFeatureVideo();
     featureVideo.style.display = 'block';
     featureVideo.classList.add('show');
     featureVideo.playbackRate = 1;
@@ -1512,6 +1626,20 @@ function playVideoFeature(feature){
     }else{
         featureVideo.addEventListener('loadedmetadata', startPlayback, {once:true});
     }
+}
+
+function preloadReverseFeatureVideo(feature){
+    if(!reverseFeatureVideo || !feature || !feature.reverseVideoSrc){
+        return;
+    }
+
+    reverseFeatureVideo.pause();
+    reverseFeatureVideo.src = feature.reverseVideoSrc;
+    reverseFeatureVideo.preload = 'auto';
+    reverseFeatureVideo.muted = true;
+    reverseFeatureVideo.playsInline = true;
+    reverseFeatureVideo.load();
+    positionFeatureVideo();
 }
 
 function completeVideoFeatureForward(){
@@ -1536,9 +1664,61 @@ function completeVideoFeatureForward(){
     if(activeFeature.playLogoVideos){
         showLogoVideo();
     }
+
+    if(activeFeature.showHowOverlay){
+        preloadReverseFeatureVideo(activeFeature);
+        openHowOverlay();
+    }
 }
 
-function reverseFeatureVideoToFirstFrame(callback){
+function playPreloadedReverseVideo(callback){
+    cancelReverseVideo();
+
+    featureVideo.pause();
+    featureVideo.classList.remove('show');
+    featureVideo.style.display = 'none';
+
+    positionFeatureVideo();
+    reverseFeatureVideo.pause();
+    reverseFeatureVideo.style.display = 'block';
+    reverseFeatureVideo.classList.add('show');
+    reverseFeatureVideo.playbackRate = 1;
+
+    try{
+        reverseFeatureVideo.currentTime = 0;
+    }catch(error){}
+
+    const finish = ()=>{
+        reverseFeatureVideo.removeEventListener('ended', finish);
+        reverseFeatureVideo.removeEventListener('error', fallback);
+        reverseFeatureVideo.pause();
+        reverseFeatureVideo.classList.remove('show');
+        reverseFeatureVideo.style.display = 'none';
+
+        if(typeof callback === 'function'){
+            callback();
+        }
+    };
+
+    const fallback = ()=>{
+        reverseFeatureVideo.removeEventListener('ended', finish);
+        reverseFeatureVideo.removeEventListener('error', fallback);
+        reverseFeatureVideo.classList.remove('show');
+        reverseFeatureVideo.style.display = 'none';
+        reverseFeatureVideoToFirstFrame(callback, true);
+    };
+
+    reverseFeatureVideo.addEventListener('ended', finish, {once:true});
+    reverseFeatureVideo.addEventListener('error', fallback, {once:true});
+
+    const playPromise = reverseFeatureVideo.play();
+
+    if(playPromise !== undefined){
+        playPromise.catch(fallback);
+    }
+}
+
+function reverseFeatureVideoToFirstFrame(callback, ignorePreloadedReverse = false){
     if(!featureVideo){
         if(typeof callback === 'function'){
             callback();
@@ -1546,8 +1726,14 @@ function reverseFeatureVideoToFirstFrame(callback){
         return;
     }
 
+    if(!ignorePreloadedReverse && activeFeature && activeFeature.reverseVideoSrc && reverseFeatureVideo && reverseFeatureVideo.readyState >= 2){
+        playPreloadedReverseVideo(callback);
+        return;
+    }
+
     cancelReverseVideo();
     featureVideo.pause();
+    positionFeatureVideo();
     featureVideo.style.display = 'block';
     featureVideo.classList.add('show');
 
@@ -1563,6 +1749,7 @@ function reverseFeatureVideoToFirstFrame(callback){
             featureVideo.currentTime = 0;
         }catch(error){}
 
+        positionFeatureVideo();
         featureVideo.classList.add('show');
         featureVideo.style.display = 'block';
 
@@ -1757,12 +1944,16 @@ if(featureVideo){
 }
 
 window.addEventListener('resize', ()=>{
+    positionExpandedDefaultImage();
+    positionFeatureVideo();
     positionAllHotspots();
     positionLogoVideo();
     refreshMagneticTargets();
 });
 
 mainImage.addEventListener('load', ()=>{
+    positionExpandedDefaultImage();
+    positionFeatureVideo();
     positionAllHotspots();
     positionLogoVideo();
 });
@@ -1795,6 +1986,8 @@ animation.addEventListener('complete', ()=>{
 
     setMainImageToDefaultFrame();
     mainSite.classList.add('show');
+    positionExpandedDefaultImage();
+    positionFeatureVideo();
     positionAllHotspots();
     positionLogoVideo();
     preloadAssets();
@@ -1808,6 +2001,8 @@ animation.addEventListener('complete', ()=>{
 preloadAssets();
 setMainImageToDefaultFrame();
 showDefaultFeatureVideoFirstFrame();
+positionExpandedDefaultImage();
+positionFeatureVideo();
 positionAllHotspots();
 positionLogoVideo();
 
@@ -2102,7 +2297,8 @@ function animateCursorAndParallax(){
     setParallaxVars(backBtn, parallaxX * 12, parallaxY * 9);
     setParallaxVars(document.querySelector('.topContactBtn'), parallaxX * -15, parallaxY * -11);
     setParallaxVars(document.querySelector('.bottomBrainBtn'), parallaxX * -13, parallaxY * 10);
-    setParallaxVars(document.querySelector('.contactPanel'), parallaxX * 15, parallaxY * 11);
+    setParallaxVars(document.querySelector('#contactOverlay .contactPanel'), parallaxX * 15, parallaxY * 11);
+    setParallaxVars(document.querySelector('#howOverlay .contactPanel'), parallaxX * 15, parallaxY * 11);
     setParallaxVars(document.querySelector('.chessPanel'), parallaxX * 12, parallaxY * 9);
 
     const contactLogo = document.querySelector('.contactLogo');
@@ -2306,6 +2502,43 @@ chessHintBtn.addEventListener('click', showChessHint);
 chessShowMoveBtn.addEventListener('click', showCorrectChessMove);
 chessResetBtn.addEventListener('click', resetChessPuzzle);
 chessTryAnotherBtn.addEventListener('click', resetChessPuzzle);
+
+/* =========================
+   HOW IT WORKS OVERLAY
+========================= */
+
+const howOverlay = document.getElementById('howOverlay');
+const closeHowBtn = document.getElementById('closeHowBtn');
+const howCloseArea = document.querySelector('.howCloseArea');
+
+function openHowOverlay(){
+    howOverlay.classList.add('show');
+    howOverlay.setAttribute('aria-hidden','false');
+    refreshMagneticTargets();
+}
+
+function closeHowOverlay(reverseAfterClose = false){
+    if(!howOverlay){
+        return;
+    }
+
+    const wasOpen = howOverlay.classList.contains('show');
+    howOverlay.classList.remove('show');
+    howOverlay.setAttribute('aria-hidden','true');
+
+    if(reverseAfterClose && wasOpen && activeFeature && activeFeature.showHowOverlay && sequenceStarted && !isAnimatingSequence){
+        setTimeout(goBackToDefaultFrame, 120);
+    }
+}
+
+closeHowBtn.addEventListener('click', ()=>closeHowOverlay(true));
+howCloseArea.addEventListener('click', ()=>closeHowOverlay(true));
+
+document.addEventListener('keydown', (event)=>{
+    if(event.key === 'Escape' && howOverlay.classList.contains('show')){
+        closeHowOverlay(true);
+    }
+});
 
 /* =========================
    CONTACT OVERLAY
