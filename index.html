@@ -379,6 +379,65 @@ html,body{
     }
 }
 
+
+/* =========================
+   CONTACT LAST-FRAME OVERLAYS
+========================= */
+
+.contactFramePanel{
+    position:fixed;
+    z-index:19;
+    width:600px;
+    padding:28px 34px;
+    border-radius:24px;
+    background:rgba(0,0,0,.42);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 24px 70px rgba(0,0,0,.38);
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform-origin:left top;
+    transition:opacity .55s ease, visibility .55s ease;
+}
+
+.contactFramePanel.show{
+    opacity:1;
+    visibility:visible;
+}
+
+.contactFramePanel h2{
+    font-size:34px;
+    line-height:1.1;
+    letter-spacing:2px;
+    margin-bottom:14px;
+    text-transform:uppercase;
+}
+
+.contactFramePanel p{
+    font-size:18px;
+    line-height:1.55;
+    color:rgba(255,255,255,.88);
+}
+
+#contactEmailHotspot{
+    position:fixed;
+    z-index:36;
+    display:none;
+    pointer-events:none;
+    background:rgba(255,255,255,0);
+    border-radius:8px;
+}
+
+#contactEmailHotspot.show{
+    display:block;
+    pointer-events:auto;
+}
+
+.topContactBtn.forceShow{ display:flex; }
+.topContactBtn.forceHide{ display:none; }
+
 /* =========================
    TOP CONTACT BUTTON
 ========================= */
@@ -1033,6 +1092,16 @@ a,
         <video id="reverseFeatureVideo" muted playsinline preload="auto"></video>
     </div>
 
+    <div id="contactFramePanel" class="contactFramePanel" aria-hidden="true">
+        <h2>Request a Real-Time Demo</h2>
+        <p>
+            Contact Home View Solutions to request a live demo or learn more about the interactive home visualization experience.
+        </p>
+    </div>
+
+    <a id="contactEmailHotspot" href="mailto:marie@homeviewsolutions.com" aria-label="Email Marie at Home View Solutions"></a>
+
+
     <div class="mainVignette" aria-hidden="true"></div>
 
     <svg id="hotspotAnchorSvg" class="hotspotAnchorSvg" aria-hidden="true"></svg>
@@ -1261,6 +1330,9 @@ const mainImage = document.getElementById('mainImage');
 const logoVideo = document.getElementById('logoVideo');
 const featureVideo = document.getElementById('featureVideo');
 const reverseFeatureVideo = document.getElementById('reverseFeatureVideo');
+const contactFramePanel = document.getElementById('contactFramePanel');
+const contactEmailHotspot = document.getElementById('contactEmailHotspot');
+const contactEmailAddress = 'marie@homeviewsolutions.com';
 const logoVideoFiles = ['HV_Logo.mp4', 'HV_Logo_02.mp4'];
 const backBtn = document.getElementById('backBtn');
 const infoPanel = document.getElementById('infoPanel');
@@ -1348,6 +1420,89 @@ function positionFeatureVideo(){
         video.style.width = `${rect.width}px`;
         video.style.height = `${rect.height}px`;
     });
+}
+
+
+function positionContactFrameOverlays(){
+    const rect = getDisplayedImageRect();
+    const scale = rect.width / imageNaturalWidth;
+
+    if(contactFramePanel){
+        /* TWEAK THESE THREE NUMBERS if the left contact window needs nudging. */
+        const panelX = 430;      // moved more to the right
+        const panelY = 425;
+        const panelWidth = 600;
+
+        const panelPoint = getTransformedMainPlanePoint({
+            x: rect.left + (panelX * scale),
+            y: rect.top + (panelY * scale)
+        });
+
+        contactFramePanel.style.left = `${panelPoint.x}px`;
+        contactFramePanel.style.top = `${panelPoint.y}px`;
+        contactFramePanel.style.width = `${panelWidth}px`;
+        contactFramePanel.style.transform = `scale(${scale.toFixed(4)})`;
+    }
+
+    if(contactEmailHotspot){
+        /* TWEAK THESE FOUR NUMBERS if the invisible email click area needs nudging. */
+        const emailX = 1268;
+        const emailY = 552;
+        const emailW = 590;
+        const emailH = 135;
+
+        const topLeft = getTransformedMainPlanePoint({
+            x: rect.left + (emailX * scale),
+            y: rect.top + (emailY * scale)
+        });
+        const bottomRight = getTransformedMainPlanePoint({
+            x: rect.left + ((emailX + emailW) * scale),
+            y: rect.top + ((emailY + emailH) * scale)
+        });
+
+        contactEmailHotspot.style.left = `${Math.min(topLeft.x, bottomRight.x)}px`;
+        contactEmailHotspot.style.top = `${Math.min(topLeft.y, bottomRight.y)}px`;
+        contactEmailHotspot.style.width = `${Math.abs(bottomRight.x - topLeft.x)}px`;
+        contactEmailHotspot.style.height = `${Math.abs(bottomRight.y - topLeft.y)}px`;
+    }
+}
+
+function showContactFrameOverlays(){
+    positionContactFrameOverlays();
+    if(contactFramePanel){
+        contactFramePanel.classList.add('show');
+        contactFramePanel.setAttribute('aria-hidden','false');
+    }
+    if(contactEmailHotspot){
+        contactEmailHotspot.classList.add('show');
+    }
+    refreshMagneticTargets();
+}
+
+function hideContactFrameOverlays(){
+    if(contactFramePanel){
+        contactFramePanel.classList.remove('show');
+        contactFramePanel.setAttribute('aria-hidden','true');
+    }
+    if(contactEmailHotspot){
+        contactEmailHotspot.classList.remove('show');
+    }
+}
+
+
+if(contactEmailHotspot){
+    contactEmailHotspot.addEventListener('click', (event)=>{
+        event.preventDefault();
+        window.location.href = `mailto:${contactEmailAddress}`;
+    });
+}
+
+function updateTopContactButtonVisibility(){
+    const topContactBtn = document.querySelector('.topContactBtn');
+    if(!topContactBtn){ return; }
+    const shouldShow = sequenceStarted && activeFeature && activeFeature !== features.contact;
+    topContactBtn.classList.toggle('forceShow', shouldShow);
+    topContactBtn.classList.toggle('forceHide', !shouldShow);
 }
 
 function positionHotspot(feature){
@@ -1499,6 +1654,7 @@ function hideLogoVideo(callback){
 
 function hideFeatureOverlays(callback){
     infoPanel.classList.remove('show');
+    hideContactFrameOverlays();
     closeHowOverlay();
     backBtn.classList.remove('show');
     infoPanelShownDuringSequence = false;
@@ -1663,6 +1819,10 @@ function completeVideoFeatureForward(){
 
     if(activeFeature.playLogoVideos){
         showLogoVideo();
+    }
+
+    if(activeFeature === features.contact){
+        showContactFrameOverlays();
     }
 
     if(activeFeature.showHowOverlay){
@@ -1856,6 +2016,7 @@ function resetAfterVideoReverse(){
     setMainImageToDefaultFrame();
     showAllHotspots();
     positionAllHotspots();
+    updateTopContactButtonVisibility();
 }
 
 function playForwardSequence(featureId){
@@ -1872,6 +2033,7 @@ function playForwardSequence(featureId){
     sequenceStarted = true;
     infoPanelShownDuringSequence = false;
     hideAllHotspots();
+    updateTopContactButtonVisibility();
 
     if(activeFeature.useVideoToLastFrame){
         playVideoFeature(activeFeature);
@@ -1948,6 +2110,7 @@ window.addEventListener('resize', ()=>{
     positionFeatureVideo();
     positionAllHotspots();
     positionLogoVideo();
+    positionContactFrameOverlays();
     refreshMagneticTargets();
 });
 
@@ -2005,6 +2168,7 @@ positionExpandedDefaultImage();
 positionFeatureVideo();
 positionAllHotspots();
 positionLogoVideo();
+updateTopContactButtonVisibility();
 
 
 /* =========================
@@ -2183,7 +2347,7 @@ function refreshMagneticTargets(){
     document.querySelectorAll(hoverTargetsSelector).forEach(element=>{
         /* Phone/email links and chess control buttons still trigger the custom cursor hover pulse,
            but they should not physically pull toward the mouse. */
-        if(element.closest('.contactCard') || element.closest('.chessControls')){
+        if(element.closest('.contactCard') || element.closest('.chessControls') || element.id === 'contactEmailHotspot'){
             element.style.setProperty('--magnetX', '0px');
             element.style.setProperty('--magnetY', '0px');
             element.style.setProperty('--magnetScale', '1');
@@ -2427,6 +2591,10 @@ function animateCursorAndParallax(){
     });
 
     updateHotspotAnchorLines();
+
+    if(contactEmailHotspot && contactEmailHotspot.classList.contains('show')){
+        positionContactFrameOverlays();
+    }
 
     requestAnimationFrame(animateCursorAndParallax);
 }
