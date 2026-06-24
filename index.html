@@ -187,13 +187,30 @@ html,body{
     opacity:1;
 }
 
-#mainImage{
+#mainImage,
+#sequenceImage{
     position:absolute;
-    z-index:1;
     object-fit:fill;
     object-position:center center;
     user-select:none;
     -webkit-user-drag:none;
+}
+
+#mainImage{
+    z-index:1;
+}
+
+#sequenceImage{
+    z-index:2;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .18s ease;
+}
+
+#sequenceImage.show{
+    opacity:1;
+    visibility:visible;
 }
 
 #featureVideo,
@@ -1080,6 +1097,7 @@ a,
 <div id="mainSite">
     <div id="mainPlane">
         <img id="mainImage" src="default frame.jpg" alt="Home View Solutions preview">
+        <img id="sequenceImage" src="" alt="" aria-hidden="true">
 
         <video id="logoVideo" muted playsinline preload="auto">
             <source src="HV_Logo.mp4" type="video/mp4">
@@ -1254,21 +1272,19 @@ const defaultFeatureId = 'finishes';
 const defaultFrameSrc = 'default frame.jpg';
 
 /*
-   Expanded default frame alignment:
-   - MP4s / old frames are 1920 x 1080.
-   - The new default JPG is 2346 x 1424.
-   - The original 1920 x 1080 area sits centered inside it.
-   These numbers keep the non-expanded part of default frame.jpg perfectly
-   locked to the first frame of every 1920 x 1080 JPG sequence.
+   Default frame / sequence alignment:
+   - default frame.jpg is now 2380 x 1464.
+   - All JPG sequences are 1920 x 1080.
+   - The default frame was scaled up from the 1920 x 1080 sequence frame
+     perfectly from center, so the 1920 x 1080 sequence area sits centered
+     inside the 2380 x 1464 default image.
+   - No manual nudge is used anymore.
 */
-const expandedDefaultWidth = 2346;
-const expandedDefaultHeight = 1424;
-const expandedDefaultInnerOffsetX = (expandedDefaultWidth - imageNaturalWidth) / 2;   // 213
-const expandedDefaultInnerOffsetY = (expandedDefaultHeight - imageNaturalHeight) / 2; // 172
-
-/* TWEAK ONLY THESE TWO LINES until default frame and sequence first frames match perfectly. */
-const DEFAULT_FRAME_NUDGE_X = 22;
-const DEFAULT_FRAME_NUDGE_Y = 10;
+const expandedDefaultWidth = 2380;
+const expandedDefaultHeight = 1464;
+const expandedDefaultInnerOffsetX = (expandedDefaultWidth - imageNaturalWidth) / 2;   // 230
+const expandedDefaultInnerOffsetY = (expandedDefaultHeight - imageNaturalHeight) / 2; // 192
+const SEQUENCE_FADE_MS = 180;
 
 const features = {
     finishes: {
@@ -1323,6 +1339,7 @@ const features = {
 };
 
 const mainImage = document.getElementById('mainImage');
+const sequenceImage = document.getElementById('sequenceImage');
 const logoVideo = document.getElementById('logoVideo');
 const featureVideo = document.getElementById('featureVideo');
 const reverseFeatureVideo = document.getElementById('reverseFeatureVideo');
@@ -1349,16 +1366,15 @@ function frameName(feature, index){
 function setMainImageToDefaultFrame(){
     mainImage.src = defaultFrameSrc;
     positionExpandedDefaultImage();
+    hideSequenceImage(true);
 }
 
 function getDisplayedImageRect(){
     /*
-       This returns the real visible 1920 x 1080 sequence plane inside #mainPlane.
-
-       Important:
-       The new default image is larger than 1920 x 1080, but the original
-       non-expanded area inside it must still align to this exact rectangle.
-       Hotspots, JPG sequences, logo videos and anchor dots all use this 1920 x 1080 rect.
+       This is the real 1920 x 1080 sequence plane.
+       The larger default frame is positioned around this exact rectangle,
+       so default frame, hotspot anchors, JPG sequences, logo videos and
+       contact overlays all share one parallax plane.
     */
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -1398,30 +1414,60 @@ function positionExpandedDefaultImage(){
     const rect = getDisplayedImageRect();
     const scale = rect.width / imageNaturalWidth;
 
-    mainImage.style.left = `${rect.left - (expandedDefaultInnerOffsetX * scale) + DEFAULT_FRAME_NUDGE_X}px`;
-    mainImage.style.top = `${rect.top - (expandedDefaultInnerOffsetY * scale) + DEFAULT_FRAME_NUDGE_Y}px`;
+    mainImage.style.left = `${rect.left - (expandedDefaultInnerOffsetX * scale)}px`;
+    mainImage.style.top = `${rect.top - (expandedDefaultInnerOffsetY * scale)}px`;
     mainImage.style.width = `${expandedDefaultWidth * scale}px`;
     mainImage.style.height = `${expandedDefaultHeight * scale}px`;
 }
 
 function positionSequenceImage(){
-    if(!mainImage){
+    if(!sequenceImage){
         return;
     }
 
     const rect = getDisplayedImageRect();
-    mainImage.style.left = `${rect.left}px`;
-    mainImage.style.top = `${rect.top}px`;
-    mainImage.style.width = `${rect.width}px`;
-    mainImage.style.height = `${rect.height}px`;
+    sequenceImage.style.left = `${rect.left}px`;
+    sequenceImage.style.top = `${rect.top}px`;
+    sequenceImage.style.width = `${rect.width}px`;
+    sequenceImage.style.height = `${rect.height}px`;
+}
+
+function showSequenceImage(){
+    if(!sequenceImage){
+        return;
+    }
+
+    positionSequenceImage();
+    sequenceImage.style.visibility = 'visible';
+    requestAnimationFrame(()=>{
+        sequenceImage.classList.add('show');
+    });
+}
+
+function hideSequenceImage(immediate = false){
+    if(!sequenceImage){
+        return;
+    }
+
+    sequenceImage.classList.remove('show');
+
+    if(immediate){
+        sequenceImage.style.visibility = 'hidden';
+        sequenceImage.removeAttribute('src');
+        return;
+    }
+
+    setTimeout(()=>{
+        if(!sequenceImage.classList.contains('show')){
+            sequenceImage.style.visibility = 'hidden';
+            sequenceImage.removeAttribute('src');
+        }
+    }, SEQUENCE_FADE_MS + 30);
 }
 
 function positionMainImageForCurrentState(){
-    if(sequenceStarted && activeFeature){
-        positionSequenceImage();
-    }else{
-        positionExpandedDefaultImage();
-    }
+    positionExpandedDefaultImage();
+    positionSequenceImage();
 }
 
 function positionFeatureVideo(){
@@ -1741,7 +1787,7 @@ function playSequence(feature, start, end, onComplete, onFrame){
         if(time - lastTime >= currentFrameHold){
             positionSequenceImage();
             const preloadedFrame = getPreloadedFrame(feature, frame);
-            mainImage.src = preloadedFrame ? preloadedFrame.src : frameName(feature, frame);
+            sequenceImage.src = preloadedFrame ? preloadedFrame.src : frameName(feature, frame);
 
             if(typeof onFrame === 'function'){
                 onFrame(frame);
@@ -1758,7 +1804,7 @@ function playSequence(feature, start, end, onComplete, onFrame){
         }else{
             positionSequenceImage();
             const preloadedEndFrame = getPreloadedFrame(feature, end);
-            mainImage.src = preloadedEndFrame ? preloadedEndFrame.src : frameName(feature, end);
+            sequenceImage.src = preloadedEndFrame ? preloadedEndFrame.src : frameName(feature, end);
             isAnimatingSequence = false;
 
             if(typeof onComplete === 'function'){
@@ -2098,9 +2144,14 @@ async function playForwardSequence(featureId){
     hideAllHotspots();
     updateTopContactButtonVisibility();
 
+    positionExpandedDefaultImage();
     positionSequenceImage();
+    const firstFrame = getPreloadedFrame(activeFeature, activeFeature.firstFrame);
+    sequenceImage.src = firstFrame ? firstFrame.src : frameName(activeFeature, activeFeature.firstFrame);
+    showSequenceImage();
 
-    playSequence(activeFeature, activeFeature.firstFrame, activeFeature.lastFrame, ()=>{
+    setTimeout(()=>{
+        playSequence(activeFeature, activeFeature.firstFrame, activeFeature.lastFrame, ()=>{
         backBtn.classList.add('show');
 
         if(activeFeature.showInfoPanel){
@@ -2123,6 +2174,7 @@ async function playForwardSequence(featureId){
             showInfoPanel();
         }
     });
+    }, SEQUENCE_FADE_MS);
 }
 
 function goBackToDefaultFrame(){
@@ -2136,7 +2188,8 @@ function goBackToDefaultFrame(){
         playSequence(featureToReverse, featureToReverse.lastFrame, featureToReverse.firstFrame, ()=>{
             activeFeature = null;
             sequenceStarted = false;
-            setMainImageToDefaultFrame();
+            positionExpandedDefaultImage();
+            hideSequenceImage(false);
             showAllHotspots();
             positionAllHotspots();
             updateTopContactButtonVisibility();
@@ -2182,6 +2235,12 @@ mainImage.addEventListener('load', ()=>{
     positionAllHotspots();
     positionLogoVideo();
 });
+
+if(sequenceImage){
+    sequenceImage.addEventListener('load', ()=>{
+        positionSequenceImage();
+    });
+}
 
 /* =========================
    LOTTIE
