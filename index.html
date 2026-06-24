@@ -1468,6 +1468,13 @@ let currentLogoVideoIndex = 0;
 let isCardSequenceAnimating = false;
 let cardSequenceOpen = false;
 
+function setDownloadHotspotLabel(text){
+    if(!downloadHotspot){ return; }
+    const label = downloadHotspot.querySelector('.hotspotLabel');
+    if(label){ label.textContent = text; }
+    downloadHotspot.setAttribute('aria-label', text === 'FLIP BACK' ? 'Flip contact card back' : 'Download contact card');
+}
+
 function frameName(feature, index){
     return `${feature.folder}/${feature.prefix}${String(index).padStart(2,'0')}.jpg`;
 }
@@ -1653,12 +1660,25 @@ function hideDownloadHotspot(){
     downloadHotspot.style.setProperty('--magnetScale', '1');
 }
 
-function showCardSequenceImage(frameIndex = CARD_SEQUENCE_FIRST_FRAME){
+function showCardSequenceImage(frameIndex = CARD_SEQUENCE_FIRST_FRAME, instant = false){
     if(!cardSequenceImage){ return; }
     positionCardSequenceOverlay();
     const preloadedFrame = getPreloadedCardFrame(frameIndex);
     cardSequenceImage.src = preloadedFrame ? preloadedFrame.src : cardFrameName(frameIndex);
     cardSequenceImage.style.visibility = 'visible';
+
+    if(instant){
+        // First contact-card overlay must appear fully opaque before contact_clean.jpg
+        // replaces contact62 underneath, otherwise the original card flashes away.
+        cardSequenceImage.style.transition = 'none';
+        cardSequenceImage.classList.add('show');
+        cardSequenceImage.offsetHeight;
+        requestAnimationFrame(()=>{
+            cardSequenceImage.style.transition = '';
+        });
+        return;
+    }
+
     requestAnimationFrame(()=>{ cardSequenceImage.classList.add('show'); });
 }
 
@@ -1710,29 +1730,70 @@ function playCardSequence(start, end, onComplete){
     requestAnimationFrame(animate);
 }
 
+function waitForNextPaint(){
+    return new Promise(resolve=>{
+        requestAnimationFrame(()=>{
+            requestAnimationFrame(resolve);
+        });
+    });
+}
+
+async function setSequenceImageToContactLastFrame(){
+    if(!sequenceImage){ return; }
+
+    const lastFrame = getPreloadedFrame(features.contact, features.contact.lastFrame);
+    const lastFrameSrc = lastFrame ? lastFrame.src : frameName(features.contact, features.contact.lastFrame);
+
+    if(lastFrame && typeof lastFrame.decode === 'function'){
+        await lastFrame.decode().catch(()=>{});
+    }
+
+    positionSequenceImage();
+    sequenceImage.src = lastFrameSrc;
+    showSequenceImage();
+    await waitForNextPaint();
+}
+
 async function showContactCardSequence(){
     await waitForCardFrame(CARD_SEQUENCE_FIRST_FRAME);
 
     if(!activeFeature || activeFeature !== features.contact){ return; }
 
-    showCardSequenceImage(CARD_SEQUENCE_FIRST_FRAME);
-
     /*
-       The PNG card loads first. Then contact62 underneath is replaced with
-       contact_clean.jpg, so the final contact background is clean while the
-       card overlay stays on top.
+       Important order:
+       1. Put card00 on top of contact62.
+       2. Wait until the browser has actually painted card00.
+       3. Only then swap contact62 underneath to contact_clean.jpg.
+       This prevents the original card from disappearing for a frame.
     */
+    showCardSequenceImage(CARD_SEQUENCE_FIRST_FRAME, true);
+    await waitForNextPaint();
+
+    if(!activeFeature || activeFeature !== features.contact){ return; }
+
     sequenceImage.src = contactCleanFrameSrc;
 
     cardSequenceOpen = false;
+    setDownloadHotspotLabel('DOWNLOAD');
     showDownloadHotspot();
 }
 
-function hideContactCardSequence(){
+async function hideContactCardSequence(restoreContact62First = false){
     hideDownloadHotspot();
+
+    /*
+       When leaving the contact page, contact_clean.jpg must become contact62
+       before the PNG overlay is removed. Otherwise the business card vanishes
+       for a moment before the reverse JPG sequence starts.
+    */
+    if(restoreContact62First){
+        await setSequenceImageToContactLastFrame();
+    }
+
     hideCardSequenceImage(true);
     isCardSequenceAnimating = false;
     cardSequenceOpen = false;
+    setDownloadHotspotLabel('DOWNLOAD');
 }
 
 
@@ -2020,10 +2081,13 @@ function hideLogoVideo(callback){
     }, 700);
 }
 
-function hideFeatureOverlays(callback){
+async function hideFeatureOverlays(callback){
     infoPanel.classList.remove('show');
     hideContactFrameOverlays();
-    hideContactCardSequence();
+
+    const shouldRestoreContact62First = activeFeature && activeFeature === features.contact;
+    await hideContactCardSequence(shouldRestoreContact62First);
+
     closeHowOverlay();
     backBtn.classList.remove('show');
     infoPanelShownDuringSequence = false;
@@ -2497,11 +2561,13 @@ if(downloadHotspot){
         if(cardSequenceOpen){
             playCardSequence(CARD_SEQUENCE_LAST_FRAME, CARD_SEQUENCE_FIRST_FRAME, ()=>{
                 cardSequenceOpen = false;
+                setDownloadHotspotLabel('DOWNLOAD');
                 showDownloadHotspot();
             });
         }else{
             playCardSequence(CARD_SEQUENCE_FIRST_FRAME, CARD_SEQUENCE_LAST_FRAME, ()=>{
                 cardSequenceOpen = true;
+                setDownloadHotspotLabel('FLIP BACK');
                 showDownloadHotspot();
             });
         }
@@ -2628,10 +2694,10 @@ function createHotspotAnchorElements(){
 
     hotspotAnchorSvg.innerHTML = '';
 
-    Object.entries(features).forEach(([featureId])=>{
+    function addAnchorElement(anchorId){
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         group.classList.add('hotspotAnchorGroup');
-        group.dataset.featureId = featureId;
+        group.dataset.featureId = anchorId;
 
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         line.classList.add('hotspotAnchorLine');
@@ -2644,8 +2710,11 @@ function createHotspotAnchorElements(){
         group.appendChild(dot);
         hotspotAnchorSvg.appendChild(group);
 
-        hotspotAnchorElements[featureId] = {group, line, dot};
-    });
+        hotspotAnchorElements[anchorId] = {group, line, dot};
+    }
+
+    Object.keys(features).forEach(addAnchorElement);
+    addAnchorElement('download');
 }
 
 function getHotspotDepth(index){
@@ -2714,6 +2783,15 @@ function getHotspotHomePoint(feature){
     return getTransformedMainPlanePoint(getStaticImagePixelPoint(feature));
 }
 
+function getDownloadHotspotHomePoint(){
+    const rect = getDisplayedImageRect();
+    const scale = rect.width / imageNaturalWidth;
+    return getTransformedMainPlanePoint({
+        x: rect.left + (DOWNLOAD_HOTSPOT_X * scale),
+        y: rect.top + (DOWNLOAD_HOTSPOT_Y * scale)
+    });
+}
+
 function updateHotspotAnchorLines(){
     if(!hotspotAnchorSvg){
         return;
@@ -2721,16 +2799,28 @@ function updateHotspotAnchorLines(){
 
     hotspotAnchorSvg.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
 
-    Object.entries(features).forEach(([featureId, feature], index)=>{
-        const anchor = hotspotAnchorElements[featureId];
-        const hotspot = document.getElementById(feature.hotspotElementId);
+    const anchorItems = Object.entries(features).map(([featureId, feature])=>({
+        anchorId: featureId,
+        hotspot: document.getElementById(feature.hotspotElementId),
+        getHome: ()=>getHotspotHomePoint(feature)
+    }));
+
+    anchorItems.push({
+        anchorId: 'download',
+        hotspot: downloadHotspot,
+        getHome: getDownloadHotspotHomePoint
+    });
+
+    anchorItems.forEach(item=>{
+        const anchor = hotspotAnchorElements[item.anchorId];
+        const hotspot = item.hotspot;
 
         if(!anchor || !hotspot){
             return;
         }
 
         const computedStyle = window.getComputedStyle(hotspot);
-        const hidden = hotspot.classList.contains('hide') || computedStyle.pointerEvents === 'none' || computedStyle.visibility === 'hidden' || computedStyle.display === 'none' || parseFloat(computedStyle.opacity || '1') < 0.04;
+        const hidden = hotspot.classList.contains('hide') || !hotspot.classList.contains('show') && hotspot.id === 'downloadHotspot' || computedStyle.pointerEvents === 'none' || computedStyle.visibility === 'hidden' || computedStyle.display === 'none' || parseFloat(computedStyle.opacity || '1') < 0.04;
 
         anchor.group.classList.toggle('is-hidden', hidden);
         anchor.group.classList.toggle('is-active', hotspot.classList.contains('label-active'));
@@ -2739,7 +2829,7 @@ function updateHotspotAnchorLines(){
             return;
         }
 
-        const home = getHotspotHomePoint(feature, index);
+        const home = item.getHome();
         const hotspotRect = hotspot.getBoundingClientRect();
         const centerX = hotspotRect.left + hotspotRect.width / 2;
         const centerY = hotspotRect.top + hotspotRect.height / 2;
