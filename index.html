@@ -188,7 +188,8 @@ html,body{
 }
 
 #mainImage,
-#sequenceImage{
+#sequenceImage,
+#screenDefaultImage{
     position:absolute;
     object-fit:fill;
     object-position:center center;
@@ -213,6 +214,19 @@ html,body{
     visibility:visible;
 }
 
+#screenDefaultImage{
+    z-index:3;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .7s ease;
+}
+
+#screenDefaultImage.show{
+    opacity:1;
+    visibility:visible;
+}
+
 #featureVideo,
 #reverseFeatureVideo{
     position:absolute;
@@ -230,30 +244,42 @@ html,body{
     opacity:1;
 }
 
-#logoVideo{
+#logoVideoMaskPlane{
     position:absolute;
     z-index:6;
     display:none;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .65s ease;
+    transform-origin:left top;
+    will-change:transform;
+    /* The mask.jpg is 1920 x 1080, so this wrapper is positioned/scaled exactly like the 1920 image sequence plane. */
+    -webkit-mask-image:url("mask.jpg");
+    -webkit-mask-size:100% 100%;
+    -webkit-mask-position:center;
+    -webkit-mask-repeat:no-repeat;
+    -webkit-mask-mode:luminance;
+    mask-image:url("mask.jpg");
+    mask-size:100% 100%;
+    mask-position:center;
+    mask-repeat:no-repeat;
+    mask-mode:luminance;
+}
+
+#logoVideoMaskPlane.show{
+    opacity:1;
+}
+
+#logoVideo{
+    position:absolute;
+    display:block;
     height:auto;
     object-fit:contain;
     object-position:left top;
     pointer-events:none;
-    opacity:0;
-    transition:opacity .65s ease;
+    opacity:1;
     transform-origin:left top;
     will-change:transform;
-    -webkit-mask-image:
-        linear-gradient(to right, transparent 0, #000 30px, #000 calc(100% - 30px), transparent 100%),
-        linear-gradient(to bottom, transparent 0, #000 30px, #000 calc(100% - 30px), transparent 100%);
-    -webkit-mask-composite:source-in;
-    mask-image:
-        linear-gradient(to right, transparent 0, #000 30px, #000 calc(100% - 30px), transparent 100%),
-        linear-gradient(to bottom, transparent 0, #000 30px, #000 calc(100% - 30px), transparent 100%);
-    mask-composite:intersect;
-}
-
-#logoVideo.show{
-    opacity:1;
 }
 
 .backBtn{
@@ -327,6 +353,14 @@ html,body{
 .infoPanel p{
     line-height:1.7;
     color:rgba(255,255,255,.88);
+}
+
+.infoPanel .monitorActionText{
+    margin-top:18px;
+    font-size:14px;
+    line-height:1.45;
+    font-weight:800;
+    color:#ff9d2e;
 }
 
 .infoPanel .nextBtn{
@@ -430,6 +464,16 @@ html,body{
     visibility:visible;
 }
 
+.contactFrameIcon{
+    width:44px;
+    height:44px;
+    object-fit:contain;
+    display:block;
+    margin:0 0 14px;
+    opacity:.96;
+    filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));
+}
+
 .contactFramePanel h2{
     font-size:34px;
     line-height:1.1;
@@ -442,6 +486,23 @@ html,body{
     font-size:18px;
     line-height:1.55;
     color:rgba(255,255,255,.88);
+}
+
+.contactFramePanel .contactCardActionText{
+    margin-top:16px;
+    font-size:13px;
+    line-height:1.45;
+    font-weight:800;
+    color:#ff9d2e;
+}
+
+.contactFramePanel .contactMiniDetails{
+    margin-top:10px;
+    font-size:16px;
+    line-height:1.45;
+    color:rgba(255,255,255,.92);
+    font-family:"Segoe Script", "Brush Script MT", cursive;
+    font-weight:300;
 }
 
 #contactEmailHotspot{
@@ -783,6 +844,70 @@ a,
 
 #downloadHotspot.show{
     display:block;
+}
+
+#productPlayHotspot{
+    position:fixed;
+    z-index:38;
+    display:none;
+}
+
+#productPlayHotspot.show{
+    display:block;
+    pointer-events:auto;
+}
+
+#productPlayHotspot.show .hotspotLabel{
+    pointer-events:none;
+}
+
+#movieControls{
+    position:fixed;
+    z-index:39;
+    display:none;
+    pointer-events:none;
+    gap:8px;
+    align-items:center;
+    justify-content:center;
+    padding:10px 14px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.18);
+    background:rgba(0,0,0,.32);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    box-shadow:0 18px 48px rgba(0,0,0,.34);
+    transform:translate(-50%,-50%);
+}
+
+#movieControls.show{
+    display:flex;
+    pointer-events:auto;
+}
+
+.movieControlBtn{
+    width:44px;
+    height:44px;
+    border:none;
+    border-radius:999px;
+    cursor:pointer;
+    background:rgba(255,255,255,.08);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:background .32s ease, opacity .32s ease;
+    transform:none !important;
+}
+
+.movieControlBtn img{
+    width:22px;
+    height:22px;
+    object-fit:contain;
+    pointer-events:none;
+}
+
+.movieControlBtn:hover{
+    background:rgba(255,255,255,.18);
+    transform:none !important;
 }
 
 /* =========================
@@ -1167,11 +1292,14 @@ a,
     <div id="mainPlane">
         <img id="mainImage" src="default frame.jpg" alt="Home View Solutions preview">
         <img id="sequenceImage" src="" alt="" aria-hidden="true">
+        <img id="screenDefaultImage" src="" alt="" aria-hidden="true">
         <img id="cardSequenceImage" src="" alt="" aria-hidden="true">
 
-        <video id="logoVideo" muted playsinline preload="auto">
-            <source src="HV_Logo.mp4" type="video/mp4">
-        </video>
+        <div id="logoVideoMaskPlane" aria-hidden="true">
+            <video id="logoVideo" muted playsinline preload="auto">
+                <source src="HV_Logo.mp4" type="video/mp4">
+            </video>
+        </div>
 
         <video id="featureVideo" muted playsinline preload="auto">
             <source src="pc_zoom.mp4" type="video/mp4">
@@ -1181,16 +1309,31 @@ a,
     </div>
 
     <div id="contactFramePanel" class="contactFramePanel" aria-hidden="true">
+        <img src="contact.png" class="contactFrameIcon" alt="">
         <h2>Request a Real-Time Demo</h2>
         <p>
             Contact Home View Solutions to request a live demo or learn more about the interactive home visualization experience.
         </p>
+        <p>
+            We can walk you through the interactive features, show how buyers can explore options in real time, and explain how the experience can be customized for your homes or developments.
+        </p>
+        <p class="contactCardActionText"><strong>Click the hotspot on the business card to download contact info.</strong></p>
+        <p class="contactMiniDetails">Marie Du Toit<br>825 963 4410<br>marie@homeviewsolutions.com</p>
     </div>
 
     <a id="contactEmailHotspot" href="mailto:marie@homeviewsolutions.com" aria-label="Email Marie at Home View Solutions"></a>
     <button id="downloadHotspot" class="hotspot" type="button" aria-label="Download contact card">
         <span class="hotspotLabel" aria-hidden="true">DOWNLOAD</span>
     </button>
+
+    <button id="productPlayHotspot" class="hotspot" type="button" aria-label="Play product demo video">
+        <span class="hotspotLabel" aria-hidden="true">PLAY</span>
+    </button>
+
+    <div id="movieControls" aria-label="Product video controls">
+        <button id="moviePlayBtn" class="movieControlBtn" type="button" aria-label="Play product video"><img src="01 PLAY.png" alt=""></button>
+        <button id="moviePauseBtn" class="movieControlBtn" type="button" aria-label="Pause product video"><img src="01 pause.png" alt=""></button>
+    </div>
 
 
     <div class="mainVignette" aria-hidden="true"></div>
@@ -1222,6 +1365,7 @@ a,
             Every selection updates pricing in real time, helping buyers understand the impact of their choices immediately.
             No software installation is required — everything runs directly in a web browser on desktop, tablet or mobile.
         </p>
+        <p class="monitorActionText"><strong>Click the hotspot on the monitor to see it in action.</strong></p>
         <button class="nextBtn" type="button">Next ▶</button>
     </div>
 
@@ -1344,6 +1488,7 @@ const frameHold = 1000 / frameRate;
 const defaultFeatureId = 'finishes';
 const defaultFrameSrc = 'default frame.jpg';
 const contactCleanFrameSrc = 'contact_clean.jpg';
+const screenDefaultFrameSrc = 'screen_default.png';
 
 /*
    Default frame / sequence alignment:
@@ -1390,6 +1535,15 @@ const CARD_SEQUENCE_HEIGHT = 482;
 const DOWNLOAD_HOTSPOT_X = 1085;
 const DOWNLOAD_HOTSPOT_Y = 374;
 
+/*
+   PLAY hotspot placement from the white dot image you attached.
+   Dot centre measured at x:713.5, y:563.5 on the same 1920 x 1080 plane.
+*/
+const PRODUCT_PLAY_HOTSPOT_X = 713.5;
+const PRODUCT_PLAY_HOTSPOT_Y = 563.5;
+const MOVIE_CONTROLS_X = 731.5;
+const MOVIE_CONTROLS_Y = 838.5;
+
 const features = {
     finishes: {
         folder: 'to screen',
@@ -1403,7 +1557,7 @@ const features = {
         topPercent: 51.48,
         showInfoPanel: true,
         infoPanelTriggerFrame: 22,
-        playLogoVideos: true
+        playLogoVideos: false
     },
     contact: {
         folder: 'to contact',
@@ -1444,13 +1598,19 @@ const features = {
 
 const mainImage = document.getElementById('mainImage');
 const sequenceImage = document.getElementById('sequenceImage');
+const screenDefaultImage = document.getElementById('screenDefaultImage');
 const cardSequenceImage = document.getElementById('cardSequenceImage');
+const logoVideoMaskPlane = document.getElementById('logoVideoMaskPlane');
 const logoVideo = document.getElementById('logoVideo');
 const featureVideo = document.getElementById('featureVideo');
 const reverseFeatureVideo = document.getElementById('reverseFeatureVideo');
 const contactFramePanel = document.getElementById('contactFramePanel');
 const contactEmailHotspot = document.getElementById('contactEmailHotspot');
 const downloadHotspot = document.getElementById('downloadHotspot');
+const productPlayHotspot = document.getElementById('productPlayHotspot');
+const movieControls = document.getElementById('movieControls');
+const moviePlayBtn = document.getElementById('moviePlayBtn');
+const moviePauseBtn = document.getElementById('moviePauseBtn');
 const contactEmailAddress = 'marie@homeviewsolutions.com';
 const logoVideoFiles = ['HV_Logo.mp4', 'HV_Logo_02.mp4'];
 const backBtn = document.getElementById('backBtn');
@@ -1483,6 +1643,7 @@ function setMainImageToDefaultFrame(){
     mainImage.src = defaultFrameSrc;
     positionExpandedDefaultImage();
     hideSequenceImage(true);
+    hideScreenDefaultImage(true);
 }
 
 function getDisplayedImageRect(){
@@ -1546,6 +1707,24 @@ function positionSequenceImage(){
     sequenceImage.style.top = `${rect.top}px`;
     sequenceImage.style.width = `${rect.width}px`;
     sequenceImage.style.height = `${rect.height}px`;
+}
+
+function positionScreenDefaultImage(){
+    if(!screenDefaultImage){ return; }
+    const rect = getDisplayedImageRect();
+    screenDefaultImage.style.left = `${rect.left}px`;
+    screenDefaultImage.style.top = `${rect.top}px`;
+    screenDefaultImage.style.width = `${rect.width}px`;
+    screenDefaultImage.style.height = `${rect.height}px`;
+}
+
+function hideScreenDefaultImage(immediate = true){
+    if(!screenDefaultImage){ return; }
+    screenDefaultImage.classList.remove('show');
+    if(immediate){
+        screenDefaultImage.style.visibility = 'hidden';
+        screenDefaultImage.removeAttribute('src');
+    }
 }
 
 function showSequenceImage(){
@@ -1660,6 +1839,117 @@ function hideDownloadHotspot(){
     downloadHotspot.style.setProperty('--magnetScale', '1');
 }
 
+function getProductPlayHotspotHomePoint(){
+    const rect = getDisplayedImageRect();
+    const scale = rect.width / imageNaturalWidth;
+    return getTransformedMainPlanePoint({
+        x: rect.left + (PRODUCT_PLAY_HOTSPOT_X * scale),
+        y: rect.top + (PRODUCT_PLAY_HOTSPOT_Y * scale)
+    });
+}
+
+function positionProductPlayHotspot(){
+    if(!productPlayHotspot){ return; }
+    const point = getProductPlayHotspotHomePoint();
+    productPlayHotspot.style.left = `${point.x}px`;
+    productPlayHotspot.style.top = `${point.y}px`;
+}
+
+function showProductPlayHotspot(){
+    if(!productPlayHotspot){ return; }
+    positionProductPlayHotspot();
+    productPlayHotspot.classList.add('show');
+    refreshMagneticTargets();
+}
+
+function hideProductPlayHotspot(){
+    if(!productPlayHotspot){ return; }
+    productPlayHotspot.classList.remove('show');
+    productPlayHotspot.style.setProperty('--magnetX', '0px');
+    productPlayHotspot.style.setProperty('--magnetY', '0px');
+    productPlayHotspot.style.setProperty('--magnetScale', '1');
+}
+
+function positionMovieControls(){
+    if(!movieControls){ return; }
+    const rect = getDisplayedImageRect();
+    const scale = rect.width / imageNaturalWidth;
+    const point = getTransformedMainPlanePoint({
+        x: rect.left + (MOVIE_CONTROLS_X * scale),
+        y: rect.top + (MOVIE_CONTROLS_Y * scale)
+    });
+    movieControls.style.left = `${point.x}px`;
+    movieControls.style.top = `${point.y}px`;
+}
+
+function showMovieControls(){
+    if(!movieControls){ return; }
+    positionMovieControls();
+    movieControls.classList.add('show');
+    refreshMagneticTargets();
+}
+
+function hideMovieControls(){
+    if(!movieControls){ return; }
+    movieControls.classList.remove('show');
+    if(moviePlayBtn){
+        moviePlayBtn.style.setProperty('--magnetX', '0px');
+        moviePlayBtn.style.setProperty('--magnetY', '0px');
+        moviePlayBtn.style.setProperty('--magnetScale', '1');
+    }
+    if(moviePauseBtn){
+        moviePauseBtn.style.setProperty('--magnetX', '0px');
+        moviePauseBtn.style.setProperty('--magnetY', '0px');
+        moviePauseBtn.style.setProperty('--magnetScale', '1');
+    }
+}
+
+function setSequenceImageToScreenDefault(){
+    if(!sequenceImage || !screenDefaultImage){ return; }
+
+    /*
+       Keep the final screen sequence frame visible underneath.
+       screen_default.png fades in on its own layer over 0.7s, then becomes
+       the base sequence frame after the fade has finished.
+    */
+    positionSequenceImage();
+    positionScreenDefaultImage();
+
+    const applyFadeIn = ()=>{
+        positionScreenDefaultImage();
+        screenDefaultImage.style.transition = 'none';
+        screenDefaultImage.classList.remove('show');
+        screenDefaultImage.style.opacity = '0';
+        screenDefaultImage.style.visibility = 'visible';
+        screenDefaultImage.src = screenDefaultFrameSrc;
+
+        screenDefaultImage.offsetHeight;
+        requestAnimationFrame(()=>{
+            screenDefaultImage.style.transition = 'opacity .7s ease';
+            screenDefaultImage.style.opacity = '';
+            screenDefaultImage.classList.add('show');
+
+            setTimeout(()=>{
+                if(activeFeature === features.finishes){
+                    sequenceImage.src = screenDefaultFrameSrc;
+                    screenDefaultImage.classList.remove('show');
+                    screenDefaultImage.style.visibility = 'hidden';
+                    screenDefaultImage.removeAttribute('src');
+                }
+                screenDefaultImage.style.transition = '';
+            }, 720);
+        });
+    };
+
+    const img = new Image();
+    img.src = screenDefaultFrameSrc;
+    if(img.complete && img.naturalWidth > 0){
+        applyFadeIn();
+        return;
+    }
+    img.onload = applyFadeIn;
+    img.onerror = applyFadeIn;
+}
 function showCardSequenceImage(frameIndex = CARD_SEQUENCE_FIRST_FRAME, instant = false){
     if(!cardSequenceImage){ return; }
     positionCardSequenceOverlay();
@@ -1800,6 +2090,7 @@ async function hideContactCardSequence(restoreContact62First = false){
 function positionMainImageForCurrentState(){
     positionExpandedDefaultImage();
     positionSequenceImage();
+    positionScreenDefaultImage();
 }
 
 function positionFeatureVideo(){
@@ -1824,8 +2115,8 @@ function positionContactFrameOverlays(){
 
     if(contactFramePanel){
         /* TWEAK THESE THREE NUMBERS if the left contact window needs nudging. */
-        const panelX = 430;      // moved more to the right
-        const panelY = 425;
+        const panelX = 430;      // horizontal position is already correct
+        const panelY = 330;      // vertically centered higher on the card area
         const panelWidth = 600;
 
         const panelPoint = getTransformedMainPlanePoint({
@@ -1841,10 +2132,10 @@ function positionContactFrameOverlays(){
 
     if(contactEmailHotspot){
         /* TWEAK THESE FOUR NUMBERS if the invisible email click area needs nudging. */
-        const emailX = 1268;
-        const emailY = 552;
-        const emailW = 590;
-        const emailH = 135;
+        const emailX = 1046;
+        const emailY = 566;
+        const emailW = 542;
+        const emailH = 68;
 
         const topLeft = getTransformedMainPlanePoint({
             x: rect.left + (emailX * scale),
@@ -1868,7 +2159,7 @@ function showContactFrameOverlays(){
         contactFramePanel.classList.add('show');
         contactFramePanel.setAttribute('aria-hidden','false');
     }
-    if(contactEmailHotspot){
+    if(contactEmailHotspot && !cardSequenceOpen && !isCardSequenceAnimating){
         contactEmailHotspot.classList.add('show');
     }
     refreshMagneticTargets();
@@ -1881,6 +2172,19 @@ function hideContactFrameOverlays(){
     }
     if(contactEmailHotspot){
         contactEmailHotspot.classList.remove('show');
+    }
+}
+
+function hideContactEmailClickArea(){
+    if(contactEmailHotspot){
+        contactEmailHotspot.classList.remove('show');
+    }
+}
+
+function showContactEmailClickArea(){
+    if(contactEmailHotspot && activeFeature === features.contact && !cardSequenceOpen && !isCardSequenceAnimating){
+        positionContactFrameOverlays();
+        contactEmailHotspot.classList.add('show');
     }
 }
 
@@ -1929,20 +2233,26 @@ function showAllHotspots(){
 
 function positionLogoVideo(){
     /*
-       HV_Logo.mp4 / HV_Logo_02.mp4 are positioned inside the same 1920 x 1080
-       sequence plane as the JPG frames. This keeps them locked to the image
-       during parallax and also keeps the placement correct if the full background
-       is expanded again later.
+       The JPG mask is 1920 x 1080, so the mask wrapper uses the exact same
+       rectangle as the 1920 sequence plane. The MP4 is then positioned inside
+       that masked plane using its monitor coordinates.
     */
-    if(!logoVideo){
+    if(!logoVideo || !logoVideoMaskPlane){
         return;
     }
 
     const rect = getDisplayedImageRect();
     const scale = rect.width / imageNaturalWidth;
 
-    logoVideo.style.left = `${rect.left + (LOGO_VIDEO_X * scale)}px`;
-    logoVideo.style.top = `${rect.top + (LOGO_VIDEO_Y * scale)}px`;
+    logoVideoMaskPlane.style.left = `${rect.left}px`;
+    logoVideoMaskPlane.style.top = `${rect.top}px`;
+    logoVideoMaskPlane.style.width = `${rect.width}px`;
+    logoVideoMaskPlane.style.height = `${rect.height}px`;
+    logoVideoMaskPlane.style.transform = 'translate3d(0,0,0)';
+    logoVideoMaskPlane.style.transformOrigin = 'left top';
+
+    logoVideo.style.left = `${LOGO_VIDEO_X * scale}px`;
+    logoVideo.style.top = `${LOGO_VIDEO_Y * scale}px`;
     logoVideo.style.width = `${LOGO_VIDEO_WIDTH * scale}px`;
     logoVideo.style.height = `${LOGO_VIDEO_HEIGHT * scale}px`;
     logoVideo.style.transform = 'translate3d(0,0,0)';
@@ -2056,16 +2366,16 @@ function playLogoVideo(index){
 
 function showLogoVideo(){
     positionLogoVideo();
-    logoVideo.style.display = 'block';
+    logoVideoMaskPlane.style.display = 'block';
 
     requestAnimationFrame(()=>{
-        logoVideo.classList.add('show');
+        logoVideoMaskPlane.classList.add('show');
         playLogoVideo(0);
     });
 }
 
 function hideLogoVideo(callback){
-    logoVideo.classList.remove('show');
+    if(logoVideoMaskPlane){ logoVideoMaskPlane.classList.remove('show'); }
 
     setTimeout(()=>{
         logoVideo.pause();
@@ -2073,7 +2383,7 @@ function hideLogoVideo(callback){
         logoVideo.src = logoVideoFiles[0];
         logoVideo.load();
         logoVideo.currentTime = 0;
-        logoVideo.style.display = 'none';
+        if(logoVideoMaskPlane){ logoVideoMaskPlane.style.display = 'none'; }
 
         if(typeof callback === 'function'){
             callback();
@@ -2084,6 +2394,8 @@ function hideLogoVideo(callback){
 async function hideFeatureOverlays(callback){
     infoPanel.classList.remove('show');
     hideContactFrameOverlays();
+    hideProductPlayHotspot();
+    hideMovieControls();
 
     const shouldRestoreContact62First = activeFeature && activeFeature === features.contact;
     await hideContactCardSequence(shouldRestoreContact62First);
@@ -2092,7 +2404,7 @@ async function hideFeatureOverlays(callback){
     backBtn.classList.remove('show');
     infoPanelShownDuringSequence = false;
 
-    if(activeFeature && activeFeature.playLogoVideos){
+    if(logoVideoMaskPlane && logoVideoMaskPlane.style.display === 'block'){
         hideLogoVideo(callback);
     }else{
         setTimeout(()=>{
@@ -2455,6 +2767,8 @@ function resetAfterVideoReverse(){
     positionAllHotspots();
     updateTopContactButtonVisibility();
     hideContactCardSequence();
+    hideProductPlayHotspot();
+    hideMovieControls();
 }
 
 async function playForwardSequence(featureId){
@@ -2494,6 +2808,11 @@ async function playForwardSequence(featureId){
 
         if(activeFeature.showInfoPanel){
             showInfoPanel();
+        }
+
+        if(activeFeature === features.finishes){
+            setSequenceImageToScreenDefault();
+            showProductPlayHotspot();
         }
 
         if(activeFeature.playLogoVideos){
@@ -2552,6 +2871,54 @@ Object.entries(features).forEach(([featureId, feature])=>{
 });
 
 
+if(productPlayHotspot){
+    productPlayHotspot.addEventListener('mouseenter', ()=>{
+        productPlayHotspot.classList.add('label-active');
+    });
+    productPlayHotspot.addEventListener('mouseleave', ()=>{
+        productPlayHotspot.classList.remove('label-active');
+    });
+    productPlayHotspot.addEventListener('click', ()=>{
+        if(!activeFeature || activeFeature !== features.finishes){ return; }
+        hideProductPlayHotspot();
+        showLogoVideo();
+        showMovieControls();
+    });
+}
+
+function playProductMovieFromControls(event){
+    if(event){
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    if(!logoVideo || !activeFeature || activeFeature !== features.finishes){ return; }
+
+    if(!logoVideoMaskPlane || logoVideoMaskPlane.style.display !== 'block'){
+        showLogoVideo();
+        return;
+    }
+
+    const playPromise = logoVideo.play();
+    if(playPromise !== undefined){ playPromise.catch(()=>{}); }
+}
+
+function pauseProductMovieFromControls(event){
+    if(event){
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    if(!logoVideo || !activeFeature || activeFeature !== features.finishes){ return; }
+    logoVideo.pause();
+}
+
+if(moviePlayBtn){
+    moviePlayBtn.addEventListener('click', playProductMovieFromControls);
+}
+
+if(moviePauseBtn){
+    moviePauseBtn.addEventListener('click', pauseProductMovieFromControls);
+}
+
 if(downloadHotspot){
     downloadHotspot.addEventListener('click', ()=>{
         if(isCardSequenceAnimating || !activeFeature || activeFeature !== features.contact){
@@ -2559,12 +2926,15 @@ if(downloadHotspot){
         }
 
         if(cardSequenceOpen){
+            hideContactEmailClickArea();
             playCardSequence(CARD_SEQUENCE_LAST_FRAME, CARD_SEQUENCE_FIRST_FRAME, ()=>{
                 cardSequenceOpen = false;
                 setDownloadHotspotLabel('DOWNLOAD');
                 showDownloadHotspot();
+                showContactEmailClickArea();
             });
         }else{
+            hideContactEmailClickArea();
             playCardSequence(CARD_SEQUENCE_FIRST_FRAME, CARD_SEQUENCE_LAST_FRAME, ()=>{
                 cardSequenceOpen = true;
                 setDownloadHotspotLabel('FLIP BACK');
@@ -2590,6 +2960,8 @@ window.addEventListener('resize', ()=>{
     positionContactFrameOverlays();
     positionCardSequenceOverlay();
     positionDownloadHotspot();
+    positionProductPlayHotspot();
+    positionMovieControls();
     refreshMagneticTargets();
 });
 
@@ -2600,6 +2972,8 @@ mainImage.addEventListener('load', ()=>{
     positionLogoVideo();
     positionCardSequenceOverlay();
     positionDownloadHotspot();
+    positionProductPlayHotspot();
+    positionMovieControls();
 });
 
 if(sequenceImage){
@@ -2715,6 +3089,7 @@ function createHotspotAnchorElements(){
 
     Object.keys(features).forEach(addAnchorElement);
     addAnchorElement('download');
+    addAnchorElement('productPlay');
 }
 
 function getHotspotDepth(index){
@@ -2811,6 +3186,12 @@ function updateHotspotAnchorLines(){
         getHome: getDownloadHotspotHomePoint
     });
 
+    anchorItems.push({
+        anchorId: 'productPlay',
+        hotspot: productPlayHotspot,
+        getHome: getProductPlayHotspotHomePoint
+    });
+
     anchorItems.forEach(item=>{
         const anchor = hotspotAnchorElements[item.anchorId];
         const hotspot = item.hotspot;
@@ -2820,7 +3201,7 @@ function updateHotspotAnchorLines(){
         }
 
         const computedStyle = window.getComputedStyle(hotspot);
-        const hidden = hotspot.classList.contains('hide') || !hotspot.classList.contains('show') && hotspot.id === 'downloadHotspot' || computedStyle.pointerEvents === 'none' || computedStyle.visibility === 'hidden' || computedStyle.display === 'none' || parseFloat(computedStyle.opacity || '1') < 0.04;
+        const hidden = hotspot.classList.contains('hide') || !hotspot.classList.contains('show') && (hotspot.id === 'downloadHotspot' || hotspot.id === 'productPlayHotspot') || computedStyle.pointerEvents === 'none' || computedStyle.visibility === 'hidden' || computedStyle.display === 'none' || parseFloat(computedStyle.opacity || '1') < 0.04;
 
         anchor.group.classList.toggle('is-hidden', hidden);
         anchor.group.classList.toggle('is-active', hotspot.classList.contains('label-active'));
@@ -2863,7 +3244,7 @@ function refreshMagneticTargets(){
     document.querySelectorAll(hoverTargetsSelector).forEach(element=>{
         /* Phone/email links and chess control buttons still trigger the custom cursor hover pulse,
            but they should not physically pull toward the mouse. */
-        if(element.closest('.contactCard') || element.closest('.chessControls') || element.id === 'contactEmailHotspot'){
+        if(element.closest('.contactCard') || element.closest('.chessControls') || element.closest('#movieControls') || element.classList.contains('movieControlBtn') || element.id === 'contactEmailHotspot'){
             element.style.setProperty('--magnetX', '0px');
             element.style.setProperty('--magnetY', '0px');
             element.style.setProperty('--magnetScale', '1');
@@ -3005,7 +3386,8 @@ function animateCursorAndParallax(){
 
         const labelHotspots = [
             ...Object.values(features).map(feature=>document.getElementById(feature.hotspotElementId)),
-            document.getElementById('downloadHotspot')
+            document.getElementById('downloadHotspot'),
+            document.getElementById('productPlayHotspot')
         ];
 
         labelHotspots.forEach(hotspot=>{
@@ -3113,6 +3495,14 @@ function animateCursorAndParallax(){
 
     if(contactEmailHotspot && contactEmailHotspot.classList.contains('show')){
         positionContactFrameOverlays();
+    }
+
+    if(productPlayHotspot && productPlayHotspot.classList.contains('show')){
+        positionProductPlayHotspot();
+    }
+
+    if(movieControls && movieControls.classList.contains('show')){
+        positionMovieControls();
     }
 
     if(downloadHotspot && downloadHotspot.classList.contains('show')){
