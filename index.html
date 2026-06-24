@@ -242,8 +242,14 @@ html,body{
     transition:opacity .65s ease;
     transform-origin:left top;
     will-change:transform;
-    -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent 100%);
-    mask-image:linear-gradient(to right, #000 calc(100% - 40px), transparent 100%);
+    -webkit-mask-image:
+        linear-gradient(to right, transparent 0, #000 15px, #000 calc(100% - 30px), transparent 100%),
+        linear-gradient(to bottom, transparent 0, #000 15px, #000 calc(100% - 30px), transparent 100%);
+    -webkit-mask-composite:source-in;
+    mask-image:
+        linear-gradient(to right, transparent 0, #000 15px, #000 calc(100% - 30px), transparent 100%),
+        linear-gradient(to bottom, transparent 0, #000 15px, #000 calc(100% - 30px), transparent 100%);
+    mask-composite:intersect;
 }
 
 #logoVideo.show{
@@ -1067,6 +1073,24 @@ a,
 .chessCompleteBox.show{ display:block; }
 @media(max-width:760px){ .chessLogo{ width:58px; top:14px; left:14px; } .chessPanel{ padding:26px 16px 20px; } .chessBoardShell{ grid-template-columns:22px auto; gap:5px; } .chessRanks{ grid-template-rows:repeat(8, min(10.5vw,48px)); } .chessFiles{ grid-template-columns:repeat(8, min(10.5vw,48px)); } .chessBoard{ grid-template-columns:repeat(8, min(10.5vw,48px)); grid-template-rows:repeat(8, min(10.5vw,48px)); } .chessSquare{ width:min(10.5vw,48px); height:min(10.5vw,48px); font-size:min(8.5vw,36px); } }
 
+
+/* No magnetic movement on the right-side info menu buttons. */
+.infoPanel button,
+.infoPanel .nextBtn{
+    --magnetX:0px !important;
+    --magnetY:0px !important;
+    --magnetScale:1 !important;
+    transform:none !important;
+}
+
+.infoPanel.show{
+    transform:translateY(-50%) scale(1) translate3d(var(--parallaxX), var(--parallaxY), 0) !important;
+}
+
+.infoPanel .nextBtn:hover{
+    transform:none !important;
+}
+
 </style>
 </head>
 <body>
@@ -1285,6 +1309,19 @@ const expandedDefaultHeight = 1464;
 const expandedDefaultInnerOffsetX = (expandedDefaultWidth - imageNaturalWidth) / 2;   // 230
 const expandedDefaultInnerOffsetY = (expandedDefaultHeight - imageNaturalHeight) / 2; // 192
 const SEQUENCE_FADE_MS = 180;
+
+/*
+   Monitor logo MP4 placement:
+   - HV_Logo.mp4 and HV_Logo_02.mp4 are now 954 x 569.
+   - These coordinates are measured on the 1920 x 1080 sequence/background plane.
+   - The green placement test image shows the top-left at x:193, y:199.
+   - Because this is positioned from getDisplayedImageRect(), it stays locked to
+     the same parallax plane as the JPG sequences and default frame.
+*/
+const LOGO_VIDEO_X = 193;
+const LOGO_VIDEO_Y = 201;
+const LOGO_VIDEO_WIDTH = 954;
+const LOGO_VIDEO_HEIGHT = 569;
 
 const features = {
     finishes: {
@@ -1597,23 +1634,22 @@ function showAllHotspots(){
 
 function positionLogoVideo(){
     /*
-       IMPORTANT FUTURE NOTE:
-       Any future MP4s that replace this monitor video with the Next buttons
-       must be positioned through this same function / same image-plane rect.
-
-       Pin the MP4 to the exact same 1920x1080 image plane as the paused JPG.
-       The MP4 can be narrow, but its LEFT EDGE and HEIGHT now follow the still
-       frame's true image rect, so it behaves like part of the same surface.
-
-       Do not position future monitor MP4s separately with viewport values,
-       or they will drift away from the monitor during mouse parallax.
+       HV_Logo.mp4 / HV_Logo_02.mp4 are positioned inside the same 1920 x 1080
+       sequence plane as the JPG frames. This keeps them locked to the image
+       during parallax and also keeps the placement correct if the full background
+       is expanded again later.
     */
-    const rect = getDisplayedImageRect();
+    if(!logoVideo){
+        return;
+    }
 
-    logoVideo.style.left = `${rect.left}px`;
-    logoVideo.style.top = `${rect.top}px`;
-    logoVideo.style.height = `${rect.height}px`;
-    logoVideo.style.width = 'auto';
+    const rect = getDisplayedImageRect();
+    const scale = rect.width / imageNaturalWidth;
+
+    logoVideo.style.left = `${rect.left + (LOGO_VIDEO_X * scale)}px`;
+    logoVideo.style.top = `${rect.top + (LOGO_VIDEO_Y * scale)}px`;
+    logoVideo.style.width = `${LOGO_VIDEO_WIDTH * scale}px`;
+    logoVideo.style.height = `${LOGO_VIDEO_HEIGHT * scale}px`;
     logoVideo.style.transform = 'translate3d(0,0,0)';
     logoVideo.style.transformOrigin = 'left top';
 }
