@@ -754,6 +754,38 @@ a,
 }
 
 /* =========================
+   CONTACT CARD PNG SEQUENCE
+========================= */
+
+#cardSequenceImage{
+    position:absolute;
+    z-index:5;
+    object-fit:fill;
+    object-position:center center;
+    user-select:none;
+    -webkit-user-drag:none;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .18s ease;
+}
+
+#cardSequenceImage.show{
+    opacity:1;
+    visibility:visible;
+}
+
+#downloadHotspot{
+    position:fixed;
+    z-index:38;
+    display:none;
+}
+
+#downloadHotspot.show{
+    display:block;
+}
+
+/* =========================
    CONTACT OVERLAY
 ========================= */
 
@@ -1135,6 +1167,7 @@ a,
     <div id="mainPlane">
         <img id="mainImage" src="default frame.jpg" alt="Home View Solutions preview">
         <img id="sequenceImage" src="" alt="" aria-hidden="true">
+        <img id="cardSequenceImage" src="" alt="" aria-hidden="true">
 
         <video id="logoVideo" muted playsinline preload="auto">
             <source src="HV_Logo.mp4" type="video/mp4">
@@ -1155,6 +1188,9 @@ a,
     </div>
 
     <a id="contactEmailHotspot" href="mailto:marie@homeviewsolutions.com" aria-label="Email Marie at Home View Solutions"></a>
+    <button id="downloadHotspot" class="hotspot" type="button" aria-label="Download contact card">
+        <span class="hotspotLabel" aria-hidden="true">DOWNLOAD</span>
+    </button>
 
 
     <div class="mainVignette" aria-hidden="true"></div>
@@ -1307,6 +1343,7 @@ const frameRate = 40;
 const frameHold = 1000 / frameRate;
 const defaultFeatureId = 'finishes';
 const defaultFrameSrc = 'default frame.jpg';
+const contactCleanFrameSrc = 'contact_clean.jpg';
 
 /*
    Default frame / sequence alignment:
@@ -1335,6 +1372,23 @@ const LOGO_VIDEO_X = 193;
 const LOGO_VIDEO_Y = 201;
 const LOGO_VIDEO_WIDTH = 954;
 const LOGO_VIDEO_HEIGHT = 569;
+
+/*
+   Contact card PNG sequence placement:
+   - Coordinates measured from the 1920 x 1080 placement image you sent.
+   - Green square: x 953, y 255, width 794, height 482.
+   - Red dot / DOWNLOAD hotspot centre: x 1085, y 374.
+*/
+const CARD_SEQUENCE_FOLDER = 'card';
+const CARD_SEQUENCE_PREFIX = 'card';
+const CARD_SEQUENCE_FIRST_FRAME = 0;
+const CARD_SEQUENCE_LAST_FRAME = 33;
+const CARD_SEQUENCE_X = 953;
+const CARD_SEQUENCE_Y = 255;
+const CARD_SEQUENCE_WIDTH = 794;
+const CARD_SEQUENCE_HEIGHT = 482;
+const DOWNLOAD_HOTSPOT_X = 1085;
+const DOWNLOAD_HOTSPOT_Y = 374;
 
 const features = {
     finishes: {
@@ -1390,16 +1444,19 @@ const features = {
 
 const mainImage = document.getElementById('mainImage');
 const sequenceImage = document.getElementById('sequenceImage');
+const cardSequenceImage = document.getElementById('cardSequenceImage');
 const logoVideo = document.getElementById('logoVideo');
 const featureVideo = document.getElementById('featureVideo');
 const reverseFeatureVideo = document.getElementById('reverseFeatureVideo');
 const contactFramePanel = document.getElementById('contactFramePanel');
 const contactEmailHotspot = document.getElementById('contactEmailHotspot');
+const downloadHotspot = document.getElementById('downloadHotspot');
 const contactEmailAddress = 'marie@homeviewsolutions.com';
 const logoVideoFiles = ['HV_Logo.mp4', 'HV_Logo_02.mp4'];
 const backBtn = document.getElementById('backBtn');
 const infoPanel = document.getElementById('infoPanel');
 const sequenceImages = {};
+const cardSequenceImages = [];
 
 let activeFeature = null;
 let sequenceStarted = false;
@@ -1408,6 +1465,8 @@ let preloadStarted = false;
 let isPreparingSequence = false;
 let infoPanelShownDuringSequence = false;
 let currentLogoVideoIndex = 0;
+let isCardSequenceAnimating = false;
+let cardSequenceOpen = false;
 
 function frameName(feature, index){
     return `${feature.folder}/${feature.prefix}${String(index).padStart(2,'0')}.jpg`;
@@ -1514,6 +1573,168 @@ function hideSequenceImage(immediate = false){
         }
     }, SEQUENCE_FADE_MS + 30);
 }
+
+
+function cardFrameName(index){
+    return `${CARD_SEQUENCE_FOLDER}/${CARD_SEQUENCE_PREFIX}${String(index).padStart(2,'0')}.png`;
+}
+
+function preloadCardSequence(){
+    for(let i = CARD_SEQUENCE_FIRST_FRAME; i <= CARD_SEQUENCE_LAST_FRAME; i++){
+        if(cardSequenceImages[i]){ continue; }
+        const img = new Image();
+        img.src = cardFrameName(i);
+        cardSequenceImages[i] = img;
+    }
+}
+
+function waitForCardFrame(index){
+    preloadCardSequence();
+    const img = cardSequenceImages[index];
+
+    if(img && img.complete && img.naturalWidth > 0){
+        if(typeof img.decode === 'function'){
+            return img.decode().catch(()=>{});
+        }
+        return Promise.resolve();
+    }
+
+    return new Promise(resolve=>{
+        if(!img){ resolve(); return; }
+        img.onload = ()=>{
+            if(typeof img.decode === 'function'){
+                img.decode().then(resolve).catch(resolve);
+            }else{
+                resolve();
+            }
+        };
+        img.onerror = resolve;
+    });
+}
+
+function getPreloadedCardFrame(index){
+    return cardSequenceImages[index] || null;
+}
+
+function positionCardSequenceOverlay(){
+    if(!cardSequenceImage){ return; }
+    const rect = getDisplayedImageRect();
+    const scale = rect.width / imageNaturalWidth;
+    cardSequenceImage.style.left = `${rect.left + (CARD_SEQUENCE_X * scale)}px`;
+    cardSequenceImage.style.top = `${rect.top + (CARD_SEQUENCE_Y * scale)}px`;
+    cardSequenceImage.style.width = `${CARD_SEQUENCE_WIDTH * scale}px`;
+    cardSequenceImage.style.height = `${CARD_SEQUENCE_HEIGHT * scale}px`;
+}
+
+function positionDownloadHotspot(){
+    if(!downloadHotspot){ return; }
+    const rect = getDisplayedImageRect();
+    const scale = rect.width / imageNaturalWidth;
+    const point = getTransformedMainPlanePoint({
+        x: rect.left + (DOWNLOAD_HOTSPOT_X * scale),
+        y: rect.top + (DOWNLOAD_HOTSPOT_Y * scale)
+    });
+    downloadHotspot.style.left = `${point.x}px`;
+    downloadHotspot.style.top = `${point.y}px`;
+}
+
+function showDownloadHotspot(){
+    if(!downloadHotspot){ return; }
+    positionDownloadHotspot();
+    downloadHotspot.classList.add('show');
+    refreshMagneticTargets();
+}
+
+function hideDownloadHotspot(){
+    if(!downloadHotspot){ return; }
+    downloadHotspot.classList.remove('show');
+    downloadHotspot.style.setProperty('--magnetX', '0px');
+    downloadHotspot.style.setProperty('--magnetY', '0px');
+    downloadHotspot.style.setProperty('--magnetScale', '1');
+}
+
+function showCardSequenceImage(frameIndex = CARD_SEQUENCE_FIRST_FRAME){
+    if(!cardSequenceImage){ return; }
+    positionCardSequenceOverlay();
+    const preloadedFrame = getPreloadedCardFrame(frameIndex);
+    cardSequenceImage.src = preloadedFrame ? preloadedFrame.src : cardFrameName(frameIndex);
+    cardSequenceImage.style.visibility = 'visible';
+    requestAnimationFrame(()=>{ cardSequenceImage.classList.add('show'); });
+}
+
+function hideCardSequenceImage(immediate = false){
+    if(!cardSequenceImage){ return; }
+    cardSequenceImage.classList.remove('show');
+    const clearCard = ()=>{
+        if(!cardSequenceImage.classList.contains('show')){
+            cardSequenceImage.style.visibility = 'hidden';
+            cardSequenceImage.removeAttribute('src');
+        }
+    };
+    if(immediate){ clearCard(); return; }
+    setTimeout(clearCard, SEQUENCE_FADE_MS + 30);
+}
+
+function playCardSequence(start, end, onComplete){
+    if(isCardSequenceAnimating){ return; }
+    isCardSequenceAnimating = true;
+    hideDownloadHotspot();
+
+    const direction = start <= end ? 1 : -1;
+    let frame = start;
+    let lastTime = 0;
+
+    function animate(time){
+        if(!lastTime){ lastTime = time; }
+
+        if(time - lastTime >= frameHold){
+            positionCardSequenceOverlay();
+            const preloadedFrame = getPreloadedCardFrame(frame);
+            cardSequenceImage.src = preloadedFrame ? preloadedFrame.src : cardFrameName(frame);
+            frame += direction;
+            lastTime = time;
+        }
+
+        const stillInRange = direction === 1 ? frame <= end : frame >= end;
+        if(stillInRange){
+            requestAnimationFrame(animate);
+        }else{
+            positionCardSequenceOverlay();
+            const preloadedEndFrame = getPreloadedCardFrame(end);
+            cardSequenceImage.src = preloadedEndFrame ? preloadedEndFrame.src : cardFrameName(end);
+            isCardSequenceAnimating = false;
+            if(typeof onComplete === 'function'){ onComplete(); }
+        }
+    }
+
+    requestAnimationFrame(animate);
+}
+
+async function showContactCardSequence(){
+    await waitForCardFrame(CARD_SEQUENCE_FIRST_FRAME);
+
+    if(!activeFeature || activeFeature !== features.contact){ return; }
+
+    showCardSequenceImage(CARD_SEQUENCE_FIRST_FRAME);
+
+    /*
+       The PNG card loads first. Then contact62 underneath is replaced with
+       contact_clean.jpg, so the final contact background is clean while the
+       card overlay stays on top.
+    */
+    sequenceImage.src = contactCleanFrameSrc;
+
+    cardSequenceOpen = false;
+    showDownloadHotspot();
+}
+
+function hideContactCardSequence(){
+    hideDownloadHotspot();
+    hideCardSequenceImage(true);
+    isCardSequenceAnimating = false;
+    cardSequenceOpen = false;
+}
+
 
 function positionMainImageForCurrentState(){
     positionExpandedDefaultImage();
@@ -1691,6 +1912,8 @@ function preloadAssets(){
     logoVideo.src = logoVideoFiles[0];
     logoVideo.load();
 
+    preloadCardSequence();
+
     logoVideoFiles.forEach(file=>{
         const preloadVideo = document.createElement('video');
         preloadVideo.preload = 'auto';
@@ -1800,6 +2023,7 @@ function hideLogoVideo(callback){
 function hideFeatureOverlays(callback){
     infoPanel.classList.remove('show');
     hideContactFrameOverlays();
+    hideContactCardSequence();
     closeHowOverlay();
     backBtn.classList.remove('show');
     infoPanelShownDuringSequence = false;
@@ -2166,6 +2390,7 @@ function resetAfterVideoReverse(){
     showAllHotspots();
     positionAllHotspots();
     updateTopContactButtonVisibility();
+    hideContactCardSequence();
 }
 
 async function playForwardSequence(featureId){
@@ -2213,6 +2438,7 @@ async function playForwardSequence(featureId){
 
         if(activeFeature === features.contact){
             showContactFrameOverlays();
+            showContactCardSequence();
         }
 
         if(activeFeature.showHowOverlay){
@@ -2261,6 +2487,27 @@ Object.entries(features).forEach(([featureId, feature])=>{
     hotspotButton.addEventListener('click', ()=>playForwardSequence(featureId));
 });
 
+
+if(downloadHotspot){
+    downloadHotspot.addEventListener('click', ()=>{
+        if(isCardSequenceAnimating || !activeFeature || activeFeature !== features.contact){
+            return;
+        }
+
+        if(cardSequenceOpen){
+            playCardSequence(CARD_SEQUENCE_LAST_FRAME, CARD_SEQUENCE_FIRST_FRAME, ()=>{
+                cardSequenceOpen = false;
+                showDownloadHotspot();
+            });
+        }else{
+            playCardSequence(CARD_SEQUENCE_FIRST_FRAME, CARD_SEQUENCE_LAST_FRAME, ()=>{
+                cardSequenceOpen = true;
+                showDownloadHotspot();
+            });
+        }
+    });
+}
+
 backBtn.addEventListener('click', goBackToDefaultFrame);
 
 logoVideo.addEventListener('ended', ()=>{
@@ -2275,6 +2522,8 @@ window.addEventListener('resize', ()=>{
     positionAllHotspots();
     positionLogoVideo();
     positionContactFrameOverlays();
+    positionCardSequenceOverlay();
+    positionDownloadHotspot();
     refreshMagneticTargets();
 });
 
@@ -2283,6 +2532,8 @@ mainImage.addEventListener('load', ()=>{
     positionFeatureVideo();
     positionAllHotspots();
     positionLogoVideo();
+    positionCardSequenceOverlay();
+    positionDownloadHotspot();
 });
 
 if(sequenceImage){
@@ -2338,6 +2589,8 @@ positionExpandedDefaultImage();
 positionFeatureVideo();
 positionAllHotspots();
 positionLogoVideo();
+positionCardSequenceOverlay();
+positionDownloadHotspot();
 updateTopContactButtonVisibility();
 
 
@@ -2409,11 +2662,14 @@ function getStaticImagePixelPoint(feature){
 }
 
 function getTransformedMainPlanePoint(point){
-    if(!mainPlane || !mainSite.classList.contains('show')){
+    const planeElement = document.getElementById('mainPlane');
+    const siteElement = document.getElementById('mainSite');
+
+    if(!planeElement || !siteElement || !siteElement.classList.contains('show')){
         return point;
     }
 
-    const style = window.getComputedStyle(mainPlane);
+    const style = window.getComputedStyle(planeElement);
     const transform = style.transform;
 
     if(!transform || transform === 'none'){
@@ -2657,9 +2913,12 @@ function animateCursorAndParallax(){
         let closestDistance = Infinity;
         const labelActivationRadius = 190;
 
-        Object.values(features).forEach(feature=>{
-            const hotspot = document.getElementById(feature.hotspotElementId);
+        const labelHotspots = [
+            ...Object.values(features).map(feature=>document.getElementById(feature.hotspotElementId)),
+            document.getElementById('downloadHotspot')
+        ];
 
+        labelHotspots.forEach(hotspot=>{
             if(!hotspot || hotspot.classList.contains('hide')){
                 return;
             }
@@ -2764,6 +3023,10 @@ function animateCursorAndParallax(){
 
     if(contactEmailHotspot && contactEmailHotspot.classList.contains('show')){
         positionContactFrameOverlays();
+    }
+
+    if(downloadHotspot && downloadHotspot.classList.contains('show')){
+        positionDownloadHotspot();
     }
 
     requestAnimationFrame(animateCursorAndParallax);
