@@ -36,15 +36,15 @@ html,body{
 #introVideoWrap{
     position:absolute;
     inset:0;
-    overflow:hidden;
+    overflow:visible;
     background:#000;
 }
 
 #introVideo{
     position:absolute;
-    inset:-12%;
-    width:124%;
-    height:124%;
+    inset:0;
+    width:100%;
+    height:100%;
     object-fit:cover;
 }
 
@@ -243,12 +243,12 @@ html,body{
     transform-origin:left top;
     will-change:transform;
     -webkit-mask-image:
-        linear-gradient(to right, transparent 0, #000 15px, #000 calc(100% - 30px), transparent 100%),
-        linear-gradient(to bottom, transparent 0, #000 15px, #000 calc(100% - 30px), transparent 100%);
+        linear-gradient(to right, transparent 0, #000 30px, #000 calc(100% - 30px), transparent 100%),
+        linear-gradient(to bottom, transparent 0, #000 30px, #000 calc(100% - 30px), transparent 100%);
     -webkit-mask-composite:source-in;
     mask-image:
-        linear-gradient(to right, transparent 0, #000 15px, #000 calc(100% - 30px), transparent 100%),
-        linear-gradient(to bottom, transparent 0, #000 15px, #000 calc(100% - 30px), transparent 100%);
+        linear-gradient(to right, transparent 0, #000 30px, #000 calc(100% - 30px), transparent 100%),
+        linear-gradient(to bottom, transparent 0, #000 30px, #000 calc(100% - 30px), transparent 100%);
     mask-composite:intersect;
 }
 
@@ -320,7 +320,7 @@ html,body{
 }
 
 .infoPanel h2{
-    margin-bottom:15px;
+    margin-bottom:30px;
     font-size:26px;
 }
 
@@ -1046,7 +1046,7 @@ a,
 .chessLayout{ display:flex; justify-content:center; align-items:flex-start; gap:26px; flex-wrap:wrap; }
 .chessBoardShell{ display:grid; grid-template-columns:28px auto; grid-template-rows:auto 28px; gap:7px; }
 .chessRanks{ display:grid; grid-template-rows:repeat(8, min(8.4vw, 68px)); grid-column:1; grid-row:1; }
-.chessRankLabel,.chessFileLabel{ display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.78); font-weight:bold; font-size:15px; }
+.chessRankLabel,.chessFileLabel{ display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.78); font-weight:bold; font-size:30px; }
 .chessFiles{ display:grid; grid-template-columns:repeat(8, min(8.4vw, 68px)); grid-column:2; grid-row:2; }
 .chessBoard{ grid-column:2; grid-row:1; display:grid; grid-template-columns:repeat(8, min(8.4vw, 68px)); grid-template-rows:repeat(8, min(8.4vw, 68px)); border:1px solid rgba(255,255,255,.32); box-shadow:0 22px 60px rgba(0,0,0,.45); }
 .chessSquare{ width:min(8.4vw,68px); height:min(8.4vw,68px); display:flex; align-items:center; justify-content:center; font-size:min(6.4vw,48px); user-select:none; position:relative; transition:box-shadow .22s ease, transform .22s ease, background .22s ease; }
@@ -1067,7 +1067,7 @@ a,
 .chessMoveList{ min-height:88px; line-height:1.7; color:rgba(255,255,255,.82); margin-bottom:16px; }
 .chessControls{ display:flex; gap:10px; flex-wrap:wrap; }
 .chessControls .chessControlBtn{ display:inline-flex; align-items:center; justify-content:center; }
-.chessControlBtn{ border:1px solid rgba(255,255,255,.18); cursor:pointer; padding:11px 15px; border-radius:999px; background:rgba(255,255,255,.10); color:white; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); transition:border-color .32s ease, background .32s ease, opacity .32s ease; --magnetX:0px; --magnetY:0px; --magnetScale:1; transform:translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale)); will-change:transform; }
+.chessControlBtn{ border:1px solid rgba(255,255,255,.18); cursor:pointer; padding:11px 30px; border-radius:999px; background:rgba(255,255,255,.10); color:white; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); transition:border-color .32s ease, background .32s ease, opacity .32s ease; --magnetX:0px; --magnetY:0px; --magnetScale:1; transform:translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale)); will-change:transform; }
 .chessControlBtn:hover{ border-color:rgba(255,255,255,.32); background:rgba(255,255,255,.18); transform:translate3d(var(--magnetX), var(--magnetY), 0) translateY(-2px) scale(calc(var(--magnetScale) * 1.04)); }
 .chessCompleteBox{ display:none; margin-top:18px; padding:18px; border-radius:18px; background:rgba(138,255,164,.10); border:1px solid rgba(138,255,164,.32); text-align:center; }
 .chessCompleteBox.show{ display:block; }
@@ -1089,6 +1089,19 @@ a,
 
 .infoPanel .nextBtn:hover{
     transform:none !important;
+}
+
+
+/* Blue fog intro video: no extra zoom or crop. */
+#introVideoWrap{
+    overflow:visible !important;
+}
+
+#introVideo{
+    inset:0 !important;
+    width:100% !important;
+    height:100% !important;
+    object-fit:cover !important;
 }
 
 </style>
