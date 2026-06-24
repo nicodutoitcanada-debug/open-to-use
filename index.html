@@ -1250,7 +1250,6 @@ const imageNaturalWidth = 1920;
 const imageNaturalHeight = 1080;
 const frameRate = 40;
 const frameHold = 1000 / frameRate;
-const contactFrameHold = frameHold * 2; // Contact sequence plays at about half speed
 const defaultFeatureId = 'finishes';
 const defaultFrameSrc = 'default frame.jpg';
 
@@ -1260,14 +1259,14 @@ const defaultFrameSrc = 'default frame.jpg';
    - The new default JPG is 2346 x 1424.
    - The original 1920 x 1080 area sits centered inside it.
    These numbers keep the non-expanded part of default frame.jpg perfectly
-   locked to the first frame of every 1920 x 1080 MP4 sequence.
+   locked to the first frame of every 1920 x 1080 JPG sequence.
 */
 const expandedDefaultWidth = 2346;
 const expandedDefaultHeight = 1424;
 const expandedDefaultInnerOffsetX = (expandedDefaultWidth - imageNaturalWidth) / 2;   // 213
 const expandedDefaultInnerOffsetY = (expandedDefaultHeight - imageNaturalHeight) / 2; // 172
 
-/* TWEAK ONLY THESE TWO LINES until default frame and MP4 first frames match perfectly. */
+/* TWEAK ONLY THESE TWO LINES until default frame and sequence first frames match perfectly. */
 const DEFAULT_FRAME_NUDGE_X = 22;
 const DEFAULT_FRAME_NUDGE_Y = 10;
 
@@ -1278,8 +1277,6 @@ const features = {
         firstFrame: 0,
         lastFrame: 63,
         hotspotElementId: 'hotspot01',
-        useVideoToLastFrame: true,
-        videoSrc: 'pc_zoom.mp4',
         x: 805,
         y: 556,
         leftPercent: 41.93,
@@ -1292,10 +1289,8 @@ const features = {
         folder: 'to contact',
         prefix: 'contact',
         firstFrame: 0,
-        lastFrame: 90,
+        lastFrame: 62,
         hotspotElementId: 'hotspot02',
-        useVideoToLastFrame: true,
-        videoSrc: 'contact.mp4',
         x: 1224,
         y: 670,
         leftPercent: 63.75,
@@ -1304,10 +1299,11 @@ const features = {
         playLogoVideos: false
     },
     howWeDoIt: {
+        folder: 'to space',
+        prefix: 'space',
+        firstFrame: 0,
+        lastFrame: 83,
         hotspotElementId: 'hotspot03',
-        useVideoToLastFrame: true,
-        videoSrc: 'space.mp4',
-        reverseVideoSrc: 'space_reverse.mp4',
         x: 286,
         y: 478,
         leftPercent: 14.90,
@@ -1342,6 +1338,7 @@ let activeFeature = null;
 let sequenceStarted = false;
 let isAnimatingSequence = false;
 let preloadStarted = false;
+let isPreparingSequence = false;
 let infoPanelShownDuringSequence = false;
 let currentLogoVideoIndex = 0;
 
@@ -1361,7 +1358,7 @@ function getDisplayedImageRect(){
        Important:
        The new default image is larger than 1920 x 1080, but the original
        non-expanded area inside it must still align to this exact rectangle.
-       Hotspots, MP4s, logo videos and anchor dots all use this 1920 x 1080 rect.
+       Hotspots, JPG sequences, logo videos and anchor dots all use this 1920 x 1080 rect.
     */
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -1405,6 +1402,26 @@ function positionExpandedDefaultImage(){
     mainImage.style.top = `${rect.top - (expandedDefaultInnerOffsetY * scale) + DEFAULT_FRAME_NUDGE_Y}px`;
     mainImage.style.width = `${expandedDefaultWidth * scale}px`;
     mainImage.style.height = `${expandedDefaultHeight * scale}px`;
+}
+
+function positionSequenceImage(){
+    if(!mainImage){
+        return;
+    }
+
+    const rect = getDisplayedImageRect();
+    mainImage.style.left = `${rect.left}px`;
+    mainImage.style.top = `${rect.top}px`;
+    mainImage.style.width = `${rect.width}px`;
+    mainImage.style.height = `${rect.height}px`;
+}
+
+function positionMainImageForCurrentState(){
+    if(sequenceStarted && activeFeature){
+        positionSequenceImage();
+    }else{
+        positionExpandedDefaultImage();
+    }
 }
 
 function positionFeatureVideo(){
@@ -1563,7 +1580,7 @@ function preloadAssets(){
     preloadStarted = true;
 
     Object.entries(features).forEach(([featureId, feature])=>{
-        if(feature.disabledUntilSequenceIsAdded || feature.useVideoToLastFrame){
+        if(feature.disabledUntilSequenceIsAdded){
             return;
         }
 
@@ -1579,20 +1596,6 @@ function preloadAssets(){
     logoVideo.src = logoVideoFiles[0];
     logoVideo.load();
 
-    if(featureVideo){
-        featureVideo.src = features[defaultFeatureId].videoSrc || 'pc_zoom.mp4';
-        featureVideo.load();
-    }
-
-    ['pc_zoom.mp4', 'contact.mp4', 'space.mp4', 'space_reverse.mp4'].forEach(file=>{
-        const preloadFeatureVideo = document.createElement('video');
-        preloadFeatureVideo.preload = 'auto';
-        preloadFeatureVideo.muted = true;
-        preloadFeatureVideo.playsInline = true;
-        preloadFeatureVideo.src = file;
-        preloadFeatureVideo.load();
-    });
-
     logoVideoFiles.forEach(file=>{
         const preloadVideo = document.createElement('video');
         preloadVideo.preload = 'auto';
@@ -1601,6 +1604,53 @@ function preloadAssets(){
         preloadVideo.src = file;
         preloadVideo.load();
     });
+}
+
+
+function getFeatureIdFromFeature(featureToFind){
+    return Object.keys(features).find(featureId => features[featureId] === featureToFind);
+}
+
+function getPreloadedFrame(feature, frameIndex){
+    const featureId = getFeatureIdFromFeature(feature);
+    const frames = featureId ? sequenceImages[featureId] : null;
+    return frames ? frames[frameIndex] : null;
+}
+
+function waitForFeatureFrames(featureId, feature){
+    const frames = sequenceImages[featureId] || [];
+    const promises = [];
+
+    for(let i = feature.firstFrame; i <= feature.lastFrame; i++){
+        let img = frames[i];
+
+        if(!img){
+            img = new Image();
+            img.src = frameName(feature, i);
+            frames[i] = img;
+        }
+
+        if(img.complete && img.naturalWidth > 0){
+            if(typeof img.decode === 'function'){
+                promises.push(img.decode().catch(()=>{}));
+            }
+            continue;
+        }
+
+        promises.push(new Promise(resolve=>{
+            img.onload = ()=>{
+                if(typeof img.decode === 'function'){
+                    img.decode().then(resolve).catch(resolve);
+                }else{
+                    resolve();
+                }
+            };
+            img.onerror = resolve;
+        }));
+    }
+
+    sequenceImages[featureId] = frames;
+    return Promise.all(promises);
 }
 
 function showInfoPanel(){
@@ -1686,10 +1736,12 @@ function playSequence(feature, start, end, onComplete, onFrame){
             lastTime = time;
         }
 
-        const currentFrameHold = feature.prefix === 'contact' ? contactFrameHold : frameHold;
+        const currentFrameHold = frameHold;
 
         if(time - lastTime >= currentFrameHold){
-            mainImage.src = frameName(feature, frame);
+            positionSequenceImage();
+            const preloadedFrame = getPreloadedFrame(feature, frame);
+            mainImage.src = preloadedFrame ? preloadedFrame.src : frameName(feature, frame);
 
             if(typeof onFrame === 'function'){
                 onFrame(frame);
@@ -1704,7 +1756,9 @@ function playSequence(feature, start, end, onComplete, onFrame){
         if(stillInRange){
             requestAnimationFrame(animate);
         }else{
-            mainImage.src = frameName(feature, end);
+            positionSequenceImage();
+            const preloadedEndFrame = getPreloadedFrame(feature, end);
+            mainImage.src = preloadedEndFrame ? preloadedEndFrame.src : frameName(feature, end);
             isAnimatingSequence = false;
 
             if(typeof onComplete === 'function'){
@@ -2019,32 +2073,50 @@ function resetAfterVideoReverse(){
     updateTopContactButtonVisibility();
 }
 
-function playForwardSequence(featureId){
+async function playForwardSequence(featureId){
+    if(sequenceStarted || isAnimatingSequence || isPreparingSequence){
+        return;
+    }
+
+    const featureToPlay = features[featureId];
+
+    if(!featureToPlay || featureToPlay.disabledUntilSequenceIsAdded){
+        return;
+    }
+
+    isPreparingSequence = true;
+    await waitForFeatureFrames(featureId, featureToPlay);
+    isPreparingSequence = false;
+
     if(sequenceStarted || isAnimatingSequence){
         return;
     }
 
-    activeFeature = features[featureId];
-
-    if(!activeFeature || activeFeature.disabledUntilSequenceIsAdded){
-        activeFeature = null;
-        return;
-    }
+    activeFeature = featureToPlay;
     sequenceStarted = true;
     infoPanelShownDuringSequence = false;
     hideAllHotspots();
     updateTopContactButtonVisibility();
 
-    if(activeFeature.useVideoToLastFrame){
-        playVideoFeature(activeFeature);
-        return;
-    }
+    positionSequenceImage();
 
     playSequence(activeFeature, activeFeature.firstFrame, activeFeature.lastFrame, ()=>{
         backBtn.classList.add('show');
 
+        if(activeFeature.showInfoPanel){
+            showInfoPanel();
+        }
+
         if(activeFeature.playLogoVideos){
             showLogoVideo();
+        }
+
+        if(activeFeature === features.contact){
+            showContactFrameOverlays();
+        }
+
+        if(activeFeature.showHowOverlay){
+            openHowOverlay();
         }
     }, (frame)=>{
         if(activeFeature.showInfoPanel && frame >= activeFeature.infoPanelTriggerFrame){
@@ -2060,13 +2132,6 @@ function goBackToDefaultFrame(){
 
     const featureToReverse = activeFeature;
 
-    if(featureToReverse.useVideoToLastFrame){
-        hideFeatureOverlays(()=>{
-            reverseFeatureVideoToFirstFrame(resetAfterVideoReverse);
-        });
-        return;
-    }
-
     hideFeatureOverlays(()=>{
         playSequence(featureToReverse, featureToReverse.lastFrame, featureToReverse.firstFrame, ()=>{
             activeFeature = null;
@@ -2074,6 +2139,7 @@ function goBackToDefaultFrame(){
             setMainImageToDefaultFrame();
             showAllHotspots();
             positionAllHotspots();
+            updateTopContactButtonVisibility();
         });
     });
 }
@@ -2101,12 +2167,8 @@ logoVideo.addEventListener('ended', ()=>{
     }
 });
 
-if(featureVideo){
-    featureVideo.addEventListener('ended', completeVideoFeatureForward);
-}
-
 window.addEventListener('resize', ()=>{
-    positionExpandedDefaultImage();
+    positionMainImageForCurrentState();
     positionFeatureVideo();
     positionAllHotspots();
     positionLogoVideo();
@@ -2115,7 +2177,7 @@ window.addEventListener('resize', ()=>{
 });
 
 mainImage.addEventListener('load', ()=>{
-    positionExpandedDefaultImage();
+    positionMainImageForCurrentState();
     positionFeatureVideo();
     positionAllHotspots();
     positionLogoVideo();
