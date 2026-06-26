@@ -462,6 +462,7 @@ html,body{
 .contactFramePanel.show{
     opacity:1;
     visibility:visible;
+    pointer-events:auto;
 }
 
 .contactFrameIcon{
@@ -503,6 +504,54 @@ html,body{
     color:rgba(255,255,255,.92);
     font-family:"Segoe Script", "Brush Script MT", cursive;
     font-weight:300;
+}
+
+.contactFramePanel p + p{
+    margin-top:18px;
+}
+
+.contactFrameActions{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    padding-top:22px;
+}
+
+.contactFrameBtn,
+.productPanelBackBtn{
+    position:relative;
+    z-index:2;
+    pointer-events:auto;
+    border:1px solid rgba(255,255,255,.18);
+    cursor:pointer;
+    padding:12px 22px;
+    border-radius:999px;
+    background:rgba(255,255,255,.10);
+    color:white;
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    transition:border-color .32s ease, background .32s ease, opacity .32s ease;
+    letter-spacing:1px;
+    transform:none !important;
+}
+
+.contactFrameBtn:hover,
+.productPanelBackBtn:hover{
+    border-color:rgba(255,255,255,.32);
+    background:rgba(255,255,255,.18);
+    transform:none !important;
+}
+
+.infoPanelActions{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-top:24px;
+}
+
+.infoPanelActions .nextBtn{
+    margin-top:0;
 }
 
 #contactEmailHotspot{
@@ -796,7 +845,8 @@ a,
 }
 
 #contactOverlay.show .contactPanel,
-#howOverlay.show .contactPanel{
+#howOverlay.show .contactPanel,
+#aboutOverlay.show .contactPanel{
     transform:translateY(0) scale(1) translate3d(var(--parallaxX), var(--parallaxY), 0);
 }
 
@@ -915,7 +965,8 @@ a,
 ========================= */
 
 #contactOverlay,
-#howOverlay{
+#howOverlay,
+#aboutOverlay{
     position:fixed;
     inset:0;
     z-index:80;
@@ -930,7 +981,8 @@ a,
 }
 
 #contactOverlay.show,
-#howOverlay.show{
+#howOverlay.show,
+#aboutOverlay.show{
     opacity:1;
     visibility:visible;
     pointer-events:auto;
@@ -970,7 +1022,8 @@ a,
 }
 
 #contactOverlay.show .contactPanel,
-#howOverlay.show .contactPanel{
+#howOverlay.show .contactPanel,
+#aboutOverlay.show .contactPanel{
     transform:translateY(0) scale(1);
 }
 
@@ -1034,6 +1087,217 @@ a,
 
 .howText strong{
     color:white;
+}
+
+.overlayActionRow{
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-top:26px;
+}
+
+.overlayBackBtn{
+    position:relative;
+    z-index:3;
+    pointer-events:auto;
+    border:1px solid rgba(255,255,255,.18);
+    cursor:pointer;
+    padding:12px 22px;
+    border-radius:999px;
+    background:rgba(255,255,255,.10);
+    color:white;
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    transition:border-color .32s ease, background .32s ease, opacity .32s ease;
+    letter-spacing:1px;
+    transform:none !important;
+}
+
+.overlayBackBtn:hover{
+    border-color:rgba(255,255,255,.32);
+    background:rgba(255,255,255,.18);
+    transform:none !important;
+}
+
+.aboutLogoRow{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:26px;
+    flex-wrap:wrap;
+    padding-top:34px;
+}
+
+.aboutLogoRow img{
+    max-width:94px;
+    max-height:52px;
+    object-fit:contain;
+    opacity:.86;
+    filter:drop-shadow(0 8px 20px rgba(0,0,0,.45));
+}
+
+@media(max-width:760px){
+    .aboutLogoRow{
+        gap:16px;
+        padding-top:24px;
+    }
+
+    .aboutLogoRow img{
+        max-width:70px;
+        max-height:42px;
+    }
+}
+
+
+
+/* Responsive overlay fit fix: keeps Contact, How It Works, and About Us panels fully inside the viewport with no scrollbars. */
+#contactOverlay,
+#howOverlay,
+#aboutOverlay{
+    padding:clamp(10px, 2vw, 30px);
+    align-items:center;
+    overflow:hidden;
+}
+
+#contactOverlay .contactPanel,
+#howOverlay .contactPanel,
+#aboutOverlay .contactPanel{
+    width:min(620px, calc(100vw - 24px));
+    max-height:calc(100dvh - 24px);
+    padding:clamp(18px, 2.8vh, 34px) clamp(16px, 3vw, 34px) clamp(20px, 3vh, 38px);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+
+#contactOverlay.show .contactPanel,
+#howOverlay.show .contactPanel,
+#aboutOverlay.show .contactPanel{
+    transform:translateY(0) scale(1) !important;
+}
+
+#contactOverlay .contactLogo,
+#howOverlay .contactLogo,
+#aboutOverlay .contactLogo{
+    width:clamp(100px, 15vh, 170px);
+    margin:clamp(8px, 1.8vh, 20px) auto clamp(18px, 3vh, 34px);
+}
+
+#contactOverlay .contactPanel h2,
+#howOverlay .contactPanel h2,
+#aboutOverlay .contactPanel h2{
+    font-size:clamp(20px, 3vh, 28px);
+    margin-bottom:clamp(8px, 1.4vh, 14px);
+}
+
+#howOverlay .howText,
+#aboutOverlay .howText{
+    max-width:520px;
+    line-height:1.52;
+    font-size:clamp(13px, 1.75vh, 16px);
+}
+
+#howOverlay .howText p,
+#aboutOverlay .howText p{
+    margin:0 0 clamp(8px, 1.5vh, 14px);
+}
+
+#aboutOverlay .aboutLogoRow{
+    padding-top:clamp(18px, 3vh, 36px);
+    gap:clamp(10px, 2.2vw, 24px);
+}
+
+#aboutOverlay .aboutLogoRow img{
+    max-width:clamp(54px, 9vw, 90px);
+    max-height:clamp(28px, 5vh, 48px);
+}
+
+#contactOverlay .overlayActionRow,
+#howOverlay .overlayActionRow,
+#aboutOverlay .overlayActionRow{
+    margin-top:clamp(22px, 3.4vh, 38px);
+}
+
+#contactOverlay .closeContactBtn,
+#howOverlay .closeContactBtn,
+#aboutOverlay .closeContactBtn,
+#contactOverlay .overlayBackBtn,
+#howOverlay .overlayBackBtn,
+#aboutOverlay .overlayBackBtn{
+    --magnetX:0px !important;
+    --magnetY:0px !important;
+    --magnetScale:1 !important;
+    transform:none !important;
+}
+
+#contactOverlay .closeContactBtn:hover,
+#howOverlay .closeContactBtn:hover,
+#aboutOverlay .closeContactBtn:hover{
+    transform:none !important;
+}
+
+@media(max-width:760px), (max-height:720px){
+    #contactOverlay .contactLogo,
+    #howOverlay .contactLogo,
+    #aboutOverlay .contactLogo{
+        display:none;
+    }
+
+    #contactOverlay .contactPanel,
+    #howOverlay .contactPanel,
+    #aboutOverlay .contactPanel{
+        width:min(620px, calc(100vw - 18px));
+        max-height:calc(100dvh - 18px);
+        padding:14px 16px 16px;
+    }
+
+    #contactOverlay .closeContactBtn,
+    #howOverlay .closeContactBtn,
+    #aboutOverlay .closeContactBtn{
+        top:10px;
+        right:10px;
+        width:36px;
+        height:36px;
+        font-size:22px;
+    }
+
+    #contactOverlay .contactPanel h2,
+    #howOverlay .contactPanel h2,
+    #aboutOverlay .contactPanel h2{
+        padding-right:38px;
+    }
+
+    #contactOverlay .contactCard{
+        padding:16px;
+    }
+
+    #contactOverlay .contactCard h3{
+        font-size:20px;
+        margin-bottom:12px;
+    }
+
+    #contactOverlay .contactCard p{
+        font-size:15px;
+        margin:8px 0;
+    }
+}
+
+@media(max-height:560px){
+    #howOverlay .howText p:nth-child(2),
+    #aboutOverlay .howText p:nth-child(2){
+        display:none;
+    }
+
+    #aboutOverlay .aboutLogoRow{
+        padding-top:12px;
+    }
+
+    #aboutOverlay .aboutLogoRow img{
+        max-width:48px;
+        max-height:26px;
+    }
 }
 
 .contactCard{
@@ -1150,7 +1414,8 @@ a,
 /* Magnetic overrides for smaller buttons defined earlier/later in the file. */
 .infoPanel .nextBtn,
 .closeContactBtn,
-.closeHowBtn{
+.closeHowBtn,
+.noMagnet{
     --magnetX:0px;
     --magnetY:0px;
     --magnetScale:1;
@@ -1233,7 +1498,8 @@ a,
 
 /* No magnetic movement on the right-side info menu buttons. */
 .infoPanel button,
-.infoPanel .nextBtn{
+.infoPanel .nextBtn,
+.infoPanel .productPanelBackBtn{
     --magnetX:0px !important;
     --magnetY:0px !important;
     --magnetScale:1 !important;
@@ -1244,7 +1510,8 @@ a,
     transform:translateY(-50%) scale(1) translate3d(var(--parallaxX), var(--parallaxY), 0) !important;
 }
 
-.infoPanel .nextBtn:hover{
+.infoPanel .nextBtn:hover,
+.infoPanel .productPanelBackBtn:hover{
     transform:none !important;
 }
 
@@ -1282,96 +1549,228 @@ a,
     mix-blend-mode:screen;
 }
 
+
+
+
 /* =========================
-   BRIGHTNESS SLIDER
+   CHESS PUZZLE ADAPTIVE / NO SCROLLBARS
+   Keeps the full puzzle visible without vertical or horizontal scrolling.
 ========================= */
-:root{
-    --siteBrightness:1.22;
+#chessOverlay{
+    padding:clamp(8px, 2vw, 26px) !important;
+    overflow:hidden !important;
 }
 
-#introVideoWrap,
-#introForegroundDustCanvas,
-#mainPlane{
-    filter:brightness(var(--siteBrightness));
+.chessPanel{
+    width:min(1060px, calc(100vw - 28px)) !important;
+    max-width:calc(100vw - 28px) !important;
+    max-height:calc(100dvh - 28px) !important;
+    overflow:hidden !important;
+    padding:clamp(14px, 2.2vw, 30px) !important;
+    display:flex !important;
+    flex-direction:column !important;
+    justify-content:center !important;
 }
 
-.brightnessControl{
-    position:fixed;
-    top:18px;
-    left:50%;
-    z-index:24;
-    transform:translateX(-50%);
-    width:min(260px, 54vw);
-    height:42px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    pointer-events:auto;
-    opacity:.88;
-    transition:opacity .28s ease;
+.chessPanel h2{
+    font-size:clamp(18px, 2.3vw, 28px) !important;
+    margin-bottom:clamp(5px, 1vh, 10px) !important;
 }
 
-.brightnessControl:hover{
-    opacity:1;
+.chessMessage{
+    min-height:0 !important;
+    margin:0 auto clamp(8px, 1.4vh, 18px) !important;
+    font-size:clamp(13px, 1.55vw, 16px) !important;
 }
 
-#brightnessSlider{
-    width:100%;
-    height:42px;
-    background:transparent;
-    appearance:none;
-    -webkit-appearance:none;
-    outline:none;
-    cursor:none;
+.chessLayout{
+    flex:0 1 auto !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+    flex-wrap:nowrap !important;
+    align-items:center !important;
+    gap:clamp(12px, 2.3vw, 26px) !important;
 }
 
-#brightnessSlider::-webkit-slider-runnable-track{
-    height:4px;
-    border-radius:999px;
-    background:rgba(255,255,255,.10);
-    transition:background .28s ease;
+.chessBoardShell{
+    --chessSq:min(6.2vw, 7vh, 68px);
+    --chessLabel:clamp(16px, 2vw, 28px);
+    flex:0 0 auto !important;
+    grid-template-columns:var(--chessLabel) auto !important;
+    grid-template-rows:auto var(--chessLabel) !important;
+    gap:clamp(4px, .7vw, 7px) !important;
 }
 
-#brightnessSlider:hover::-webkit-slider-runnable-track{
-    background:rgba(255,255,255,.35);
+.chessRanks{
+    grid-template-rows:repeat(8, var(--chessSq)) !important;
 }
 
-#brightnessSlider::-webkit-slider-thumb{
-    appearance:none;
-    -webkit-appearance:none;
-    width:34px;
-    height:34px;
-    margin-top:-15px;
-    border:none;
-    border-radius:0;
-    background:transparent url("CAM_exposure.png") center / contain no-repeat;
-    box-shadow:none;
+.chessFiles{
+    grid-template-columns:repeat(8, var(--chessSq)) !important;
 }
 
-#brightnessSlider::-moz-range-track{
-    height:4px;
-    border-radius:999px;
-    background:rgba(255,255,255,.10);
-    transition:background .28s ease;
+.chessBoard{
+    grid-template-columns:repeat(8, var(--chessSq)) !important;
+    grid-template-rows:repeat(8, var(--chessSq)) !important;
 }
 
-#brightnessSlider:hover::-moz-range-track{
-    background:rgba(255,255,255,.35);
+.chessSquare{
+    width:var(--chessSq) !important;
+    height:var(--chessSq) !important;
+    font-size:calc(var(--chessSq) * .70) !important;
 }
 
-#brightnessSlider::-moz-range-thumb{
-    width:34px;
-    height:34px;
-    border:none;
-    border-radius:0;
-    background:transparent url("CAM_exposure.png") center / contain no-repeat;
-    box-shadow:none;
+.chessRankLabel,
+.chessFileLabel{
+    font-size:clamp(13px, 1.75vw, 24px) !important;
+}
+
+.chessSidePanel{
+    flex:0 1 min(300px, 28vw) !important;
+    width:min(300px, 28vw) !important;
+    max-height:100% !important;
+    overflow:hidden !important;
+    padding:clamp(12px, 1.7vw, 20px) !important;
+}
+
+.chessSidePanel h3{
+    font-size:clamp(15px, 1.6vw, 19px) !important;
+    margin-bottom:8px !important;
+}
+
+.chessMoveList{
+    min-height:clamp(44px, 9vh, 88px) !important;
+    margin-bottom:clamp(8px, 1.2vh, 16px) !important;
+    line-height:1.45 !important;
+    font-size:clamp(13px, 1.35vw, 16px) !important;
+}
+
+.chessControls{
+    gap:8px !important;
+}
+
+.chessControlBtn{
+    padding:clamp(8px, 1.1vw, 11px) clamp(13px, 2vw, 30px) !important;
+    font-size:clamp(12px, 1.25vw, 14px) !important;
+}
+
+.chessCompleteBox{
+    margin-top:clamp(8px, 1.2vh, 18px) !important;
+    padding:clamp(10px, 1.4vw, 18px) !important;
+}
+
+@media(max-width:760px), (max-height:620px){
+    .chessLogo{
+        display:none !important;
+    }
 }
 
 @media(max-width:760px){
-    .brightnessControl{
-        top:14px;
-        width:min(220px, 50vw);
+    .chessPanel{
+        width:calc(100vw - 18px) !important;
+        max-width:calc(100vw - 18px) !important;
+        max-height:calc(100dvh - 18px) !important;
+        padding:12px !important;
+    }
+
+    .closeChessBtn{
+        top:10px !important;
+        right:10px !important;
+        width:36px !important;
+        height:36px !important;
+        font-size:22px !important;
+    }
+
+    .chessPanel h2{
+        padding-right:38px !important;
+        font-size:clamp(16px, 5vw, 22px) !important;
+        letter-spacing:1px !important;
+    }
+
+    .chessMessage{
+        font-size:clamp(12px, 3.4vw, 14px) !important;
+        margin-bottom:7px !important;
+    }
+
+    .chessLayout{
+        flex-direction:column !important;
+        flex-wrap:nowrap !important;
+        gap:8px !important;
+    }
+
+    .chessBoardShell{
+        --chessSq:min(10.3vw, 5.6vh, 48px);
+        --chessLabel:clamp(15px, 5vw, 22px);
+    }
+
+    .chessSidePanel{
+        width:min(92vw, 430px) !important;
+        flex:0 0 auto !important;
+        padding:10px 12px !important;
+        text-align:center !important;
+    }
+
+    .chessSidePanel h3{
+        display:none !important;
+    }
+
+    .chessMoveList{
+        min-height:24px !important;
+        margin-bottom:8px !important;
+        line-height:1.25 !important;
+        font-size:12px !important;
+    }
+
+    .chessControls{
+        justify-content:center !important;
+        gap:6px !important;
+    }
+
+    .chessControlBtn{
+        padding:8px 12px !important;
+        font-size:12px !important;
+    }
+
+    .chessCompleteBox{
+        margin-top:8px !important;
+        padding:9px !important;
+    }
+
+    .chessCompleteBox h3{
+        display:block !important;
+        font-size:15px !important;
+        margin-bottom:3px !important;
+    }
+
+    .chessCompleteBox p{
+        font-size:12px !important;
+        margin-bottom:6px !important;
+    }
+}
+
+@media(max-height:520px){
+    .chessPanel h2{
+        font-size:16px !important;
+        margin-bottom:3px !important;
+    }
+
+    .chessMessage{
+        font-size:12px !important;
+        margin-bottom:5px !important;
+    }
+
+    .chessBoardShell{
+        --chessSq:min(5.4vw, 8.4vh, 44px);
+        --chessLabel:16px;
+    }
+
+    .chessSidePanel{
+        padding:9px !important;
+    }
+
+    .chessMoveList{
+        min-height:34px !important;
+        font-size:12px !important;
     }
 }
 
@@ -1404,10 +1803,6 @@ a,
 <!-- MAIN SITE -->
 
 <div id="mainSite">
-    <div class="brightnessControl" aria-label="Brightness control">
-        <input id="brightnessSlider" type="range" min="80" max="150" value="122" aria-label="Brightness">
-    </div>
-
     <div id="mainPlane">
         <img id="mainImage" src="default frame.jpg" alt="Home View Solutions preview">
         <img id="sequenceImage" src="" alt="" aria-hidden="true">
@@ -1428,17 +1823,18 @@ a,
     </div>
 
     <div id="contactFramePanel" class="contactFramePanel" aria-hidden="true">
-        <img src="contact.png" class="contactFrameIcon" alt="">
         <h2>Request a Real-Time Demo</h2>
         <p>
             Contact Home View Solutions to request a live demo or learn more about the interactive home visualization experience.
         </p>
         <p>
-            
             We can walk you through the interactive features, show how buyers can explore options in real time, and explain how the experience can be customized for your homes or developments.
         </p>
         <p class="contactCardActionText"><strong>Click the hotspot on the business card to download contact info.</strong></p>
-        <p class="contactMiniDetails">Marie Du Toit<br>825 963 4410<br>marie@homeviewsolutions.com</p>
+        <div class="contactFrameActions" aria-label="Contact page actions">
+            <button id="contactFrameBackBtn" class="contactFrameBtn" type="button">◀ Back</button>
+            <button id="contactFrameQrBtn" class="contactFrameBtn" type="button">QR CODE</button>
+        </div>
     </div>
 
     <a id="contactEmailHotspot" href="mailto:marie@homeviewsolutions.com" aria-label="Email Marie at Home View Solutions"></a>
@@ -1486,7 +1882,10 @@ a,
             No software installation is required — everything runs directly in a web browser on desktop, tablet or mobile.
         </p>
         <p class="monitorActionText"><strong>Click the hotspot on the monitor to see it in action.</strong></p>
-        <button class="nextBtn" type="button">Next ▶</button>
+        <div class="infoPanelActions">
+            <button id="productPanelBackBtn" class="productPanelBackBtn" type="button">◀ Back</button>
+            <button class="nextBtn" type="button">Next ▶</button>
+        </div>
     </div>
 
     <button class="topContactBtn contactOpenBtn" aria-label="Contact us">
@@ -1538,7 +1937,7 @@ a,
     <div class="howBackdrop howCloseArea"></div>
 
     <div class="contactPanel" role="dialog" aria-modal="true" aria-labelledby="howTitle">
-        <button class="closeContactBtn closeHowBtn" id="closeHowBtn" aria-label="Close how it works page">×</button>
+        <button class="closeContactBtn closeHowBtn noMagnet" id="closeHowBtn" aria-label="Close how it works page">×</button>
 
         <img src="logo.png" class="contactLogo" alt="Home View Solutions">
 
@@ -1560,6 +1959,51 @@ a,
                 They simply open a link and interact with the home.
             </p>
         </div>
+
+        <div class="overlayActionRow">
+            <button id="howPanelBackBtn" class="overlayBackBtn noMagnet" type="button">◀ Back</button>
+        </div>
+    </div>
+</div>
+
+<!-- ABOUT US OVERLAY -->
+
+<div id="aboutOverlay" aria-hidden="true">
+    <div class="howBackdrop aboutCloseArea"></div>
+
+    <div class="contactPanel" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+        <button class="closeContactBtn closeAboutBtn noMagnet" id="closeAboutBtn" aria-label="Close about us page">×</button>
+
+        <img src="logo.png" class="contactLogo" alt="Home View Solutions">
+
+        <h2 id="aboutTitle">About Home View Solutions</h2>
+
+        <div class="howText">
+            <p>
+                <strong>Home View Solutions is built on decades of experience in interactive 3D, visual storytelling, and corporate identity.</strong>
+                Our work has crossed architecture, product visualization, brand development, real-time experiences, and high-end presentation tools.
+            </p>
+
+            <p>
+                Over the years, we have contributed to projects connected with Volkswagen, BMW, FIFA World Cup 2010, Stantec Consulting, and many more.
+                We have also worked on a project for Elon Musk, bringing the same attention to detail, polish, and technical problem-solving into every client experience.
+            </p>
+
+            <p>
+                Home View combines that background with modern real-time technology, helping builders and developers present homes in a way that is clear, engaging, and easy for buyers to understand.
+            </p>
+        </div>
+
+        <div class="aboutLogoRow" aria-label="Selected project logos">
+            <img src="logo/logo 01.png" alt="Client logo 1">
+            <img src="logo/logo 02.png" alt="Client logo 2">
+            <img src="logo/logo 03.png" alt="Client logo 3">
+            <img src="logo/logo 04.png" alt="Client logo 4">
+        </div>
+
+        <div class="overlayActionRow">
+            <button id="aboutPanelBackBtn" class="overlayBackBtn noMagnet" type="button">◀ Back</button>
+        </div>
     </div>
 </div>
 
@@ -1569,7 +2013,7 @@ a,
     <div class="contactBackdrop contactCloseArea"></div>
 
     <div class="contactPanel" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
-        <button class="closeContactBtn" id="closeContactBtn" aria-label="Close contact page">×</button>
+        <button class="closeContactBtn noMagnet" id="closeContactBtn" aria-label="Close contact page">×</button>
 
         <img src="logo.png" class="contactLogo" alt="Home View Solutions">
 
@@ -1592,25 +2036,14 @@ a,
                 <a href="mailto:marie@homeviewsolutions.com">marie@homeviewsolutions.com</a>
             </p>
         </div>
+
+        <div class="overlayActionRow">
+            <button id="contactPanelBackBtn" class="overlayBackBtn noMagnet" type="button">◀ Back</button>
+        </div>
     </div>
 </div>
 
 <script>
-
-/* =========================
-   BRIGHTNESS CONTROL
-========================= */
-
-const brightnessSlider = document.getElementById('brightnessSlider');
-function setSiteBrightness(value){
-    const brightness = Math.max(0.8, Math.min(1.50, Number(value) / 100));
-    document.documentElement.style.setProperty('--siteBrightness', brightness.toFixed(2));
-}
-if(brightnessSlider){
-    setSiteBrightness(brightnessSlider.value);
-    brightnessSlider.addEventListener('input', ()=>setSiteBrightness(brightnessSlider.value));
-}
-
 
 /* =========================
    IMAGE SEQUENCES + HOTSPOTS
@@ -1722,12 +2155,18 @@ const features = {
         showHowOverlay: true
     },
     aboutUs: {
+        folder: 'about',
+        prefix: 'about',
+        firstFrame: 0,
+        lastFrame: 52,
         hotspotElementId: 'hotspot04',
         x: 1587,
         y: 465,
         leftPercent: 82.66,
         topPercent: 43.06,
-        disabledUntilSequenceIsAdded: true
+        showInfoPanel: false,
+        playLogoVideos: false,
+        showAboutOverlay: true
     }
 };
 
@@ -1742,6 +2181,8 @@ const reverseFeatureVideo = document.getElementById('reverseFeatureVideo');
 const contactFramePanel = document.getElementById('contactFramePanel');
 const contactEmailHotspot = document.getElementById('contactEmailHotspot');
 const downloadHotspot = document.getElementById('downloadHotspot');
+const contactFrameBackBtn = document.getElementById('contactFrameBackBtn');
+const contactFrameQrBtn = document.getElementById('contactFrameQrBtn');
 const productPlayHotspot = document.getElementById('productPlayHotspot');
 const movieControls = document.getElementById('movieControls');
 const moviePlayBtn = document.getElementById('moviePlayBtn');
@@ -1750,6 +2191,7 @@ const contactEmailAddress = 'marie@homeviewsolutions.com';
 const logoVideoFiles = ['HV_Logo.mp4', 'HV_Logo_02.mp4'];
 const backBtn = document.getElementById('backBtn');
 const infoPanel = document.getElementById('infoPanel');
+const productPanelBackBtn = document.getElementById('productPanelBackBtn');
 const sequenceImages = {};
 const cardSequenceImages = [];
 
@@ -2155,6 +2597,12 @@ function playCardSequence(start, end, onComplete){
     requestAnimationFrame(animate);
 }
 
+function playCardSequenceAsync(start, end){
+    return new Promise(resolve=>{
+        playCardSequence(start, end, resolve);
+    });
+}
+
 function waitForNextPaint(){
     return new Promise(resolve=>{
         requestAnimationFrame(()=>{
@@ -2526,16 +2974,38 @@ function hideLogoVideo(callback){
     }, 700);
 }
 
+async function reverseContactCardBeforeLeaving(){
+    if(!activeFeature || activeFeature !== features.contact){
+        await hideContactCardSequence(false);
+        return;
+    }
+
+    hideDownloadHotspot();
+    hideContactEmailClickArea();
+
+    if(cardSequenceOpen){
+        await playCardSequenceAsync(CARD_SEQUENCE_LAST_FRAME, CARD_SEQUENCE_FIRST_FRAME);
+        cardSequenceOpen = false;
+        setDownloadHotspotLabel('DOWNLOAD');
+    }
+
+    await hideContactCardSequence(true);
+}
+
 async function hideFeatureOverlays(callback){
     infoPanel.classList.remove('show');
     hideContactFrameOverlays();
     hideProductPlayHotspot();
     hideMovieControls();
 
-    const shouldRestoreContact62First = activeFeature && activeFeature === features.contact;
-    await hideContactCardSequence(shouldRestoreContact62First);
+    if(activeFeature && activeFeature === features.contact){
+        await reverseContactCardBeforeLeaving();
+    }else{
+        await hideContactCardSequence(false);
+    }
 
     closeHowOverlay();
+    closeAboutOverlay();
     backBtn.classList.remove('show');
     infoPanelShownDuringSequence = false;
 
@@ -2965,6 +3435,10 @@ async function playForwardSequence(featureId){
         if(activeFeature.showHowOverlay){
             openHowOverlay();
         }
+
+        if(activeFeature.showAboutOverlay){
+            openAboutOverlay();
+        }
     }, (frame)=>{
         if(activeFeature.showInfoPanel && frame >= activeFeature.infoPanelTriggerFrame){
             showInfoPanel();
@@ -2974,7 +3448,7 @@ async function playForwardSequence(featureId){
 }
 
 function goBackToDefaultFrame(){
-    if(!sequenceStarted || isAnimatingSequence || !activeFeature){
+    if(!sequenceStarted || isAnimatingSequence || isCardSequenceAnimating || !activeFeature){
         return;
     }
 
@@ -3057,29 +3531,51 @@ if(moviePauseBtn){
     moviePauseBtn.addEventListener('click', pauseProductMovieFromControls);
 }
 
-if(downloadHotspot){
-    downloadHotspot.addEventListener('click', ()=>{
-        if(isCardSequenceAnimating || !activeFeature || activeFeature !== features.contact){
-            return;
-        }
+function toggleContactCardSequence(){
+    if(isCardSequenceAnimating || !activeFeature || activeFeature !== features.contact){
+        return;
+    }
 
-        if(cardSequenceOpen){
-            hideContactEmailClickArea();
-            playCardSequence(CARD_SEQUENCE_LAST_FRAME, CARD_SEQUENCE_FIRST_FRAME, ()=>{
-                cardSequenceOpen = false;
-                setDownloadHotspotLabel('DOWNLOAD');
-                showDownloadHotspot();
-                showContactEmailClickArea();
-            });
-        }else{
-            hideContactEmailClickArea();
-            playCardSequence(CARD_SEQUENCE_FIRST_FRAME, CARD_SEQUENCE_LAST_FRAME, ()=>{
-                cardSequenceOpen = true;
-                setDownloadHotspotLabel('FLIP BACK');
-                showDownloadHotspot();
-            });
-        }
+    if(cardSequenceOpen){
+        hideContactEmailClickArea();
+        playCardSequence(CARD_SEQUENCE_LAST_FRAME, CARD_SEQUENCE_FIRST_FRAME, ()=>{
+            cardSequenceOpen = false;
+            setDownloadHotspotLabel('DOWNLOAD');
+            showDownloadHotspot();
+            showContactEmailClickArea();
+        });
+    }else{
+        hideContactEmailClickArea();
+        playCardSequence(CARD_SEQUENCE_FIRST_FRAME, CARD_SEQUENCE_LAST_FRAME, ()=>{
+            cardSequenceOpen = true;
+            setDownloadHotspotLabel('FLIP BACK');
+            showDownloadHotspot();
+        });
+    }
+}
+
+if(downloadHotspot){
+    downloadHotspot.addEventListener('click', toggleContactCardSequence);
+}
+
+if(contactFrameQrBtn){
+    contactFrameQrBtn.addEventListener('click', (event)=>{
+        event.preventDefault();
+        event.stopPropagation();
+        toggleContactCardSequence();
     });
+}
+
+if(contactFrameBackBtn){
+    contactFrameBackBtn.addEventListener('click', (event)=>{
+        event.preventDefault();
+        event.stopPropagation();
+        goBackToDefaultFrame();
+    });
+}
+
+if(productPanelBackBtn){
+    productPanelBackBtn.addEventListener('click', goBackToDefaultFrame);
 }
 
 backBtn.addEventListener('click', goBackToDefaultFrame);
@@ -3755,7 +4251,7 @@ function refreshMagneticTargets(){
     document.querySelectorAll(hoverTargetsSelector).forEach(element=>{
         /* Phone/email links and chess control buttons still trigger the custom cursor hover pulse,
            but they should not physically pull toward the mouse. */
-        if(element.closest('.contactCard') || element.closest('.chessControls') || element.closest('#movieControls') || element.classList.contains('movieControlBtn') || element.id === 'contactEmailHotspot'){
+        if(element.closest('.contactCard') || element.closest('.chessControls') || element.closest('#movieControls') || element.closest('.contactFramePanel') || element.classList.contains('movieControlBtn') || element.classList.contains('noMagnet') || element.closest('#contactOverlay') || element.closest('#howOverlay') || element.closest('#aboutOverlay') || element.id === 'productPanelBackBtn' || element.id === 'contactEmailHotspot'){
             element.style.setProperty('--magnetX', '0px');
             element.style.setProperty('--magnetY', '0px');
             element.style.setProperty('--magnetScale', '1');
@@ -3880,6 +4376,7 @@ function animateCursorAndParallax(){
     setParallaxVars(document.querySelector('.bottomBrainBtn'), parallaxX * -13, parallaxY * 10);
     setParallaxVars(document.querySelector('#contactOverlay .contactPanel'), parallaxX * 15, parallaxY * 11);
     setParallaxVars(document.querySelector('#howOverlay .contactPanel'), parallaxX * 15, parallaxY * 11);
+    setParallaxVars(document.querySelector('#aboutOverlay .contactPanel'), parallaxX * 15, parallaxY * 11);
     setParallaxVars(document.querySelector('.chessPanel'), parallaxX * 12, parallaxY * 9);
 
     const contactLogo = document.querySelector('.contactLogo');
@@ -4132,12 +4629,64 @@ function closeHowOverlay(reverseAfterClose = false){
     }
 }
 
+const howPanelBackBtn = document.getElementById('howPanelBackBtn');
+
 closeHowBtn.addEventListener('click', ()=>closeHowOverlay(true));
 howCloseArea.addEventListener('click', ()=>closeHowOverlay(true));
+if(howPanelBackBtn){
+    howPanelBackBtn.addEventListener('click', (event)=>{
+        event.preventDefault();
+        event.stopPropagation();
+        closeHowOverlay(true);
+    });
+}
+
+/* =========================
+   ABOUT US OVERLAY
+========================= */
+
+const aboutOverlay = document.getElementById('aboutOverlay');
+const closeAboutBtn = document.getElementById('closeAboutBtn');
+const aboutCloseArea = document.querySelector('.aboutCloseArea');
+const aboutPanelBackBtn = document.getElementById('aboutPanelBackBtn');
+
+function openAboutOverlay(){
+    if(!aboutOverlay){ return; }
+    aboutOverlay.classList.add('show');
+    aboutOverlay.setAttribute('aria-hidden','false');
+    refreshMagneticTargets();
+}
+
+function closeAboutOverlay(reverseAfterClose = false){
+    if(!aboutOverlay){
+        return;
+    }
+
+    const wasOpen = aboutOverlay.classList.contains('show');
+    aboutOverlay.classList.remove('show');
+    aboutOverlay.setAttribute('aria-hidden','true');
+
+    if(reverseAfterClose && wasOpen && activeFeature && activeFeature.showAboutOverlay && sequenceStarted && !isAnimatingSequence){
+        setTimeout(goBackToDefaultFrame, 120);
+    }
+}
+
+if(closeAboutBtn){ closeAboutBtn.addEventListener('click', ()=>closeAboutOverlay(true)); }
+if(aboutCloseArea){ aboutCloseArea.addEventListener('click', ()=>closeAboutOverlay(true)); }
+if(aboutPanelBackBtn){
+    aboutPanelBackBtn.addEventListener('click', (event)=>{
+        event.preventDefault();
+        event.stopPropagation();
+        closeAboutOverlay(true);
+    });
+}
 
 document.addEventListener('keydown', (event)=>{
     if(event.key === 'Escape' && howOverlay.classList.contains('show')){
         closeHowOverlay(true);
+    }
+    if(event.key === 'Escape' && aboutOverlay && aboutOverlay.classList.contains('show')){
+        closeAboutOverlay(true);
     }
 });
 
@@ -4149,6 +4698,7 @@ const contactOverlay = document.getElementById('contactOverlay');
 const closeContactBtn = document.getElementById('closeContactBtn');
 const contactOpenBtns = document.querySelectorAll('.contactOpenBtn');
 const contactCloseArea = document.querySelector('.contactCloseArea');
+const contactPanelBackBtn = document.getElementById('contactPanelBackBtn');
 
 function openContactOverlay(){
     contactOverlay.classList.add('show');
@@ -4166,6 +4716,13 @@ contactOpenBtns.forEach(button=>{
 
 closeContactBtn.addEventListener('click', closeContactOverlay);
 contactCloseArea.addEventListener('click', closeContactOverlay);
+if(contactPanelBackBtn){
+    contactPanelBackBtn.addEventListener('click', (event)=>{
+        event.preventDefault();
+        event.stopPropagation();
+        closeContactOverlay();
+    });
+}
 
 document.addEventListener('keydown', (event)=>{
     if(event.key === 'Escape' && contactOverlay.classList.contains('show')){
