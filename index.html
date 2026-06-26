@@ -1248,17 +1248,131 @@ a,
     transform:none !important;
 }
 
-
-/* Blue fog intro video: no extra zoom or crop. */
+/* Interactive intro nebula replacing blue fog.mp4. */
 #introVideoWrap{
-    overflow:visible !important;
+    overflow:hidden !important;
 }
 
-#introVideo{
-    inset:0 !important;
-    width:100% !important;
-    height:100% !important;
-    object-fit:cover !important;
+#introNebulaCanvas{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    display:block;
+    background:#000;
+}
+
+#introNebulaFallback{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:
+        radial-gradient(ellipse at center, rgba(75,166,255,.24) 0%, rgba(26,90,145,.17) 24%, rgba(4,18,31,.46) 54%, rgba(0,0,0,.96) 90%, #000 100%),
+        radial-gradient(ellipse at 50% 50%, rgba(99,208,255,.16) 0%, rgba(0,0,0,0) 42%);
+}
+
+#introForegroundDustCanvas{
+    position:absolute;
+    inset:0;
+    z-index:5;
+    width:100%;
+    height:100%;
+    display:block;
+    pointer-events:none;
+    mix-blend-mode:screen;
+}
+
+/* =========================
+   BRIGHTNESS SLIDER
+========================= */
+:root{
+    --siteBrightness:1.22;
+}
+
+#introVideoWrap,
+#introForegroundDustCanvas,
+#mainPlane{
+    filter:brightness(var(--siteBrightness));
+}
+
+.brightnessControl{
+    position:fixed;
+    top:18px;
+    left:50%;
+    z-index:24;
+    transform:translateX(-50%);
+    width:min(260px, 54vw);
+    height:42px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    pointer-events:auto;
+    opacity:.88;
+    transition:opacity .28s ease;
+}
+
+.brightnessControl:hover{
+    opacity:1;
+}
+
+#brightnessSlider{
+    width:100%;
+    height:42px;
+    background:transparent;
+    appearance:none;
+    -webkit-appearance:none;
+    outline:none;
+    cursor:none;
+}
+
+#brightnessSlider::-webkit-slider-runnable-track{
+    height:4px;
+    border-radius:999px;
+    background:rgba(255,255,255,.10);
+    transition:background .28s ease;
+}
+
+#brightnessSlider:hover::-webkit-slider-runnable-track{
+    background:rgba(255,255,255,.35);
+}
+
+#brightnessSlider::-webkit-slider-thumb{
+    appearance:none;
+    -webkit-appearance:none;
+    width:34px;
+    height:34px;
+    margin-top:-15px;
+    border:none;
+    border-radius:0;
+    background:transparent url("CAM_exposure.png") center / contain no-repeat;
+    box-shadow:none;
+}
+
+#brightnessSlider::-moz-range-track{
+    height:4px;
+    border-radius:999px;
+    background:rgba(255,255,255,.10);
+    transition:background .28s ease;
+}
+
+#brightnessSlider:hover::-moz-range-track{
+    background:rgba(255,255,255,.35);
+}
+
+#brightnessSlider::-moz-range-thumb{
+    width:34px;
+    height:34px;
+    border:none;
+    border-radius:0;
+    background:transparent url("CAM_exposure.png") center / contain no-repeat;
+    box-shadow:none;
+}
+
+@media(max-width:760px){
+    .brightnessControl{
+        top:14px;
+        width:min(220px, 50vw);
+    }
 }
 
 </style>
@@ -1272,9 +1386,8 @@ a,
 
 <div id="intro">
     <div id="introVideoWrap">
-        <video id="introVideo" autoplay muted loop playsinline>
-            <source src="blue fog.mp4" type="video/mp4">
-        </video>
+        <canvas id="introNebulaCanvas" aria-hidden="true"></canvas>
+        <div id="introNebulaFallback" aria-hidden="true"></div>
     </div>
 
     <div class="introVignette" aria-hidden="true"></div>
@@ -1284,11 +1397,17 @@ a,
         <div id="lottie"></div>
         <button class="enter-btn" id="enterBtn">START EXPLORING</button>
     </div>
+
+    <canvas id="introForegroundDustCanvas" aria-hidden="true"></canvas>
 </div>
 
 <!-- MAIN SITE -->
 
 <div id="mainSite">
+    <div class="brightnessControl" aria-label="Brightness control">
+        <input id="brightnessSlider" type="range" min="80" max="150" value="122" aria-label="Brightness">
+    </div>
+
     <div id="mainPlane">
         <img id="mainImage" src="default frame.jpg" alt="Home View Solutions preview">
         <img id="sequenceImage" src="" alt="" aria-hidden="true">
@@ -1315,6 +1434,7 @@ a,
             Contact Home View Solutions to request a live demo or learn more about the interactive home visualization experience.
         </p>
         <p>
+            
             We can walk you through the interactive features, show how buyers can explore options in real time, and explain how the experience can be customized for your homes or developments.
         </p>
         <p class="contactCardActionText"><strong>Click the hotspot on the business card to download contact info.</strong></p>
@@ -1476,6 +1596,21 @@ a,
 </div>
 
 <script>
+
+/* =========================
+   BRIGHTNESS CONTROL
+========================= */
+
+const brightnessSlider = document.getElementById('brightnessSlider');
+function setSiteBrightness(value){
+    const brightness = Math.max(0.8, Math.min(1.50, Number(value) / 100));
+    document.documentElement.style.setProperty('--siteBrightness', brightness.toFixed(2));
+}
+if(brightnessSlider){
+    setSiteBrightness(brightnessSlider.value);
+    brightnessSlider.addEventListener('input', ()=>setSiteBrightness(brightnessSlider.value));
+}
+
 
 /* =========================
    IMAGE SEQUENCES + HOTSPOTS
@@ -2423,6 +2558,8 @@ function playSequence(feature, start, end, onComplete, onFrame){
     isAnimatingSequence = true;
 
     const direction = start <= end ? 1 : -1;
+
+
     let frame = start;
     let lastTime = 0;
 
@@ -2455,6 +2592,7 @@ function playSequence(feature, start, end, onComplete, onFrame){
             const preloadedEndFrame = getPreloadedFrame(feature, end);
             sequenceImage.src = preloadedEndFrame ? preloadedEndFrame.src : frameName(feature, end);
             isAnimatingSequence = false;
+
 
             if(typeof onComplete === 'function'){
                 onComplete();
@@ -2982,6 +3120,379 @@ if(sequenceImage){
     });
 }
 
+
+/* =========================
+   INTERACTIVE INTRO NEBULA
+========================= */
+
+const introNebulaCanvas = document.getElementById('introNebulaCanvas');
+const introNebulaFallback = document.getElementById('introNebulaFallback');
+let introNebula = null;
+
+function createIntroNebula(){
+    if(!introNebulaCanvas){ return null; }
+
+    const canvas = introNebulaCanvas;
+    const ctx = canvas.getContext('2d', { alpha:true });
+    if(!ctx){ return null; }
+
+    const isCoarse = window.matchMedia('(pointer:coarse)').matches;
+    const state = {
+        width: 1,
+        height: 1,
+        dpr: 1,
+        time: 0,
+        particles: [],
+        mouseX: 0.5,
+        mouseY: 0.5,
+        smoothMouseX: 0.5,
+        smoothMouseY: 0.5,
+        mouseStrength: 0,
+        lastPointerX: window.innerWidth / 2,
+        lastPointerY: window.innerHeight / 2,
+        running: true,
+        particleCount: isCoarse ? 190 : 360
+    };
+
+    function rand(seed){
+        const x = Math.sin(seed * 12.9898) * 43758.5453;
+        return x - Math.floor(x);
+    }
+
+    function resetParticle(p, i){
+        const angle = rand(i + 4.1) * Math.PI * 2;
+        const radius = Math.pow(rand(i + 9.7), 1.72);
+        const horizontalSpread = 0.40;
+        const verticalSpread = 0.27;
+        const layerPick = rand(i + 20.2);
+        const layer = layerPick < .18 ? 0 : (layerPick < .78 ? 1 : 2);
+
+        p.baseX = 0.5 + Math.cos(angle) * radius * horizontalSpread + (rand(i + 40.4) - 0.5) * 0.10;
+        p.baseY = 0.5 + Math.sin(angle) * radius * verticalSpread + (rand(i + 55.5) - 0.5) * 0.08;
+        p.x = p.baseX;
+        p.y = p.baseY;
+        p.vx = (rand(i + 70.7) - 0.5) * 0.00028;
+        p.vy = (rand(i + 80.8) - 0.5) * 0.00022;
+        p.size = layer === 0 ? 8 + rand(i + 2) * 20 : (layer === 1 ? 1.35 + rand(i + 3) * 4.4 : 0.50 + rand(i + 4) * 1.75);
+        p.alpha = layer === 0 ? 0.035 + rand(i + 5) * 0.055 : (layer === 1 ? 0.16 + rand(i + 6) * 0.38 : 0.11 + rand(i + 7) * 0.24);
+        p.layer = layer;
+        p.phase = rand(i + 8) * Math.PI * 2;
+        p.speed = 0.35 + rand(i + 10) * 0.9;
+    }
+
+    function resize(){
+        state.width = window.innerWidth;
+        state.height = window.innerHeight;
+        state.dpr = Math.min(window.devicePixelRatio || 1, isCoarse ? 1.25 : 1.75);
+        canvas.width = Math.floor(state.width * state.dpr);
+        canvas.height = Math.floor(state.height * state.dpr);
+        canvas.style.width = `${state.width}px`;
+        canvas.style.height = `${state.height}px`;
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    }
+
+    function buildParticles(){
+        state.particles.length = 0;
+        for(let i = 0; i < state.particleCount; i++){
+            const p = {};
+            resetParticle(p, i + 1);
+            state.particles.push(p);
+        }
+    }
+
+    function setPointer(x, y, strength = 1){
+        state.mouseX = x / Math.max(1, state.width);
+        state.mouseY = y / Math.max(1, state.height);
+        state.lastPointerX = x;
+        state.lastPointerY = y;
+        state.mouseStrength = Math.max(state.mouseStrength, strength * 0.62);
+    }
+
+    function drawGlow(x, y, radius, innerColor, outerColor){
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, innerColor);
+        gradient.addColorStop(1, outerColor);
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function render(){
+        if(!state.running){ return; }
+
+        state.time += 0.006;
+        state.smoothMouseX += (state.mouseX - state.smoothMouseX) * 0.055;
+        state.smoothMouseY += (state.mouseY - state.smoothMouseY) * 0.055;
+        state.mouseStrength *= 0.965;
+
+        const w = state.width;
+        const h = state.height;
+        const cx = w * 0.5;
+        const cy = h * 0.5;
+        const focusRadius = Math.min(w, h) * 0.54;
+        const mousePX = state.smoothMouseX * w;
+        const mousePY = state.smoothMouseY * h;
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, w, h);
+
+        drawGlow(cx, cy, Math.max(w, h) * 0.50, 'rgba(28,113,178,.25)', 'rgba(0,0,0,0)');
+        drawGlow(cx, cy, Math.max(w, h) * 0.27, 'rgba(92,196,255,.18)', 'rgba(0,0,0,0)');
+
+        ctx.globalCompositeOperation = 'lighter';
+
+        for(const p of state.particles){
+            const layerDepth = p.layer === 0 ? 0.55 : (p.layer === 1 ? 1 : 1.7);
+            const waveX = Math.sin(state.time * p.speed + p.phase + p.baseY * 12) * 0.010 * layerDepth;
+            const waveY = Math.cos(state.time * p.speed * .82 + p.phase + p.baseX * 14) * 0.007 * layerDepth;
+
+            const dxM = p.x - state.smoothMouseX;
+            const dyM = p.y - state.smoothMouseY;
+            const mouseDist = Math.sqrt(dxM * dxM + dyM * dyM) + 0.0001;
+            const influence = Math.max(0, 1 - mouseDist / 0.18);
+            const softInfluence = influence * influence;
+
+            // Keep the mouse interaction visible but contained.
+            // Before this, the particles could build up too much velocity and drift off-screen.
+            const swirl = softInfluence * state.mouseStrength * 0.0048 * layerDepth;
+            const push = softInfluence * state.mouseStrength * 0.0016 * layerDepth;
+
+            p.vx += (-dyM / mouseDist) * swirl + (dxM / mouseDist) * push;
+            p.vy += (dxM / mouseDist) * swirl + (dyM / mouseDist) * push;
+
+            // Stronger home attraction keeps the cloud locked to the centre glow.
+            p.vx += (p.baseX + waveX - p.x) * 0.0042;
+            p.vy += (p.baseY + waveY - p.y) * 0.0042;
+            p.vx *= 0.90;
+            p.vy *= 0.90;
+            p.x += p.vx;
+            p.y += p.vy;
+
+            // Hard safety clamp: each particle can react, but never abandon the visible cluster.
+            const maxOffsetX = p.layer === 0 ? 0.026 : (p.layer === 1 ? 0.040 : 0.055);
+            const maxOffsetY = p.layer === 0 ? 0.020 : (p.layer === 1 ? 0.030 : 0.042);
+            p.x = Math.max(p.baseX - maxOffsetX, Math.min(p.baseX + maxOffsetX, p.x));
+            p.y = Math.max(p.baseY - maxOffsetY, Math.min(p.baseY + maxOffsetY, p.y));
+
+            const px = p.x * w;
+            const py = p.y * h;
+            const centerDx = (px - cx) / (focusRadius * 1.35);
+            const centerDy = (py - cy) / (focusRadius * 0.88);
+            const centerFalloff = Math.max(0, 1 - Math.sqrt(centerDx * centerDx + centerDy * centerDy));
+            const alpha = p.alpha * centerFalloff * centerFalloff;
+            if(alpha <= 0.002){ continue; }
+
+            const size = p.size * (p.layer === 0 ? 1.45 : 1) * (0.82 + centerFalloff * 0.72);
+            if(p.layer === 0){
+                drawGlow(px, py, size * 3.4, `rgba(102,194,255,${alpha * 0.36})`, 'rgba(0,0,0,0)');
+            }else{
+                drawGlow(px, py, size * 2.2, `rgba(80,177,255,${alpha * 0.55})`, 'rgba(0,0,0,0)');
+                ctx.fillStyle = `rgba(176,226,255,${alpha})`;
+                ctx.beginPath();
+                ctx.arc(px, py, Math.max(0.45, size * .38), 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        const midParticles = state.particles.filter(p=>p.layer === 1);
+        ctx.lineWidth = 0.7;
+        for(let i = 0; i < midParticles.length; i += 3){
+            const a = midParticles[i];
+            const ax = a.x * w;
+            const ay = a.y * h;
+            let nearest = null;
+            let nearestDist = 99999;
+            for(let j = i + 1; j < Math.min(midParticles.length, i + 34); j++){
+                const b = midParticles[j];
+                const bx = b.x * w;
+                const by = b.y * h;
+                const dx = ax - bx;
+                const dy = ay - by;
+                const d = dx * dx + dy * dy;
+                if(d < nearestDist){ nearestDist = d; nearest = b; }
+            }
+            if(nearest && nearestDist < 19000){
+                const d01 = Math.sqrt(nearestDist) / 138;
+                const centerDx = ((ax + nearest.x * w) * .5 - cx) / (focusRadius * 1.42);
+                const centerDy = ((ay + nearest.y * h) * .5 - cy) / (focusRadius * .92);
+                const falloff = Math.max(0, 1 - Math.sqrt(centerDx * centerDx + centerDy * centerDy));
+                ctx.strokeStyle = `rgba(77,179,255,${(1 - d01) * falloff * 0.12})`;
+                ctx.beginPath();
+                ctx.moveTo(ax, ay);
+                ctx.lineTo(nearest.x * w, nearest.y * h);
+                ctx.stroke();
+            }
+        }
+
+        ctx.globalCompositeOperation = 'source-over';
+        const vignette = ctx.createRadialGradient(cx, cy, Math.min(w,h)*0.15, cx, cy, Math.max(w,h)*0.70);
+        vignette.addColorStop(0, 'rgba(0,0,0,0)');
+        vignette.addColorStop(.60, 'rgba(0,0,0,.04)');
+        vignette.addColorStop(.82, 'rgba(0,0,0,.52)');
+        vignette.addColorStop(1, 'rgba(0,0,0,.98)');
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, 0, w, h);
+
+        requestAnimationFrame(render);
+    }
+
+    resize();
+    buildParticles();
+    if(introNebulaFallback){ introNebulaFallback.style.display = 'none'; }
+    window.addEventListener('resize', resize);
+    requestAnimationFrame(render);
+
+    return { setPointer, resize, state };
+}
+
+introNebula = createIntroNebula();
+
+
+const introForegroundDustCanvas = document.getElementById('introForegroundDustCanvas');
+let introForegroundDust = null;
+
+function createIntroForegroundDust(){
+    if(!introForegroundDustCanvas){ return null; }
+    const canvas = introForegroundDustCanvas;
+    const ctx = canvas.getContext('2d', { alpha:true });
+    if(!ctx){ return null; }
+
+    const isCoarse = window.matchMedia('(pointer:coarse)').matches;
+    const state = {
+        width: 1,
+        height: 1,
+        dpr: 1,
+        time: 0,
+        particles: [],
+        particleCount: isCoarse ? 20 : 34,
+        mouseX: 0.5,
+        mouseY: 0.5,
+        smoothMouseX: 0.5,
+        smoothMouseY: 0.5,
+        mouseStrength: 0
+    };
+
+    function rand(seed){
+        const x = Math.sin(seed * 91.77) * 43758.5453;
+        return x - Math.floor(x);
+    }
+
+    function resetParticle(p, i){
+        const nearButton = rand(i + 2) > 0.78;
+        p.x = 0.5 + (rand(i + 3) - 0.5) * (nearButton ? 0.26 : 0.46);
+        p.y = nearButton ? 0.66 + (rand(i + 4) - 0.5) * 0.10 : 0.45 + (rand(i + 5) - 0.5) * 0.34;
+        p.homeX = p.x;
+        p.homeY = p.y;
+        p.vx = (rand(i + 6) - 0.5) * 0.00022;
+        p.vy = (rand(i + 7) - 0.5) * 0.00016;
+        p.size = nearButton ? 0.9 + rand(i + 8) * 1.6 : 1.3 + rand(i + 9) * 3.6;
+        p.alpha = nearButton ? 0.10 + rand(i + 10) * 0.14 : 0.14 + rand(i + 11) * 0.22;
+        p.blur = rand(i + 12) > 0.68;
+        p.phase = rand(i + 13) * Math.PI * 2;
+        p.speed = 0.22 + rand(i + 14) * 0.40;
+    }
+
+    function resize(){
+        state.width = window.innerWidth;
+        state.height = window.innerHeight;
+        state.dpr = Math.min(window.devicePixelRatio || 1, isCoarse ? 1.15 : 1.5);
+        canvas.width = Math.floor(state.width * state.dpr);
+        canvas.height = Math.floor(state.height * state.dpr);
+        canvas.style.width = `${state.width}px`;
+        canvas.style.height = `${state.height}px`;
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    }
+
+    function buildParticles(){
+        state.particles.length = 0;
+        for(let i = 0; i < state.particleCount; i++){
+            const p = {};
+            resetParticle(p, i + 1);
+            state.particles.push(p);
+        }
+    }
+
+    function setPointer(x, y, strength = 1){
+        state.mouseX = x / Math.max(1, state.width);
+        state.mouseY = y / Math.max(1, state.height);
+        state.mouseStrength = Math.max(state.mouseStrength, strength * 0.35);
+    }
+
+    function render(){
+        state.time += 0.006;
+        state.smoothMouseX += (state.mouseX - state.smoothMouseX) * 0.055;
+        state.smoothMouseY += (state.mouseY - state.smoothMouseY) * 0.055;
+        state.mouseStrength *= 0.965;
+
+        const w = state.width;
+        const h = state.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const intro = document.getElementById('intro');
+        if(!intro || intro.classList.contains('fadeOut')){
+            requestAnimationFrame(render);
+            return;
+        }
+
+        ctx.globalCompositeOperation = 'lighter';
+
+        for(const p of state.particles){
+            const dxM = p.x - state.smoothMouseX;
+            const dyM = p.y - state.smoothMouseY;
+            const d = Math.sqrt(dxM * dxM + dyM * dyM) + 0.0001;
+            const influence = Math.max(0, 1 - d / 0.22);
+            const soft = influence * influence;
+
+            const waveX = Math.sin(state.time * p.speed + p.phase) * 0.000030;
+            const waveY = Math.cos(state.time * p.speed * .7 + p.phase) * 0.000024;
+            p.vx += (-dyM / d) * soft * state.mouseStrength * 0.0010 + waveX;
+            p.vy += (dxM / d) * soft * state.mouseStrength * 0.0010 + waveY;
+            p.vx += (p.homeX - p.x) * 0.0035;
+            p.vy += (p.homeY - p.y) * 0.0035;
+            p.vx *= 0.90;
+            p.vy *= 0.90;
+            p.x += p.vx;
+            p.y += p.vy;
+
+            const px = p.x * w;
+            const py = p.y * h;
+            const alpha = p.alpha * (1 + soft * 0.7);
+
+            if(p.blur){
+                const radius = p.size * 4.0;
+                const gradient = ctx.createRadialGradient(px, py, 0, px, py, radius);
+                gradient.addColorStop(0, `rgba(205,235,255,${alpha * 0.34})`);
+                gradient.addColorStop(0.45, `rgba(145,210,255,${alpha * 0.10})`);
+                gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(px, py, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }else{
+                ctx.fillStyle = `rgba(215,240,255,${alpha})`;
+                ctx.beginPath();
+                ctx.arc(px, py, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        ctx.globalCompositeOperation = 'source-over';
+        requestAnimationFrame(render);
+    }
+
+    resize();
+    buildParticles();
+    window.addEventListener('resize', resize);
+    requestAnimationFrame(render);
+    return { setPointer, resize, state };
+}
+
+introForegroundDust = createIntroForegroundDust();
+
+
 /* =========================
    LOTTIE
 ========================= */
@@ -3293,6 +3804,15 @@ document.addEventListener('mousemove', (event)=>{
     cursorTargetX = event.clientX;
     cursorTargetY = event.clientY;
 
+    if(introNebula && !intro.classList.contains('fadeOut')){
+        introNebula.setPointer(event.clientX, event.clientY, 1);
+    }
+
+    if(introForegroundDust && !intro.classList.contains('fadeOut')){
+        introForegroundDust.setPointer(event.clientX, event.clientY, 1);
+    }
+
+
     const normalizedX = (event.clientX / window.innerWidth - 0.5) * 2;
     const normalizedY = (event.clientY / window.innerHeight - 0.5) * 2;
 
@@ -3340,7 +3860,7 @@ function animateCursorAndParallax(){
     const introMoveY = bgMoveY * 4.4;
 
     if(!intro.classList.contains('fadeOut')){
-        introVideoWrap.style.transform = `perspective(1100px) translate3d(${introMoveX}px, ${introMoveY}px, 0) rotateX(${introRotateX}deg) rotateY(${introRotateY}deg) scale(1.28)`;
+        introVideoWrap.style.transform = `perspective(1100px) translate3d(${introMoveX}px, ${introMoveY}px, 0) rotateX(${introRotateX}deg) rotateY(${introRotateY}deg) scale(1.10)`;
     }
 
     if(mainSite.classList.contains('show')){
