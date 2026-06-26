@@ -363,6 +363,66 @@ html,body{
     color:#ff9d2e;
 }
 
+
+/* Subtle product panel text swap cue.
+   This only animates the text inside THE PRODUCT panel when Next / Back changes content. */
+.infoPanel h2,
+.infoPanel p{
+    transition:
+        opacity .28s ease,
+        transform .34s cubic-bezier(.22, 1, .36, 1),
+        filter .34s ease;
+    will-change:opacity, transform, filter;
+}
+
+.infoPanel.productTextAnimatingOut h2,
+.infoPanel.productTextAnimatingOut p{
+    opacity:0;
+    transform:translateY(8px);
+    filter:blur(3px);
+}
+
+.infoPanel.productTextAnimatingIn h2,
+.infoPanel.productTextAnimatingIn p{
+    animation:productTextSoftIn .62s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.infoPanel.productTextAnimatingIn p{
+    animation-delay:.055s;
+}
+
+.infoPanel.productTextAnimatingIn .monitorActionText{
+    animation-delay:.105s;
+}
+
+@keyframes productTextSoftIn{
+    0%{
+        opacity:0;
+        transform:translateY(8px);
+        filter:blur(3px);
+    }
+    62%{
+        opacity:1;
+        transform:translateY(-1px);
+        filter:blur(0);
+    }
+    100%{
+        opacity:1;
+        transform:translateY(0);
+        filter:blur(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce){
+    .infoPanel h2,
+    .infoPanel p{
+        transition:none !important;
+        animation:none !important;
+        transform:none !important;
+        filter:none !important;
+    }
+}
+
 .infoPanel .nextBtn{
     margin-top:24px;
     border:1px solid rgba(255,255,255,.18);
@@ -1774,6 +1834,126 @@ a,
     }
 }
 
+
+/* =========================
+   PRODUCT CONFIRM POPUP + OVERLAY BUTTON FIXES
+========================= */
+.productConfirmOverlay{
+    position:fixed;
+    inset:0;
+    z-index:125;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .35s ease, visibility .35s ease;
+}
+.productConfirmOverlay.show{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+}
+.productConfirmBackdrop{
+    position:absolute;
+    inset:0;
+    background:rgba(0,0,0,.58);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+}
+.productConfirmPanel{
+    position:relative;
+    z-index:2;
+    width:min(500px, calc(100vw - 32px));
+    padding:30px 28px;
+    border-radius:24px;
+    background:rgba(0,0,0,.56);
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 28px 80px rgba(0,0,0,.48);
+    text-align:center;
+}
+.productConfirmPanel h2{
+    font-size:24px;
+    margin-bottom:12px;
+    letter-spacing:1px;
+}
+.productConfirmPanel p{
+    color:rgba(255,255,255,.86);
+    line-height:1.55;
+}
+.productConfirmActions{
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-top:24px;
+}
+.productConfirmBtn{
+    border:1px solid rgba(255,255,255,.18);
+    cursor:pointer;
+    padding:12px 22px;
+    border-radius:999px;
+    background:rgba(255,255,255,.10);
+    color:white;
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    letter-spacing:1px;
+    transform:none !important;
+}
+.productConfirmBtn:hover{
+    border-color:rgba(255,255,255,.32);
+    background:rgba(255,255,255,.18);
+    transform:none !important;
+}
+.productConfirmBtn.primary{
+    background:rgba(255,157,46,.22);
+    border-color:rgba(255,157,46,.44);
+}
+
+/* Keep these buttons clickable while About Us / How It Works overlays are open,
+   but let Contact, Chess and product confirmation popups sit above them. */
+.topContactBtn,
+.bottomBrainBtn{
+    z-index:120;
+}
+#contactOverlay,
+#chessOverlay{
+    z-index:130;
+}
+.productConfirmOverlay{
+    z-index:135;
+}
+
+/* The nebula canvas now slightly overfills the viewport so parallax can never reveal hard 1920x1080 edges. */
+#introNebulaCanvas,
+#introForegroundDustCanvas,
+#introNebulaFallback{
+    inset:-8vw !important;
+    width:116vw !important;
+    height:116vh !important;
+}
+
+
+/* Fix: About Us / How It Works overlays must not create a full-screen invisible click shield.
+   Only the actual glass panel remains interactive, so the fixed Contact and Chess buttons
+   keep their hover/click states while these windows are open. */
+#howOverlay.show,
+#aboutOverlay.show{
+    pointer-events:none !important;
+}
+
+#howOverlay.show .contactPanel,
+#aboutOverlay.show .contactPanel{
+    pointer-events:auto !important;
+}
+
+#howOverlay .howBackdrop,
+#aboutOverlay .howBackdrop{
+    pointer-events:none !important;
+}
+
 </style>
 </head>
 <body>
@@ -1849,6 +2029,19 @@ a,
     <div id="movieControls" aria-label="Product video controls">
         <button id="moviePlayBtn" class="movieControlBtn" type="button" aria-label="Play product video"><img src="01 PLAY.png" alt=""></button>
         <button id="moviePauseBtn" class="movieControlBtn" type="button" aria-label="Pause product video"><img src="01 pause.png" alt=""></button>
+    </div>
+
+
+    <div id="productConfirmOverlay" class="productConfirmOverlay" aria-hidden="true">
+        <div class="productConfirmBackdrop"></div>
+        <div class="productConfirmPanel" role="dialog" aria-modal="true" aria-labelledby="productConfirmTitle">
+            <h2 id="productConfirmTitle">Are you sure you would like to continue?</h2>
+            <p>You have not watched the video on the monitor yet.</p>
+            <div class="productConfirmActions">
+                <button id="productConfirmContinueBtn" class="productConfirmBtn" type="button">CONTINUE</button>
+                <button id="productConfirmWatchBtn" class="productConfirmBtn primary" type="button">WATCH VIDEO</button>
+            </div>
+        </div>
     </div>
 
 
@@ -2188,10 +2381,38 @@ const movieControls = document.getElementById('movieControls');
 const moviePlayBtn = document.getElementById('moviePlayBtn');
 const moviePauseBtn = document.getElementById('moviePauseBtn');
 const contactEmailAddress = 'marie@homeviewsolutions.com';
-const logoVideoFiles = ['HV_Logo.mp4', 'HV_Logo_02.mp4'];
+const productSteps = [
+    {
+        title: 'Customize Finishes in Real Time',
+        text: 'Explore a digital show home and instantly personalize finishes, colours, fixtures and materials. Every selection updates pricing in real time, helping buyers understand the impact of their choices immediately. No software installation is required — everything runs directly in a web browser on desktop, tablet or mobile.',
+        videos: ['HV_Logo.mp4', 'HV_Logo_02.mp4'],
+        nextLabel: 'Next ▶'
+    },
+    {
+        title: 'Interactive Floor Plans & Layout Options',
+        text: 'Switch between available floor plan layouts and immediately see the changes reflected in both the live 3D model and floor plan view. Structural options, room configurations and upgrade choices can be visualized instantly while associated costs are tracked automatically.',
+        videos: ['HV_video-02_01.mp4', 'HV_video-02_02.mp4'],
+        nextLabel: 'Next ▶'
+    },
+    {
+        title: 'Experience the Finished Home',
+        text: 'Once selections are complete, buyers can freely explore their personalized home and launch a real-time cinematic walkthrough featuring their exact choices. This creates a memorable experience that helps clients feel confident in their decisions before construction begins.',
+        videos: ['HV_video-03.mp4'],
+        nextLabel: 'REQUEST DEMO'
+    }
+];
+let productStepIndex = 0;
+let productStepWatched = productSteps.map(()=>false);
+let currentProductVideoFiles = productSteps[0].videos.slice();
+let productTextAnimationToken = 0;
+let productTextAnimationTimer = null;
 const backBtn = document.getElementById('backBtn');
 const infoPanel = document.getElementById('infoPanel');
 const productPanelBackBtn = document.getElementById('productPanelBackBtn');
+const productPanelNextBtn = infoPanel ? infoPanel.querySelector('.nextBtn') : null;
+const productConfirmOverlay = document.getElementById('productConfirmOverlay');
+const productConfirmContinueBtn = document.getElementById('productConfirmContinueBtn');
+const productConfirmWatchBtn = document.getElementById('productConfirmWatchBtn');
 const sequenceImages = {};
 const cardSequenceImages = [];
 
@@ -2863,12 +3084,12 @@ function preloadAssets(){
         }
     });
 
-    logoVideo.src = logoVideoFiles[0];
+    logoVideo.src = productSteps[0].videos[0];
     logoVideo.load();
 
     preloadCardSequence();
 
-    logoVideoFiles.forEach(file=>{
+    productSteps.flatMap(step=>step.videos).forEach(file=>{
         const preloadVideo = document.createElement('video');
         preloadVideo.preload = 'auto';
         preloadVideo.muted = true;
@@ -2936,7 +3157,8 @@ function showInfoPanel(){
 
 function playLogoVideo(index){
     currentLogoVideoIndex = index;
-    logoVideo.src = logoVideoFiles[index];
+    const files = currentProductVideoFiles && currentProductVideoFiles.length ? currentProductVideoFiles : productSteps[productStepIndex].videos;
+    logoVideo.src = files[index] || files[0];
     logoVideo.load();
     logoVideo.currentTime = 0;
 
@@ -2963,7 +3185,8 @@ function hideLogoVideo(callback){
     setTimeout(()=>{
         logoVideo.pause();
         currentLogoVideoIndex = 0;
-        logoVideo.src = logoVideoFiles[0];
+        currentProductVideoFiles = productSteps[productStepIndex].videos.slice();
+        logoVideo.src = currentProductVideoFiles[0];
         logoVideo.load();
         logoVideo.currentTime = 0;
         if(logoVideoMaskPlane){ logoVideoMaskPlane.style.display = 'none'; }
@@ -2997,6 +3220,7 @@ async function hideFeatureOverlays(callback){
     hideContactFrameOverlays();
     hideProductPlayHotspot();
     hideMovieControls();
+    closeProductConfirm();
 
     if(activeFeature && activeFeature === features.contact){
         await reverseContactCardBeforeLeaving();
@@ -3420,7 +3644,7 @@ async function playForwardSequence(featureId){
 
         if(activeFeature === features.finishes){
             setSequenceImageToScreenDefault();
-            showProductPlayHotspot();
+            resetProductSteps();
         }
 
         if(activeFeature.playLogoVideos){
@@ -3483,6 +3707,157 @@ Object.entries(features).forEach(([featureId, feature])=>{
 });
 
 
+function applyProductStepText(step){
+    if(!infoPanel){ return; }
+
+    const title = infoPanel.querySelector('h2');
+    const body = infoPanel.querySelector('p:not(.monitorActionText)');
+
+    if(title){ title.textContent = step.title; }
+    if(body){ body.textContent = step.text; }
+}
+
+function animateProductStepText(step){
+    if(!infoPanel){
+        applyProductStepText(step);
+        return;
+    }
+
+    const token = ++productTextAnimationToken;
+
+    if(productTextAnimationTimer){
+        clearTimeout(productTextAnimationTimer);
+        productTextAnimationTimer = null;
+    }
+
+    infoPanel.classList.remove('productTextAnimatingIn');
+    infoPanel.classList.add('productTextAnimatingOut');
+
+    productTextAnimationTimer = setTimeout(()=>{
+        if(token !== productTextAnimationToken){ return; }
+
+        applyProductStepText(step);
+
+        infoPanel.classList.remove('productTextAnimatingOut');
+
+        /* Force the browser to register the reset before playing the soft return animation. */
+        void infoPanel.offsetWidth;
+
+        infoPanel.classList.add('productTextAnimatingIn');
+
+        productTextAnimationTimer = setTimeout(()=>{
+            if(token !== productTextAnimationToken){ return; }
+            infoPanel.classList.remove('productTextAnimatingIn');
+            productTextAnimationTimer = null;
+        }, 720);
+    }, 260);
+}
+
+function setProductStep(index, animateText = false){
+    productStepIndex = Math.max(0, Math.min(productSteps.length - 1, index));
+    const step = productSteps[productStepIndex];
+    currentProductVideoFiles = step.videos.slice();
+
+    if(animateText && infoPanel && infoPanel.classList.contains('show')){
+        animateProductStepText(step);
+    }else{
+        productTextAnimationToken++;
+        if(productTextAnimationTimer){
+            clearTimeout(productTextAnimationTimer);
+            productTextAnimationTimer = null;
+        }
+        if(infoPanel){
+            infoPanel.classList.remove('productTextAnimatingOut', 'productTextAnimatingIn');
+        }
+        applyProductStepText(step);
+    }
+
+    if(productPanelNextBtn){
+        productPanelNextBtn.textContent = step.nextLabel;
+    }
+
+    hideMovieControls();
+    if(logoVideoMaskPlane && logoVideoMaskPlane.style.display === 'block'){
+        hideLogoVideo(()=>showProductPlayHotspot());
+    }else{
+        showProductPlayHotspot();
+    }
+}
+
+function resetProductSteps(){
+    productStepIndex = 0;
+    productStepWatched = productSteps.map(()=>false);
+    setProductStep(0);
+}
+
+function openProductConfirm(){
+    if(!productConfirmOverlay){ return; }
+    productConfirmOverlay.classList.add('show');
+    productConfirmOverlay.setAttribute('aria-hidden','false');
+}
+
+function closeProductConfirm(){
+    if(!productConfirmOverlay){ return; }
+    productConfirmOverlay.classList.remove('show');
+    productConfirmOverlay.setAttribute('aria-hidden','true');
+}
+
+function startCurrentProductVideo(){
+    if(!activeFeature || activeFeature !== features.finishes){ return; }
+    productStepWatched[productStepIndex] = true;
+    hideProductPlayHotspot();
+    currentProductVideoFiles = productSteps[productStepIndex].videos.slice();
+    showLogoVideo();
+    showMovieControls();
+}
+
+function advanceProductStep(){
+    if(productStepIndex >= productSteps.length - 1){
+        hideLogoVideo(()=>{
+            showProductPlayHotspot();
+            openContactOverlay();
+        });
+        return;
+    }
+    setProductStep(productStepIndex + 1, true);
+}
+
+function handleProductNext(event){
+    if(event){
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    if(!activeFeature || activeFeature !== features.finishes){ return; }
+
+    /* The final REQUEST DEMO button should open contact directly.
+       Do not show the "you have not watched the video" confirmation on this last step. */
+    if(productStepIndex >= productSteps.length - 1){
+        advanceProductStep();
+        return;
+    }
+
+    if(!productStepWatched[productStepIndex]){
+        openProductConfirm();
+        return;
+    }
+
+    advanceProductStep();
+}
+
+function handleProductBack(){
+    if(!activeFeature || activeFeature !== features.finishes){
+        goBackToDefaultFrame();
+        return;
+    }
+
+    if(productStepIndex > 0){
+        setProductStep(productStepIndex - 1, true);
+        return;
+    }
+
+    goBackToDefaultFrame();
+}
+
 if(productPlayHotspot){
     productPlayHotspot.addEventListener('mouseenter', ()=>{
         productPlayHotspot.classList.add('label-active');
@@ -3490,12 +3865,7 @@ if(productPlayHotspot){
     productPlayHotspot.addEventListener('mouseleave', ()=>{
         productPlayHotspot.classList.remove('label-active');
     });
-    productPlayHotspot.addEventListener('click', ()=>{
-        if(!activeFeature || activeFeature !== features.finishes){ return; }
-        hideProductPlayHotspot();
-        showLogoVideo();
-        showMovieControls();
-    });
+    productPlayHotspot.addEventListener('click', startCurrentProductVideo);
 }
 
 function playProductMovieFromControls(event){
@@ -3575,14 +3945,41 @@ if(contactFrameBackBtn){
 }
 
 if(productPanelBackBtn){
-    productPanelBackBtn.addEventListener('click', goBackToDefaultFrame);
+    productPanelBackBtn.addEventListener('click', handleProductBack);
+}
+
+if(productPanelNextBtn){
+    productPanelNextBtn.addEventListener('click', handleProductNext);
+}
+
+if(productConfirmWatchBtn){
+    productConfirmWatchBtn.addEventListener('click', (event)=>{
+        event.preventDefault();
+        event.stopPropagation();
+        closeProductConfirm();
+        startCurrentProductVideo();
+    });
+}
+
+if(productConfirmContinueBtn){
+    productConfirmContinueBtn.addEventListener('click', (event)=>{
+        event.preventDefault();
+        event.stopPropagation();
+        closeProductConfirm();
+        advanceProductStep();
+    });
 }
 
 backBtn.addEventListener('click', goBackToDefaultFrame);
 
 logoVideo.addEventListener('ended', ()=>{
-    if(currentLogoVideoIndex === 0){
-        playLogoVideo(1);
+    const files = currentProductVideoFiles && currentProductVideoFiles.length ? currentProductVideoFiles : productSteps[productStepIndex].videos;
+    if(currentLogoVideoIndex < files.length - 1){
+        playLogoVideo(currentLogoVideoIndex + 1);
+    }else{
+        logoVideo.pause();
+        showProductPlayHotspot();
+        hideMovieControls();
     }
 });
 
@@ -4590,7 +4987,18 @@ function completeChessPuzzle(){ chessCompleted=true; clearChessHighlights(); ren
 function resetChessPuzzle(){ chessPosition=cloneChessPosition(chessStartPosition); selectedChessSquare=null; currentPuzzleStep=0; playedChessMoves=[]; chessCompleted=false; chessCompleteBox.classList.remove('show'); chessMessage.textContent="Move 1 of 3. Find White's best move."; updateChessMoveList(); renderChessBoard(); }
 function showChessHint(){ if(chessCompleted) return; clearChessHighlights(); const expected=chessSolution[currentPuzzleStep]; const from=document.querySelector(`[data-square="${expected.from}"]`); if(from) from.classList.add('hintFrom'); chessMessage.textContent='Hint: this is the piece to move.'; }
 function showCorrectChessMove(){ if(chessCompleted) return; const expected=chessSolution[currentPuzzleStep]; clearChessHighlights(); const from=document.querySelector(`[data-square="${expected.from}"]`); const to=document.querySelector(`[data-square="${expected.to}"]`); if(from) from.classList.add('hintFrom'); if(to) to.classList.add('hintTo'); setTimeout(()=>attemptPuzzleMove(expected.from,expected.to),520); }
-function openChessOverlay(){ chessOverlay.classList.add('show'); chessOverlay.setAttribute('aria-hidden','false'); resetChessPuzzle(); refreshMagneticTargets(); }
+function openChessOverlay(event){
+    if(event){
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    // Keep any About Us / How It Works window underneath the chess puzzle.
+    if(!chessOverlay){ return; }
+    chessOverlay.classList.add('show');
+    chessOverlay.setAttribute('aria-hidden','false');
+    resetChessPuzzle();
+    refreshMagneticTargets();
+}
 function closeChessOverlay(){ chessOverlay.classList.remove('show'); chessOverlay.setAttribute('aria-hidden','true'); }
 buildChessBoard(); resetChessPuzzle();
 if(bottomBrainBtn) bottomBrainBtn.addEventListener('click', openChessOverlay);
@@ -4700,9 +5108,17 @@ const contactOpenBtns = document.querySelectorAll('.contactOpenBtn');
 const contactCloseArea = document.querySelector('.contactCloseArea');
 const contactPanelBackBtn = document.getElementById('contactPanelBackBtn');
 
-function openContactOverlay(){
+function openContactOverlay(event){
+    if(event){
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    if(!contactOverlay){ return; }
+    closeProductConfirm();
+    // Keep any About Us / How It Works window underneath the contact overlay.
     contactOverlay.classList.add('show');
     contactOverlay.setAttribute('aria-hidden','false');
+    refreshMagneticTargets();
 }
 
 function closeContactOverlay(){
