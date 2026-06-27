@@ -6587,5 +6587,498 @@ body.mobile-contact-portrait #mobileContactCardTap{
 })();
 </script>
 
+
+
+<!-- STABILITY / CONTACT PORTRAIT CLEANUP FIXES -->
+<style id="stabilityContactPortraitCleanupFixes">
+@media (pointer:coarse) and (orientation:portrait){
+    /* Main portrait page keeps the soft black joystick fade. Contact mode does not. */
+    body:not(.mobile-contact-portrait) > #mobileBottomFade{
+        display:block !important;
+        z-index:42 !important;
+        pointer-events:none !important;
+        bottom:-18dvh !important;
+        height:78dvh !important;
+        left:-28vw !important;
+        right:-28vw !important;
+        background:
+            radial-gradient(125% 88% at 50% 100%, rgba(0,0,0,1) 0%, rgba(0,0,0,.98) 28%, rgba(0,0,0,.72) 52%, rgba(0,0,0,.24) 76%, rgba(0,0,0,0) 100%),
+            radial-gradient(82% 54% at 50% 58%, rgba(0,0,0,.78) 0%, rgba(0,0,0,.26) 58%, rgba(0,0,0,0) 100%) !important;
+    }
+
+    body.mobile-contact-portrait > #mobileBottomFade,
+    body.mobile-contact-portrait > #mobileJoystick,
+    body.mobile-contact-portrait #customCursor,
+    body.mobile-contact-portrait #customCursorPulse{
+        display:none !important;
+        opacity:0 !important;
+        pointer-events:none !important;
+    }
+
+    /* The old full-width tap shield was breaking buttons/back behavior. */
+    #mobileContactCardTap,
+    body.mobile-contact-portrait #mobileContactCardTap{
+        display:none !important;
+        pointer-events:none !important;
+    }
+
+    /* Hide the underlying default frame during the Contact sequence so no other image is revealed. */
+    body.mobile-contact-portrait #mainPlane{
+        background:#000 !important;
+    }
+    body.mobile-contact-portrait #mainImage{
+        opacity:0 !important;
+    }
+
+    /* Feather the bottom of the actual contact sequence instead of using a separate fade layer over the menu. */
+    body.mobile-contact-portrait #sequenceImage,
+    body.mobile-contact-portrait #screenDefaultImage{
+        -webkit-mask-image:linear-gradient(to bottom, #000 0%, #000 80%, rgba(0,0,0,.72) 88%, transparent 100%) !important;
+        mask-image:linear-gradient(to bottom, #000 0%, #000 80%, rgba(0,0,0,.72) 88%, transparent 100%) !important;
+        -webkit-mask-size:100% 100% !important;
+        mask-size:100% 100% !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel{
+        left:8vw !important;
+        top:54dvh !important;
+        width:84vw !important;
+        max-width:84vw !important;
+        padding:18px 18px 16px !important;
+        transform:none !important;
+        z-index:146 !important;
+        border-radius:20px !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel h2{
+        font-size:clamp(22px, 7vw, 34px) !important;
+        line-height:1.08 !important;
+        letter-spacing:2px !important;
+        margin-bottom:14px !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel p{
+        font-size:clamp(15px, 4.2vw, 18px) !important;
+        line-height:1.42 !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel p:nth-of-type(2){
+        display:none !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel .contactCardActionText{
+        color:rgba(255,255,255,.92) !important;
+        margin-top:12px !important;
+    }
+
+    body.mobile-contact-portrait .contactFrameActions{
+        padding-top:16px !important;
+        gap:10px !important;
+    }
+
+    body.mobile-contact-portrait .contactFrameBtn{
+        padding:11px 16px !important;
+        font-size:13px !important;
+    }
+
+    /* Prevent hidden hotspots from catching virtual/touch clicks while Contact is open. */
+    body.mobile-contact-portrait #hotspot01,
+    body.mobile-contact-portrait #hotspot02,
+    body.mobile-contact-portrait #hotspot03,
+    body.mobile-contact-portrait #hotspot04,
+    body.mobile-contact-portrait .topContactBtn,
+    body.mobile-contact-portrait .bottomBrainBtn{
+        pointer-events:none !important;
+    }
+}
+</style>
+
+<script id="stabilityContactPortraitCleanupFixesScript">
+(function(){
+    const coarseTouch = window.matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window);
+    const portraitQuery = window.matchMedia('(orientation:portrait)');
+    const joystick = document.getElementById('mobileJoystick');
+    const guide = document.getElementById('mobileTouchGuide');
+    const fade = document.getElementById('mobileBottomFade');
+    const qrBtn = document.getElementById('contactFrameQrBtn');
+    const back = document.getElementById('backBtn');
+    const contactBack = document.getElementById('contactFrameBackBtn');
+    const infoPopup = document.getElementById('mobileContactInfoPopup');
+
+    if(qrBtn){ qrBtn.textContent = 'DOWNLOAD CONTACT'; }
+    [fade, joystick, guide].forEach(el=>{ if(el && el.parentElement !== document.body){ document.body.appendChild(el); } });
+
+    function isPortraitTouch(){ return coarseTouch && portraitQuery.matches; }
+    function clampLocal(v,min,max){ return Math.max(min, Math.min(max, v)); }
+    function ease(t){ t = Math.max(0, Math.min(1, t)); return t*t*(3 - 2*t); }
+
+    function mainMobileRect(){
+        const w = window.innerWidth * 2.62;
+        const h = w * (1080/1920);
+        return {left:(window.innerWidth - w)/2, top:0, width:w, height:h};
+    }
+
+    function contactFinalRect(){
+        const w = window.innerWidth * 2.50;
+        const h = w * (1080/1920);
+        /* Slightly right of the previous version: the card was a little too far left. */
+        return {left:window.innerWidth * -0.78, top:window.innerHeight * -0.145, width:w, height:h};
+    }
+
+    let contactMode = false;
+    let contactProgress = 0;
+    let contactReturning = false;
+    let contactReturnProgress = 0;
+    let contactAnimatingRect = false;
+
+    const previousRectFunction = getDisplayedImageRect;
+    window.getDisplayedImageRect = getDisplayedImageRect = function(){
+        if(isPortraitTouch()){
+            if(contactMode || document.body.classList.contains('mobile-contact-portrait')){
+                const a = mainMobileRect();
+                const b = contactFinalRect();
+                let p = contactReturning ? (1 - ease(contactReturnProgress)) : ease(contactProgress);
+                if(!contactAnimatingRect && document.body.classList.contains('mobile-contact-portrait')){ p = 1; }
+                return {
+                    left:a.left + (b.left - a.left) * p,
+                    top:a.top + (b.top - a.top) * p,
+                    width:a.width + (b.width - a.width) * p,
+                    height:a.height + (b.height - a.height) * p
+                };
+            }
+            return mainMobileRect();
+        }
+        return previousRectFunction();
+    };
+
+    function refreshLayout(){
+        try{
+            positionMainImageForCurrentState();
+            positionSequenceImage();
+            positionCardSequenceOverlay();
+            positionDownloadHotspot();
+            positionContactFrameOverlays();
+            positionAllHotspots();
+            drawHotspotAnchors();
+        }catch(e){}
+    }
+
+    function closeHelper(){
+        document.body.classList.remove('mobile-contact-info-open');
+        if(infoPopup){ infoPopup.classList.remove('show'); infoPopup.setAttribute('aria-hidden','true'); }
+    }
+
+    function setContactTransitions(on, seconds){
+        const dur = seconds || 1.55;
+        [mainImage, sequenceImage, screenDefaultImage, cardSequenceImage].forEach(node=>{
+            if(!node){ return; }
+            node.style.transition = on ? `left ${dur}s cubic-bezier(.22,1,.36,1), top ${dur}s cubic-bezier(.22,1,.36,1), width ${dur}s cubic-bezier(.22,1,.36,1), height ${dur}s cubic-bezier(.22,1,.36,1), opacity .18s ease` : '';
+        });
+    }
+
+    function animateContactRect(from, to, duration, done){
+        contactAnimatingRect = true;
+        const start = performance.now();
+        function step(now){
+            const t = Math.min(1, (now - start) / duration);
+            const p = ease(t);
+            if(contactReturning){ contactReturnProgress = from + (to - from) * p; }
+            else{ contactProgress = from + (to - from) * p; }
+            refreshLayout();
+            if(t < 1){ requestAnimationFrame(step); }
+            else{
+                contactAnimatingRect = false;
+                if(typeof done === 'function'){ done(); }
+            }
+        }
+        requestAnimationFrame(step);
+    }
+
+    const previousPlayForward = playForwardSequence;
+    playForwardSequence = async function(featureId){
+        if(featureId !== 'contact' || !isPortraitTouch()){
+            return previousPlayForward(featureId);
+        }
+        if(sequenceStarted || isAnimatingSequence || isPreparingSequence){ return; }
+        const featureToPlay = features.contact;
+        if(!featureToPlay){ return; }
+
+        isPreparingSequence = true;
+        await waitForFeatureFrames('contact', featureToPlay);
+        isPreparingSequence = false;
+        if(sequenceStarted || isAnimatingSequence){ return; }
+
+        activeFeature = featureToPlay;
+        sequenceStarted = true;
+        infoPanelShownDuringSequence = false;
+        closeHelper();
+        hideAllHotspots();
+        updateTopContactButtonVisibility();
+
+        contactMode = true;
+        contactReturning = false;
+        contactProgress = 0;
+        document.body.classList.add('mobile-contact-portrait');
+        try{
+            mobilePanTargetX = 0; mobilePanTargetY = 0; mobilePanCurrentX = 0; mobilePanCurrentY = 0;
+            targetParallaxX = 0; targetParallaxY = 0; parallaxX = 0; parallaxY = 0;
+        }catch(e){}
+
+        positionExpandedDefaultImage();
+        const firstFrame = getPreloadedFrame(featureToPlay, featureToPlay.firstFrame);
+        sequenceImage.src = firstFrame ? firstFrame.src : frameName(featureToPlay, featureToPlay.firstFrame);
+        showSequenceImage();
+        refreshLayout();
+
+        /* Slower move into the correct mobile Contact composition, then play the JPG sequence. */
+        setContactTransitions(false);
+        animateContactRect(0, 1, 1650, ()=>{
+            contactProgress = 1;
+            refreshLayout();
+            playSequence(featureToPlay, featureToPlay.firstFrame, featureToPlay.lastFrame, ()=>{
+                backBtn.classList.add('show');
+                showContactFrameOverlays();
+                showContactCardSequence();
+                closeHelper();
+            });
+        });
+    };
+
+    const previousGoBack = goBackToDefaultFrame;
+    goBackToDefaultFrame = window.goBackToDefaultFrame = function(){
+        if(!(isPortraitTouch() && document.body.classList.contains('mobile-contact-portrait') && activeFeature === features.contact)){
+            return previousGoBack();
+        }
+        if(!sequenceStarted || isAnimatingSequence || isCardSequenceAnimating || !activeFeature){ return; }
+        closeHelper();
+        const featureToReverse = activeFeature;
+
+        hideContactFrameOverlays();
+        hideDownloadHotspot();
+        hideContactEmailClickArea();
+        hideContactCardSequence();
+        backBtn.classList.remove('show');
+
+        playSequence(featureToReverse, featureToReverse.lastFrame, featureToReverse.firstFrame, ()=>{
+            /* Keep first contact frame visible and smoothly move back to the normal mobile composition. */
+            contactReturning = true;
+            contactReturnProgress = 0;
+            contactProgress = 1;
+            animateContactRect(0, 1, 1250, ()=>{
+                contactMode = false;
+                contactReturning = false;
+                contactProgress = 0;
+                contactReturnProgress = 0;
+                document.body.classList.remove('mobile-contact-portrait');
+                activeFeature = null;
+                sequenceStarted = false;
+                positionExpandedDefaultImage();
+                hideSequenceImage(false);
+                if(mainImage){ mainImage.style.opacity = ''; }
+                showAllHotspots();
+                positionAllHotspots();
+                updateTopContactButtonVisibility();
+                refreshLayout();
+            });
+        });
+    };
+
+    /* Top Back should do the same as the working panel Back in mobile Contact mode. */
+    if(back){
+        back.addEventListener('click', function(e){
+            if(isPortraitTouch() && document.body.classList.contains('mobile-contact-portrait')){
+                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                goBackToDefaultFrame();
+            }
+        }, true);
+    }
+    if(contactBack){
+        contactBack.addEventListener('click', function(e){
+            if(isPortraitTouch() && document.body.classList.contains('mobile-contact-portrait')){
+                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                goBackToDefaultFrame();
+            }
+        }, true);
+    }
+
+    /* DOWNLOAD CONTACT opens only the helper popup after running the existing card sequence action. */
+    if(qrBtn){
+        qrBtn.addEventListener('click', function(){
+            if(!isPortraitTouch() || !document.body.classList.contains('mobile-contact-portrait')){ return; }
+            setTimeout(()=>{
+                document.body.classList.add('mobile-contact-info-open');
+                if(infoPopup){ infoPopup.classList.add('show'); infoPopup.setAttribute('aria-hidden','false'); }
+            }, 160);
+        }, true);
+    }
+
+    /* Stop browser-synthesized joystick click after a drag. This was causing hover/move to trigger buttons. */
+    document.addEventListener('click', function(e){
+        if(joystick && e.target.closest && e.target.closest('#mobileJoystick')){
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }
+    }, true);
+
+    let joyTapId = null;
+    let joyTapStartX = 0;
+    let joyTapStartY = 0;
+    let joyTapMoved = false;
+    if(joystick){
+        joystick.addEventListener('pointerdown', function(e){
+            if(guide && guide.classList.contains('show')){ return; }
+            joyTapId = e.pointerId;
+            joyTapStartX = e.clientX;
+            joyTapStartY = e.clientY;
+            joyTapMoved = false;
+        }, true);
+        joystick.addEventListener('pointermove', function(e){
+            if(e.pointerId !== joyTapId){ return; }
+            if(Math.hypot(e.clientX - joyTapStartX, e.clientY - joyTapStartY) > 9){ joyTapMoved = true; }
+        }, true);
+        joystick.addEventListener('pointerup', function(e){
+            if(e.pointerId !== joyTapId){ return; }
+            const wasTap = !joyTapMoved;
+            joyTapId = null;
+            if(wasTap && !(guide && guide.classList.contains('show')) && !(document.body.classList.contains('mobile-contact-portrait'))){
+                e.preventDefault(); e.stopPropagation();
+                setTimeout(()=>{ try{ mobileClickAtCursor(cursorX || cursorTargetX, cursorY || cursorTargetY, {allowJoystickClick:true}); }catch(err){} }, 0);
+            }
+        }, true);
+    }
+
+    /* More reliable virtual click: ignore touch UI layers, then dispatch only to the real button under the cursor. */
+    mobileClickAtCursor = window.mobileClickAtCursor = function(x = cursorX || cursorTargetX, y = cursorY || cursorTargetY, options = {}){
+        const clickX = clampLocal(x, 1, window.innerWidth - 1);
+        const clickY = clampLocal(y, 1, window.innerHeight - 1);
+        const hidden = [];
+        [joystick, fade].forEach(el=>{
+            if(el){ hidden.push([el, el.style.pointerEvents]); el.style.pointerEvents = 'none'; }
+        });
+        let stack = document.elementsFromPoint ? document.elementsFromPoint(clickX, clickY) : [document.elementFromPoint(clickX, clickY)];
+        hidden.forEach(([el, old])=>{ el.style.pointerEvents = old; });
+        stack = stack.filter(Boolean).filter(el=>!el.closest || (!el.closest('#mobileTouchGuide') && !el.closest('#mobileJoystick') && !el.closest('#mobileBottomFade') && !el.closest('#mobileContactCardTap')));
+        let clickable = null;
+        for(const el of stack){
+            clickable = el.closest && el.closest(hoverTargetsSelector);
+            if(clickable){ break; }
+        }
+        if(!clickable){ return; }
+        mobileAllowVirtualClick = true;
+        const init = {bubbles:true, cancelable:true, clientX:clickX, clientY:clickY};
+        try{ clickable.dispatchEvent(new PointerEvent('pointerdown', {...init, pointerType:'touch'})); }catch(e){}
+        try{ clickable.dispatchEvent(new PointerEvent('pointerup', {...init, pointerType:'touch'})); }catch(e){}
+        try{ clickable.dispatchEvent(new MouseEvent('mousedown', init)); }catch(e){}
+        try{ clickable.dispatchEvent(new MouseEvent('mouseup', init)); }catch(e){}
+        clickable.click();
+        setTimeout(()=>{ mobileAllowVirtualClick = false; }, 180);
+    };
+
+    /* Touch cursor now drives the nebula particles exactly like desktop mouse movement. */
+    const oldSetMobileCursorPosition = setMobileCursorPosition;
+    setMobileCursorPosition = window.setMobileCursorPosition = function(x, y){
+        oldSetMobileCursorPosition(x, y);
+        try{
+            if(introNebula && !intro.classList.contains('fadeOut')){ introNebula.setPointer(cursorTargetX, cursorTargetY, 1); }
+            if(introForegroundDust && !intro.classList.contains('fadeOut')){ introForegroundDust.setPointer(cursorTargetX, cursorTargetY, 1); }
+        }catch(e){}
+    };
+
+    /* Slower/easier joystick and calmer edge panning. */
+    updateMobileParallaxFromCursor = window.updateMobileParallaxFromCursor = function(){
+        if(!mobileTouchMode){ return; }
+        targetParallaxX = 0;
+        targetParallaxY = 0;
+        if(document.body.classList.contains('mobile-contact-portrait')){ return; }
+        const edgeSizeX = Math.max(70, window.innerWidth * 0.22);
+        const edgeSizeY = Math.max(76, window.innerHeight * 0.14);
+        const edgeSpeedX = Math.max(4.2, window.innerWidth * 0.014);
+        const edgeSpeedY = Math.max(1.4, window.innerHeight * 0.0034);
+        let edgeMoveX = 0, edgeMoveY = 0;
+        if(cursorTargetX < edgeSizeX){ edgeMoveX = Math.pow(1 - cursorTargetX / edgeSizeX, 1.75) * edgeSpeedX; }
+        else if(cursorTargetX > window.innerWidth - edgeSizeX){ edgeMoveX = -Math.pow(1 - (window.innerWidth - cursorTargetX) / edgeSizeX, 1.75) * edgeSpeedX; }
+        if(cursorTargetY < edgeSizeY){ edgeMoveY = Math.pow(1 - cursorTargetY / edgeSizeY, 1.8) * edgeSpeedY; }
+        else if(cursorTargetY > window.innerHeight - edgeSizeY){ edgeMoveY = -Math.pow(1 - (window.innerHeight - cursorTargetY) / edgeSizeY, 1.8) * edgeSpeedY; }
+        mobilePanTargetX += edgeMoveX;
+        mobilePanTargetY += edgeMoveY;
+        clampMobilePanTargets();
+    };
+
+    animateCursorAndParallax = window.animateCursorAndParallax = function(){
+        if(mobileTouchMode && (Math.abs(mobileJoystickX) > 0.015 || Math.abs(mobileJoystickY) > 0.015)){
+            const speed = Math.max(1.9, Math.min(4.6, Math.min(window.innerWidth, window.innerHeight) * 0.0062));
+            setMobileCursorPosition(cursorTargetX + mobileJoystickX * speed, cursorTargetY + mobileJoystickY * speed);
+        }else if(mobileTouchMode){
+            updateMobileParallaxFromCursor();
+            updateMobileHoverFromCursor();
+        }
+
+        cursorX += (cursorTargetX - cursorX) * 0.24;
+        cursorY += (cursorTargetY - cursorY) * 0.24;
+        parallaxX += (targetParallaxX - parallaxX) * 0.055;
+        parallaxY += (targetParallaxY - parallaxY) * 0.055;
+
+        if(cursorHasMoved){
+            customCursor.style.left = `${cursorX}px`;
+            customCursor.style.top = `${cursorY}px`;
+            customCursorPulse.style.left = `${cursorX}px`;
+            customCursorPulse.style.top = `${cursorY}px`;
+        }
+
+        const bgRotateY = parallaxX * 5.2;
+        const bgRotateX = parallaxY * -3.4;
+        const bgMoveX = parallaxX * -18;
+        const bgMoveY = parallaxY * -12;
+        const introRotateY = bgRotateY * 3.2;
+        const introRotateX = bgRotateX * 3.2;
+        const introMoveX = bgMoveX * 4.4;
+        const introMoveY = bgMoveY * 4.4;
+
+        if(!intro.classList.contains('fadeOut')){
+            introVideoWrap.style.transform = `perspective(1100px) translate3d(${introMoveX}px, ${introMoveY}px, 0) rotateX(${introRotateX}deg) rotateY(${introRotateY}deg) scale(1.10)`;
+        }
+
+        if(mainSite.classList.contains('show')){
+            if(mobileTouchMode){
+                clampMobilePanTargets();
+                mobilePanCurrentX += (mobilePanTargetX - mobilePanCurrentX) * 0.115;
+                mobilePanCurrentY += (mobilePanTargetY - mobilePanCurrentY) * 0.115;
+                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0) scale(1)`;
+            }else{
+                const mainRotateY = bgRotateY * 1.45;
+                const mainRotateX = bgRotateX * 1.45;
+                const mainMoveX = bgMoveX * 1.58;
+                const mainMoveY = bgMoveY * 1.58;
+                mainPlane.style.transform = `perspective(1150px) translate3d(${mainMoveX}px, ${mainMoveY}px, 0) rotateX(${mainRotateX}deg) rotateY(${mainRotateY}deg) scale(1.13)`;
+            }
+        }
+
+        document.querySelectorAll('[data-depth]').forEach(element=>{
+            const depth = Number(element.dataset.depth || 1);
+            const moveX = mobileTouchMode ? 0 : parallaxX * 16 * depth;
+            const moveY = mobileTouchMode ? 0 : parallaxY * 12 * depth;
+            element.style.setProperty('--parallaxX', `${moveX}px`);
+            element.style.setProperty('--parallaxY', `${moveY}px`);
+        });
+
+        requestAnimationFrame(animateCursorAndParallax);
+    };
+
+    if(guide && coarseTouch){
+        /* Bring the guide back on the first screen for testing/review. */
+        setTimeout(()=>{
+            if(!document.body.classList.contains('mobile-contact-portrait')){
+                guide.classList.add('show');
+                guide.setAttribute('aria-hidden','false');
+            }
+        }, 450);
+    }
+
+    window.addEventListener('resize', ()=>{ closeHelper(); refreshLayout(); try{ clampMobilePanTargets(); }catch(e){} });
+    setTimeout(()=>{ refreshLayout(); try{ clampMobilePanTargets(); }catch(e){} }, 150);
+})();
+</script>
+
 </body>
 </html>
