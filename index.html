@@ -1954,6 +1954,168 @@ a,
     pointer-events:none !important;
 }
 
+
+
+/* =========================
+   MOBILE TOUCH CURSOR + JOYSTICK
+========================= */
+#mobileBottomFade,
+#mobileJoystick,
+#mobileTouchGuide{
+    display:none;
+}
+
+#mobileBottomFade{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    height:38dvh;
+    z-index:42;
+    pointer-events:none;
+    background:
+        radial-gradient(ellipse at 50% 12%, rgba(0,0,0,0) 0%, rgba(0,0,0,.08) 28%, rgba(0,0,0,.44) 64%, rgba(0,0,0,.92) 100%),
+        linear-gradient(to top, rgba(0,0,0,.96) 0%, rgba(0,0,0,.78) 34%, rgba(0,0,0,.28) 68%, rgba(0,0,0,0) 100%);
+}
+
+#mobileJoystick{
+    position:fixed;
+    z-index:145;
+    left:50%;
+    bottom:30px;
+    width:112px;
+    height:112px;
+    transform:translateX(-50%);
+    border-radius:999px;
+    touch-action:none;
+    pointer-events:auto;
+}
+
+#mobileJoystickOuter{
+    position:absolute;
+    inset:0;
+    border-radius:999px;
+    border:3px solid rgba(255,255,255,.92);
+    background:rgba(255,255,255,.05);
+    box-shadow:0 0 38px rgba(255,255,255,.22), 0 18px 48px rgba(0,0,0,.44);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+}
+
+#mobileJoystickKnob{
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:58px;
+    height:58px;
+    border-radius:999px;
+    transform:translate(-50%,-50%);
+    background:rgba(255,255,255,.96);
+    box-shadow:0 0 30px rgba(255,255,255,.42);
+    will-change:transform;
+}
+
+#mobileTouchGuide{
+    position:fixed;
+    inset:0;
+    z-index:160;
+    align-items:center;
+    justify-content:center;
+    padding:22px;
+    background:rgba(0,0,0,.38);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    pointer-events:auto;
+}
+
+#mobileTouchGuide.show{
+    display:flex;
+}
+
+.mobileTouchGuidePanel{
+    width:min(360px, calc(100vw - 44px));
+    padding:24px 22px;
+    border-radius:22px;
+    background:rgba(0,0,0,.66);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:0 24px 70px rgba(0,0,0,.44);
+    text-align:center;
+}
+
+.mobileTouchGuidePanel p{
+    margin:0 0 18px;
+    font-size:18px;
+    line-height:1.35;
+    color:rgba(255,255,255,.92);
+}
+
+#mobileTouchGuideGotIt{
+    border:1px solid rgba(255,255,255,.22);
+    cursor:pointer;
+    padding:12px 26px;
+    border-radius:999px;
+    background:rgba(255,255,255,.12);
+    color:white;
+    letter-spacing:1.5px;
+    font-weight:800;
+    transform:none !important;
+}
+
+@media (pointer:coarse){
+    html,
+    body,
+    body *,
+    button,
+    a{
+        cursor:none !important;
+    }
+
+    #customCursor{
+        display:block !important;
+        opacity:1;
+        width:22px;
+        height:22px;
+        background:rgba(255,255,255,.58);
+        border:1px solid rgba(255,255,255,.78);
+        z-index:150;
+    }
+
+    #customCursor.hovering{
+        width:44px;
+        height:44px;
+    }
+
+    #customCursorPulse{
+        display:none !important;
+    }
+
+    #mainSite.show #mobileJoystick{
+        display:block;
+    }
+
+    @media (orientation:portrait){
+        #mainSite.show #mobileBottomFade{
+            display:block;
+        }
+    }
+
+    @media (orientation:landscape){
+        #mobileJoystick{
+            left:auto;
+            right:26px;
+            bottom:24px;
+            transform:none;
+            width:98px;
+            height:98px;
+        }
+
+        #mobileJoystickKnob{
+            width:50px;
+            height:50px;
+        }
+    }
+}
+
 </style>
 </head>
 <body>
@@ -2088,6 +2250,21 @@ a,
     <button class="bottomBrainBtn" aria-label="AI guide">
         <img src="brain.png" alt="AI guide">
     </button>
+
+    <div id="mobileBottomFade" aria-hidden="true"></div>
+
+    <div id="mobileJoystick" aria-label="Touch joystick for cursor control">
+        <div id="mobileJoystickOuter"></div>
+        <div id="mobileJoystickKnob"></div>
+    </div>
+
+    <div id="mobileTouchGuide" aria-hidden="true">
+        <div class="mobileTouchGuidePanel" role="dialog" aria-modal="true">
+            <p>Use the joystick to move.<br>Tap to click.</p>
+            <button id="mobileTouchGuideGotIt" type="button">GOT IT</button>
+        </div>
+    </div>
+
 </div>
 
 
@@ -4414,6 +4591,7 @@ animation.addEventListener('complete', ()=>{
 
     setMainImageToDefaultFrame();
     mainSite.classList.add('show');
+    setTimeout(showMobileTouchGuideWhenReady, 650);
     positionExpandedDefaultImage();
     positionFeatureVideo();
     positionAllHotspots();
@@ -4690,6 +4868,246 @@ function enableIOSMotionIfNeeded(){
 document.addEventListener('pointerdown', enableIOSMotionIfNeeded, {once:true});
 refreshMagneticTargets();
 
+/* =========================
+   MOBILE TOUCH CURSOR + JOYSTICK
+   Single tap clicks only when the finger did not move. Drag/swipe pans.
+========================= */
+const mobileTouchMode = window.matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window);
+const mobileJoystick = document.getElementById('mobileJoystick');
+const mobileJoystickKnob = document.getElementById('mobileJoystickKnob');
+const mobileTouchGuide = document.getElementById('mobileTouchGuide');
+const mobileTouchGuideGotIt = document.getElementById('mobileTouchGuideGotIt');
+
+let mobileJoystickPointerId = null;
+let mobileJoystickX = 0;
+let mobileJoystickY = 0;
+let mobilePanPointerId = null;
+let mobilePanStartX = 0;
+let mobilePanStartY = 0;
+let mobileLastPanX = 0;
+let mobileLastPanY = 0;
+let mobileTouchMoved = false;
+let mobilePanOffsetX = 0;
+let mobilePanOffsetY = 0;
+let mobileGuideWasShown = false;
+let mobileAllowVirtualClick = false;
+
+function clamp(value, min, max){
+    return Math.max(min, Math.min(max, value));
+}
+
+function updateMobileHoverFromCursor(){
+    if(!mobileTouchMode){ return; }
+    const element = document.elementFromPoint(cursorTargetX, cursorTargetY);
+    if(element){
+        updateHoverState(element);
+    }
+}
+
+function updateMobileParallaxFromCursor(){
+    if(!mobileTouchMode){ return; }
+
+    const normalizedX = (cursorTargetX / Math.max(1, window.innerWidth) - 0.5) * 2;
+    const normalizedY = (cursorTargetY / Math.max(1, window.innerHeight) - 0.5) * 2;
+
+    const edgeSizeX = Math.max(70, window.innerWidth * 0.18);
+    const edgeSizeY = Math.max(70, window.innerHeight * 0.18);
+
+    let edgeX = 0;
+    let edgeY = 0;
+
+    if(cursorTargetX < edgeSizeX){
+        edgeX = -Math.pow(1 - cursorTargetX / edgeSizeX, 1.4);
+    }else if(cursorTargetX > window.innerWidth - edgeSizeX){
+        edgeX = Math.pow(1 - (window.innerWidth - cursorTargetX) / edgeSizeX, 1.4);
+    }
+
+    if(cursorTargetY < edgeSizeY){
+        edgeY = -Math.pow(1 - cursorTargetY / edgeSizeY, 1.4);
+    }else if(cursorTargetY > window.innerHeight - edgeSizeY){
+        edgeY = Math.pow(1 - (window.innerHeight - cursorTargetY) / edgeSizeY, 1.4);
+    }
+
+    targetParallaxX = clamp(normalizedX * 0.72 + edgeX * 0.86 + mobilePanOffsetX, -1.35, 1.35);
+    targetParallaxY = clamp(normalizedY * 0.62 + edgeY * 0.58 + mobilePanOffsetY, -1.18, 1.18);
+}
+
+function showMobileTouchGuideWhenReady(){
+    if(!mobileTouchMode || !mobileTouchGuide || mobileGuideWasShown){ return; }
+    if(localStorage.getItem('homeViewMobileTouchGuideSeen') === '1'){ return; }
+    if(!mainSite || !mainSite.classList.contains('show')){ return; }
+
+    mobileGuideWasShown = true;
+    mobileTouchGuide.classList.add('show');
+    mobileTouchGuide.setAttribute('aria-hidden', 'false');
+}
+
+function hideMobileTouchGuide(){
+    if(!mobileTouchGuide){ return; }
+    mobileTouchGuide.classList.remove('show');
+    mobileTouchGuide.setAttribute('aria-hidden', 'true');
+    localStorage.setItem('homeViewMobileTouchGuideSeen', '1');
+}
+
+function mobileClickAtCursor(){
+    const element = document.elementFromPoint(cursorTargetX, cursorTargetY);
+    if(!element || element.closest('#mobileJoystick') || element.closest('#mobileTouchGuide')){
+        return;
+    }
+
+    const clickable = element.closest(hoverTargetsSelector);
+    if(clickable){
+        mobileAllowVirtualClick = true;
+        clickable.click();
+        setTimeout(()=>{ mobileAllowVirtualClick = false; }, 0);
+    }
+}
+
+function setMobileCursorPosition(x, y){
+    cursorHasMoved = true;
+    customCursor.classList.add('show');
+    cursorTargetX = clamp(x, 12, window.innerWidth - 12);
+    cursorTargetY = clamp(y, 12, window.innerHeight - 12);
+    updateMobileParallaxFromCursor();
+    updateMobileHoverFromCursor();
+}
+
+function resetMobileJoystick(){
+    mobileJoystickPointerId = null;
+    mobileJoystickX = 0;
+    mobileJoystickY = 0;
+    if(mobileJoystickKnob){
+        mobileJoystickKnob.style.transform = 'translate(-50%,-50%)';
+    }
+}
+
+if(mobileTouchMode){
+    customCursor.classList.add('show');
+    cursorHasMoved = true;
+    setMobileCursorPosition(window.innerWidth / 2, window.innerHeight * 0.46);
+
+    const guidePoll = setInterval(()=>{
+        showMobileTouchGuideWhenReady();
+        if(mobileGuideWasShown || localStorage.getItem('homeViewMobileTouchGuideSeen') === '1'){
+            clearInterval(guidePoll);
+        }
+    }, 450);
+
+    if(mobileTouchGuideGotIt){
+        mobileTouchGuideGotIt.addEventListener('click', hideMobileTouchGuide);
+        mobileTouchGuideGotIt.addEventListener('pointerup', (event)=>{
+            event.preventDefault();
+            event.stopPropagation();
+            hideMobileTouchGuide();
+        });
+    }
+
+    if(mobileJoystick){
+        mobileJoystick.addEventListener('pointerdown', (event)=>{
+            if(mobileTouchGuide && mobileTouchGuide.classList.contains('show')){ return; }
+            event.preventDefault();
+            event.stopPropagation();
+            mobileJoystickPointerId = event.pointerId;
+            mobileJoystick.setPointerCapture(event.pointerId);
+        });
+
+        mobileJoystick.addEventListener('pointermove', (event)=>{
+            if(event.pointerId !== mobileJoystickPointerId){ return; }
+            event.preventDefault();
+            event.stopPropagation();
+
+            const rect = mobileJoystick.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const maxRadius = rect.width * 0.34;
+            let dx = event.clientX - centerX;
+            let dy = event.clientY - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if(distance > maxRadius){
+                dx = dx / distance * maxRadius;
+                dy = dy / distance * maxRadius;
+            }
+
+            mobileJoystickX = dx / maxRadius;
+            mobileJoystickY = dy / maxRadius;
+
+            if(mobileJoystickKnob){
+                mobileJoystickKnob.style.transform = `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px))`;
+            }
+        });
+
+        ['pointerup','pointercancel','lostpointercapture'].forEach(type=>{
+            mobileJoystick.addEventListener(type, (event)=>{
+                if(event.pointerId === mobileJoystickPointerId || type === 'lostpointercapture'){
+                    resetMobileJoystick();
+                }
+            });
+        });
+    }
+
+    document.addEventListener('pointerdown', (event)=>{
+        if(!mainSite || !mainSite.classList.contains('show')){ return; }
+        if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
+
+        mobilePanPointerId = event.pointerId;
+        mobilePanStartX = event.clientX;
+        mobilePanStartY = event.clientY;
+        mobileLastPanX = event.clientX;
+        mobileLastPanY = event.clientY;
+        mobileTouchMoved = false;
+    }, {capture:true});
+
+    document.addEventListener('pointermove', (event)=>{
+        if(event.pointerId !== mobilePanPointerId){ return; }
+
+        const totalDx = event.clientX - mobilePanStartX;
+        const totalDy = event.clientY - mobilePanStartY;
+        const dx = event.clientX - mobileLastPanX;
+        const dy = event.clientY - mobileLastPanY;
+
+        if(Math.sqrt(totalDx * totalDx + totalDy * totalDy) > 8){
+            mobileTouchMoved = true;
+        }
+
+        if(mobileTouchMoved){
+            event.preventDefault();
+            mobilePanOffsetX = clamp(mobilePanOffsetX - dx / Math.max(1, window.innerWidth) * 1.65, -0.72, 0.72);
+            mobilePanOffsetY = clamp(mobilePanOffsetY - dy / Math.max(1, window.innerHeight) * 1.15, -0.56, 0.56);
+            updateMobileParallaxFromCursor();
+        }
+
+        mobileLastPanX = event.clientX;
+        mobileLastPanY = event.clientY;
+    }, {capture:true, passive:false});
+
+    document.addEventListener('pointerup', (event)=>{
+        if(event.pointerId !== mobilePanPointerId){ return; }
+
+        if(!mobileTouchMoved && mainSite && mainSite.classList.contains('show')){
+            event.preventDefault();
+            event.stopPropagation();
+            mobileClickAtCursor();
+        }
+
+        mobilePanPointerId = null;
+        mobileTouchMoved = false;
+    }, {capture:true});
+
+    document.addEventListener('click', (event)=>{
+        if(mobileAllowVirtualClick){ return; }
+        if(!mainSite || !mainSite.classList.contains('show')){ return; }
+        if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
+        event.preventDefault();
+        event.stopPropagation();
+    }, {capture:true});
+
+    window.addEventListener('resize', ()=>{
+        setMobileCursorPosition(cursorTargetX, cursorTargetY);
+        resetMobileJoystick();
+    });
+}
+
 document.addEventListener('mousemove', (event)=>{
     cursorHasMoved = true;
     customCursor.classList.add('show');
@@ -4728,6 +5146,14 @@ document.addEventListener('mouseleave', ()=>{
 });
 
 function animateCursorAndParallax(){
+    if(mobileTouchMode && (Math.abs(mobileJoystickX) > 0.015 || Math.abs(mobileJoystickY) > 0.015)){
+        const speed = Math.max(3.0, Math.min(8.2, Math.min(window.innerWidth, window.innerHeight) * 0.010));
+        setMobileCursorPosition(cursorTargetX + mobileJoystickX * speed, cursorTargetY + mobileJoystickY * speed);
+    }else if(mobileTouchMode){
+        updateMobileParallaxFromCursor();
+        updateMobileHoverFromCursor();
+    }
+
     cursorX += (cursorTargetX - cursorX) * 0.28;
     cursorY += (cursorTargetY - cursorY) * 0.28;
 
