@@ -5945,5 +5945,322 @@ body.mobile-contact-portrait #mobileContactCardTap{
 })();
 </script>
 
+
+<!-- FINAL MOBILE PORTRAIT CONTACT + TOUCH FIXES -->
+<style id="finalMobilePortraitContactFixes">
+@media (pointer:coarse) and (orientation:portrait){
+    body > #mobileJoystick{ display:block !important; }
+    body > #mobileBottomFade{ display:block !important; }
+
+    /* Keep the soft black arc behind the joystick on intro and main portrait screens. */
+    #mobileBottomFade{
+        left:-32vw !important;
+        right:-32vw !important;
+        bottom:-20dvh !important;
+        height:82dvh !important;
+        z-index:42 !important;
+        background:
+            radial-gradient(130% 92% at 50% 100%, rgba(0,0,0,1) 0%, rgba(0,0,0,.99) 30%, rgba(0,0,0,.80) 54%, rgba(0,0,0,.34) 76%, rgba(0,0,0,0) 100%),
+            radial-gradient(84% 56% at 50% 62%, rgba(0,0,0,.86) 0%, rgba(0,0,0,.34) 58%, rgba(0,0,0,0) 100%) !important;
+    }
+
+    /* In contact portrait mode the joystick/cursor/fade are intentionally removed. */
+    body.mobile-contact-portrait #mobileJoystick,
+    body.mobile-contact-portrait #customCursor,
+    body.mobile-contact-portrait #customCursorPulse,
+    body.mobile-contact-portrait #mobileBottomFade{
+        display:none !important;
+        opacity:0 !important;
+        pointer-events:none !important;
+    }
+
+    /* Fade the lower edge of the contact sequence into black so there is no hard horizontal line. */
+    body.mobile-contact-portrait::before{
+        content:"";
+        position:fixed;
+        left:0;
+        right:0;
+        top:38dvh;
+        height:25dvh;
+        z-index:143;
+        pointer-events:none;
+        background:linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,.10) 28%, rgba(0,0,0,.64) 72%, rgba(0,0,0,1) 100%);
+    }
+
+    /* Final red-box menu placement from your sketch. */
+    body.mobile-contact-portrait #contactFramePanel{
+        left:8vw !important;
+        top:52dvh !important;
+        width:84vw !important;
+        max-width:84vw !important;
+        padding:18px 18px 16px !important;
+        border-radius:18px !important;
+        transform:none !important;
+        z-index:146 !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel h2{
+        font-size:clamp(18px, 5vw, 25px) !important;
+        line-height:1.12 !important;
+        margin-bottom:10px !important;
+        letter-spacing:1.6px !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel p{
+        font-size:clamp(12px, 3.35vw, 15px) !important;
+        line-height:1.36 !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel p:nth-of-type(2){ display:none !important; }
+
+    body.mobile-contact-portrait #contactFramePanel .contactCardActionText{
+        margin-top:12px !important;
+        color:rgba(255,255,255,.92) !important;
+    }
+
+    body.mobile-contact-portrait .contactFrameActions{
+        padding-top:13px !important;
+        gap:8px !important;
+    }
+
+    body.mobile-contact-portrait .contactFrameBtn{
+        padding:10px 13px !important;
+        font-size:12px !important;
+    }
+
+    /* The QR/contact helper popup is hidden by default even if older code adds .show. */
+    #mobileContactInfoPopup.show{
+        opacity:0 !important;
+        visibility:hidden !important;
+        pointer-events:none !important;
+    }
+
+    /* It only appears after DOWNLOAD CONTACT is tapped, and it appears over the menu only. */
+    body.mobile-contact-info-open #mobileContactInfoPopup.show{
+        left:8vw !important;
+        top:52dvh !important;
+        bottom:auto !important;
+        width:84vw !important;
+        max-width:84vw !important;
+        min-height:180px !important;
+        display:flex !important;
+        flex-direction:column !important;
+        align-items:center !important;
+        justify-content:center !important;
+        padding:20px !important;
+        border-radius:20px !important;
+        transform:none !important;
+        opacity:1 !important;
+        visibility:visible !important;
+        pointer-events:auto !important;
+        z-index:180 !important;
+        background:rgba(0,0,0,.72) !important;
+        backdrop-filter:blur(14px) !important;
+        -webkit-backdrop-filter:blur(14px) !important;
+    }
+}
+
+@media (pointer:coarse) and (orientation:landscape){
+    body > #mobileBottomFade{ display:none !important; }
+}
+</style>
+
+<script id="finalMobilePortraitContactFixesScript">
+(function(){
+    const coarseTouch = window.matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window);
+    const portraitQuery = window.matchMedia('(orientation:portrait)');
+    const qrBtn = document.getElementById('contactFrameQrBtn');
+    const infoPopup = document.getElementById('mobileContactInfoPopup');
+    const infoOk = document.getElementById('mobileContactInfoOk');
+    const cardTap = document.getElementById('mobileContactCardTap');
+
+    if(qrBtn){ qrBtn.textContent = 'DOWNLOAD CONTACT'; }
+
+    function isPortraitTouch(){ return coarseTouch && portraitQuery.matches; }
+    function easeInOut(t){ t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
+
+    function closeContactHelperPopup(){
+        document.body.classList.remove('mobile-contact-info-open');
+        if(infoPopup){
+            infoPopup.classList.remove('show');
+            infoPopup.setAttribute('aria-hidden','true');
+        }
+    }
+
+    function openContactHelperPopup(){
+        if(!isPortraitTouch() || !document.body.classList.contains('mobile-contact-portrait') || !infoPopup){ return; }
+        document.body.classList.add('mobile-contact-info-open');
+        infoPopup.classList.add('show');
+        infoPopup.setAttribute('aria-hidden','false');
+    }
+
+    if(infoOk){
+        infoOk.addEventListener('click', function(e){
+            e.preventDefault();
+            e.stopPropagation();
+            closeContactHelperPopup();
+        }, true);
+        infoOk.addEventListener('pointerup', function(e){
+            e.preventDefault();
+            e.stopPropagation();
+            closeContactHelperPopup();
+        }, true);
+    }
+
+    function downloadMarieVCardFinal(){
+        const vcard = [
+            'BEGIN:VCARD',
+            'VERSION:3.0',
+            'N:Du Toit;Marie;;;',
+            'FN:Marie Du Toit',
+            'ORG:Home View Solutions',
+            'TITLE:Marketing Manager',
+            'EMAIL;TYPE=INTERNET:marie@homeviewsolutions.com',
+            'URL:https://homeviewsolutions.com',
+            'END:VCARD'
+        ].join('\n');
+        const blob = new Blob([vcard], {type:'text/vcard;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Marie-Du-Toit-Home-View-Solutions.vcf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 1200);
+    }
+
+    /* Top half/card tap downloads only. It does not open the helper popup anymore. */
+    if(cardTap){
+        cardTap.addEventListener('click', function(e){
+            if(!isPortraitTouch() || !document.body.classList.contains('mobile-contact-portrait')){ return; }
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            downloadMarieVCardFinal();
+        }, true);
+        cardTap.addEventListener('pointerup', function(e){
+            if(!isPortraitTouch() || !document.body.classList.contains('mobile-contact-portrait')){ return; }
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }, true);
+    }
+
+    /* DOWNLOAD CONTACT button: run its existing card animation/download behavior, then show the helper over the menu. */
+    if(qrBtn){
+        qrBtn.addEventListener('click', function(){
+            if(!isPortraitTouch() || !document.body.classList.contains('mobile-contact-portrait')){ return; }
+            setTimeout(openContactHelperPopup, 140);
+        }, true);
+        qrBtn.addEventListener('pointerup', function(){
+            if(!isPortraitTouch() || !document.body.classList.contains('mobile-contact-portrait')){ return; }
+            setTimeout(openContactHelperPopup, 140);
+        }, true);
+    }
+
+    /* Final contact framing: move the 1920x1080 contact sequence much further left so the card/QR is centered. */
+    const previousGetDisplayedImageRect = getDisplayedImageRect;
+    getDisplayedImageRect = window.getDisplayedImageRect = function(){
+        const base = previousGetDisplayedImageRect();
+        if(isPortraitTouch() && document.body.classList.contains('mobile-contact-portrait')){
+            const finalWidth = window.innerWidth * 2.50;
+            const finalHeight = finalWidth * (1080 / 1920);
+            return {
+                left: window.innerWidth * -0.92,
+                top: window.innerHeight * -0.145,
+                width: finalWidth,
+                height: finalHeight
+            };
+        }
+        return base;
+    };
+
+    function setContactTransition(on){
+        const nodes = [mainImage, sequenceImage, screenDefaultImage, cardSequenceImage];
+        nodes.forEach(node=>{
+            if(!node){ return; }
+            node.style.transition = on ? 'left .82s cubic-bezier(.22,1,.36,1), top .82s cubic-bezier(.22,1,.36,1), width .82s cubic-bezier(.22,1,.36,1), height .82s cubic-bezier(.22,1,.36,1), opacity .18s ease' : '';
+        });
+    }
+
+    /* Override contact forward only: first animate the still frame to its final mobile portrait position, then play the sequence there. */
+    const originalPlayForwardSequenceFinal = playForwardSequence;
+    playForwardSequence = async function(featureId){
+        if(featureId !== 'contact' || !isPortraitTouch()){
+            return originalPlayForwardSequenceFinal(featureId);
+        }
+
+        if(sequenceStarted || isAnimatingSequence || isPreparingSequence){ return; }
+        const featureToPlay = features.contact;
+        if(!featureToPlay){ return; }
+
+        isPreparingSequence = true;
+        await waitForFeatureFrames('contact', featureToPlay);
+        isPreparingSequence = false;
+        if(sequenceStarted || isAnimatingSequence){ return; }
+
+        activeFeature = featureToPlay;
+        sequenceStarted = true;
+        infoPanelShownDuringSequence = false;
+        closeContactHelperPopup();
+        hideAllHotspots();
+        updateTopContactButtonVisibility();
+
+        positionExpandedDefaultImage();
+        positionSequenceImage();
+        const firstFrame = getPreloadedFrame(activeFeature, activeFeature.firstFrame);
+        sequenceImage.src = firstFrame ? firstFrame.src : frameName(activeFeature, activeFeature.firstFrame);
+        showSequenceImage();
+
+        requestAnimationFrame(()=>{
+            document.body.classList.add('mobile-contact-portrait');
+            try{
+                mobilePanTargetX = 0; mobilePanTargetY = 0; mobilePanCurrentX = 0; mobilePanCurrentY = 0;
+                targetParallaxX = 0; targetParallaxY = 0; parallaxX = 0; parallaxY = 0;
+            }catch(e){}
+            setContactTransition(true);
+            positionMainImageForCurrentState();
+            positionSequenceImage();
+        });
+
+        setTimeout(()=>{
+            setContactTransition(false);
+            playSequence(activeFeature, activeFeature.firstFrame, activeFeature.lastFrame, ()=>{
+                backBtn.classList.add('show');
+                showContactFrameOverlays();
+                showContactCardSequence();
+                closeContactHelperPopup();
+            });
+        }, 900);
+    };
+
+    /* Keep contact mode active until reverse finishes, then restore joystick/fade/cursor. */
+    const originalHideFeatureOverlaysFinal = hideFeatureOverlays;
+    hideFeatureOverlays = function(callback){
+        closeContactHelperPopup();
+        return originalHideFeatureOverlaysFinal(function(){
+            if(typeof activeFeature === 'undefined' || activeFeature !== features.contact){
+                document.body.classList.remove('mobile-contact-portrait');
+            }
+            if(typeof callback === 'function'){ callback(); }
+        });
+    };
+
+    window.addEventListener('resize', function(){
+        if(document.body.classList.contains('mobile-contact-portrait')){
+            closeContactHelperPopup();
+            try{
+                positionMainImageForCurrentState();
+                positionSequenceImage();
+                positionContactFrameOverlays();
+                positionCardSequenceOverlay();
+                positionDownloadHotspot();
+            }catch(e){}
+        }
+    });
+})();
+</script>
+
 </body>
 </html>
