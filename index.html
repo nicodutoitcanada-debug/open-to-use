@@ -1967,15 +1967,16 @@ a,
 
 #mobileBottomFade{
     position:fixed;
-    left:0;
-    right:0;
-    bottom:0;
-    height:38dvh;
+    left:-12vw;
+    right:-12vw;
+    bottom:-2px;
+    height:56dvh;
     z-index:42;
     pointer-events:none;
+    /* Taller overfilled gradients prevent a visible cutoff line in portrait. */
     background:
-        radial-gradient(ellipse at 50% 12%, rgba(0,0,0,0) 0%, rgba(0,0,0,.08) 28%, rgba(0,0,0,.44) 64%, rgba(0,0,0,.92) 100%),
-        linear-gradient(to top, rgba(0,0,0,.96) 0%, rgba(0,0,0,.78) 34%, rgba(0,0,0,.28) 68%, rgba(0,0,0,0) 100%);
+        radial-gradient(120% 86% at 50% 100%, rgba(0,0,0,1) 0%, rgba(0,0,0,.98) 30%, rgba(0,0,0,.74) 54%, rgba(0,0,0,.28) 75%, rgba(0,0,0,0) 100%),
+        radial-gradient(72% 48% at 50% 66%, rgba(0,0,0,.90) 0%, rgba(0,0,0,.38) 54%, rgba(0,0,0,0) 100%);
 }
 
 #mobileJoystick{
@@ -2089,7 +2090,7 @@ a,
         display:none !important;
     }
 
-    #mainSite.show #mobileJoystick{
+    #mobileJoystick{
         display:block;
     }
 
@@ -4881,6 +4882,9 @@ const mobileTouchGuideGotIt = document.getElementById('mobileTouchGuideGotIt');
 let mobileJoystickPointerId = null;
 let mobileJoystickX = 0;
 let mobileJoystickY = 0;
+let mobileJoystickStartX = 0;
+let mobileJoystickStartY = 0;
+let mobileJoystickMoved = false;
 let mobilePanPointerId = null;
 let mobilePanStartX = 0;
 let mobilePanStartY = 0;
@@ -4941,8 +4945,8 @@ function updateMobileParallaxFromCursor(){
 
     const edgeSizeX = Math.max(72, window.innerWidth * 0.20);
     const edgeSizeY = Math.max(72, window.innerHeight * 0.14);
-    const edgeSpeedX = Math.max(2.2, window.innerWidth * 0.0068);
-    const edgeSpeedY = Math.max(1.2, window.innerHeight * 0.0032);
+    const edgeSpeedX = Math.max(5.2, window.innerWidth * 0.016);
+    const edgeSpeedY = Math.max(1.8, window.innerHeight * 0.0042);
 
     let edgeMoveX = 0;
     let edgeMoveY = 0;
@@ -4966,7 +4970,6 @@ function updateMobileParallaxFromCursor(){
 function showMobileTouchGuideWhenReady(){
     if(!mobileTouchMode || !mobileTouchGuide || mobileGuideWasShown){ return; }
     if(localStorage.getItem('homeViewMobileTouchGuideSeen') === '1'){ return; }
-    if(!mainSite || !mainSite.classList.contains('show')){ return; }
 
     mobileGuideWasShown = true;
     mobileTouchGuide.classList.add('show');
@@ -4980,19 +4983,24 @@ function hideMobileTouchGuide(){
     localStorage.setItem('homeViewMobileTouchGuideSeen', '1');
 }
 
-function mobileClickAtCursor(){
-    const clickX = cursorX || cursorTargetX;
-    const clickY = cursorY || cursorTargetY;
+function mobileClickAtCursor(x = cursorTargetX, y = cursorTargetY, options = {}){
+    const clickX = clamp(x, 1, window.innerWidth - 1);
+    const clickY = clamp(y, 1, window.innerHeight - 1);
     const element = document.elementFromPoint(clickX, clickY);
-    if(!element || element.closest('#mobileJoystick') || element.closest('#mobileTouchGuide')){
+    if(!element || element.closest('#mobileTouchGuide')){
+        return;
+    }
+    if(!options.allowJoystickClick && element.closest('#mobileJoystick')){
         return;
     }
 
     const clickable = element.closest(hoverTargetsSelector);
     if(clickable){
         mobileAllowVirtualClick = true;
+        clickable.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, cancelable:true, pointerType:'touch', clientX:clickX, clientY:clickY}));
+        clickable.dispatchEvent(new PointerEvent('pointerup', {bubbles:true, cancelable:true, pointerType:'touch', clientX:clickX, clientY:clickY}));
         clickable.click();
-        setTimeout(()=>{ mobileAllowVirtualClick = false; }, 0);
+        setTimeout(()=>{ mobileAllowVirtualClick = false; }, 40);
     }
 }
 
@@ -5019,12 +5027,7 @@ if(mobileTouchMode){
     cursorHasMoved = true;
     setMobileCursorPosition(window.innerWidth / 2, window.innerHeight * 0.46);
 
-    const guidePoll = setInterval(()=>{
-        showMobileTouchGuideWhenReady();
-        if(mobileGuideWasShown || localStorage.getItem('homeViewMobileTouchGuideSeen') === '1'){
-            clearInterval(guidePoll);
-        }
-    }, 450);
+    setTimeout(showMobileTouchGuideWhenReady, 450);
 
     if(mobileTouchGuideGotIt){
         mobileTouchGuideGotIt.addEventListener('click', hideMobileTouchGuide);
@@ -5041,6 +5044,9 @@ if(mobileTouchMode){
             event.preventDefault();
             event.stopPropagation();
             mobileJoystickPointerId = event.pointerId;
+            mobileJoystickStartX = event.clientX;
+            mobileJoystickStartY = event.clientY;
+            mobileJoystickMoved = false;
             mobileJoystick.setPointerCapture(event.pointerId);
         });
 
@@ -5056,6 +5062,10 @@ if(mobileTouchMode){
             let dx = event.clientX - centerX;
             let dy = event.clientY - centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if(Math.hypot(event.clientX - mobileJoystickStartX, event.clientY - mobileJoystickStartY) > 8){
+                mobileJoystickMoved = true;
+            }
 
             if(distance > maxRadius){
                 dx = dx / distance * maxRadius;
@@ -5073,6 +5083,11 @@ if(mobileTouchMode){
         ['pointerup','pointercancel','lostpointercapture'].forEach(type=>{
             mobileJoystick.addEventListener(type, (event)=>{
                 if(event.pointerId === mobileJoystickPointerId || type === 'lostpointercapture'){
+                    if(type === 'pointerup' && !mobileJoystickMoved){
+                        event.preventDefault();
+                        event.stopPropagation();
+                        mobileClickAtCursor(cursorTargetX, cursorTargetY, {allowJoystickClick:true});
+                    }
                     resetMobileJoystick();
                 }
             });
@@ -5122,7 +5137,8 @@ if(mobileTouchMode){
         if(!mobileTouchMoved && mainSite && mainSite.classList.contains('show')){
             event.preventDefault();
             event.stopPropagation();
-            mobileClickAtCursor();
+            setMobileCursorPosition(event.clientX, event.clientY);
+            mobileClickAtCursor(event.clientX, event.clientY);
         }
 
         mobilePanPointerId = null;
@@ -5183,7 +5199,7 @@ document.addEventListener('mouseleave', ()=>{
 
 function animateCursorAndParallax(){
     if(mobileTouchMode && (Math.abs(mobileJoystickX) > 0.015 || Math.abs(mobileJoystickY) > 0.015)){
-        const speed = Math.max(3.0, Math.min(8.2, Math.min(window.innerWidth, window.innerHeight) * 0.010));
+        const speed = Math.max(4.0, Math.min(10.5, Math.min(window.innerWidth, window.innerHeight) * 0.014));
         setMobileCursorPosition(cursorTargetX + mobileJoystickX * speed, cursorTargetY + mobileJoystickY * speed);
     }else if(mobileTouchMode){
         updateMobileParallaxFromCursor();
@@ -5221,8 +5237,8 @@ function animateCursorAndParallax(){
     if(mainSite.classList.contains('show')){
         if(mobileTouchMode){
             clampMobilePanTargets();
-            mobilePanCurrentX += (mobilePanTargetX - mobilePanCurrentX) * 0.095;
-            mobilePanCurrentY += (mobilePanTargetY - mobilePanCurrentY) * 0.095;
+            mobilePanCurrentX += (mobilePanTargetX - mobilePanCurrentX) * 0.145;
+            mobilePanCurrentY += (mobilePanTargetY - mobilePanCurrentY) * 0.145;
             mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0) scale(1)`;
         }else{
             const mainRotateY = bgRotateY * 1.45;
