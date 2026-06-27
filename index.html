@@ -6262,5 +6262,330 @@ body.mobile-contact-portrait #mobileContactCardTap{
 })();
 </script>
 
+
+
+<!-- FINAL MOBILE PORTRAIT LAYOUT / CONTACT / JOYSTICK FIXES -->
+<style id="lastMobileLayoutAndContactFixes">
+@media (pointer:coarse) and (orientation:portrait){
+    /* Portrait main page: show the black fade behind the joystick on intro and hotspot pages. */
+    body:not(.mobile-contact-portrait) > #mobileBottomFade{
+        display:block !important;
+        left:-32vw !important;
+        right:-32vw !important;
+        bottom:-16dvh !important;
+        height:58dvh !important;
+        z-index:42 !important;
+        pointer-events:none !important;
+        background:
+            radial-gradient(120% 84% at 50% 100%, rgba(0,0,0,1) 0%, rgba(0,0,0,.98) 34%, rgba(0,0,0,.70) 58%, rgba(0,0,0,.23) 79%, rgba(0,0,0,0) 100%),
+            radial-gradient(80% 46% at 50% 68%, rgba(0,0,0,.82) 0%, rgba(0,0,0,.30) 56%, rgba(0,0,0,0) 100%) !important;
+    }
+
+    body:not(.mobile-contact-portrait) > #mobileJoystick{
+        display:block !important;
+        z-index:145 !important;
+    }
+
+    /* Contact portrait removes the joystick/cursor. The contact fade below handles the hard image edge. */
+    body.mobile-contact-portrait > #mobileJoystick,
+    body.mobile-contact-portrait > #mobileBottomFade,
+    body.mobile-contact-portrait #customCursor,
+    body.mobile-contact-portrait #customCursorPulse{
+        display:none !important;
+        opacity:0 !important;
+        pointer-events:none !important;
+    }
+
+    /* Fade only the lower edge of the contact image to black. It starts below the menu so it does not darken the panel. */
+    body.mobile-contact-portrait::before{
+        content:"";
+        position:fixed;
+        left:0;
+        right:0;
+        top:70dvh;
+        bottom:-1px;
+        z-index:44;
+        pointer-events:none;
+        background:linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,.42) 28%, rgba(0,0,0,.88) 64%, #000 100%);
+    }
+
+    /* Request demo menu: placed in the red-box area, above the sequence/fade. */
+    body.mobile-contact-portrait #contactFramePanel{
+        left:8vw !important;
+        top:52dvh !important;
+        width:84vw !important;
+        max-width:84vw !important;
+        transform:none !important;
+        z-index:146 !important;
+        padding:18px 20px 17px !important;
+        border-radius:18px !important;
+        overflow:hidden !important;
+        background:rgba(0,0,0,.48) !important;
+        backdrop-filter:blur(14px) !important;
+        -webkit-backdrop-filter:blur(14px) !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel h2{
+        font-size:clamp(20px, 5.7vw, 27px) !important;
+        line-height:1.12 !important;
+        margin:0 0 12px !important;
+        letter-spacing:1.6px !important;
+        color:#fff !important;
+        opacity:1 !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel p{
+        font-size:clamp(13px, 3.55vw, 15px) !important;
+        line-height:1.42 !important;
+        margin:0 !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel p:nth-of-type(2){
+        display:none !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel .contactCardActionText{
+        margin-top:12px !important;
+        color:rgba(255,255,255,.93) !important;
+    }
+
+    body.mobile-contact-portrait .contactFrameActions{
+        padding-top:14px !important;
+        gap:9px !important;
+    }
+
+    body.mobile-contact-portrait .contactFrameBtn{
+        padding:10px 14px !important;
+        font-size:12px !important;
+        white-space:nowrap !important;
+    }
+
+    /* Helper popup appears over the Request Demo panel only after DOWNLOAD CONTACT is tapped. */
+    body.mobile-contact-info-open #mobileContactInfoPopup.show{
+        left:12vw !important;
+        top:55dvh !important;
+        width:76vw !important;
+        max-width:76vw !important;
+        min-height:160px !important;
+        z-index:181 !important;
+        transform:none !important;
+        display:flex !important;
+        flex-direction:column !important;
+        justify-content:center !important;
+        align-items:center !important;
+        padding:20px !important;
+        opacity:1 !important;
+        visibility:visible !important;
+        pointer-events:auto !important;
+        background:rgba(0,0,0,.74) !important;
+        backdrop-filter:blur(14px) !important;
+        -webkit-backdrop-filter:blur(14px) !important;
+    }
+}
+</style>
+
+<script id="lastMobileLayoutAndContactFixesScript">
+(function(){
+    const coarseTouch = window.matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window);
+    const portraitQuery = window.matchMedia('(orientation:portrait)');
+    if(!coarseTouch){ return; }
+
+    const joystick = document.getElementById('mobileJoystick');
+    const guide = document.getElementById('mobileTouchGuide');
+    const fade = document.getElementById('mobileBottomFade');
+    const qrBtn = document.getElementById('contactFrameQrBtn');
+    const infoPopup = document.getElementById('mobileContactInfoPopup');
+
+    if(qrBtn){ qrBtn.textContent = 'DOWNLOAD CONTACT'; }
+
+    /* Keep the joystick/fade/help popup available on the intro screen too. */
+    [fade, joystick, guide].forEach(el=>{
+        if(el && el.parentElement !== document.body){ document.body.appendChild(el); }
+    });
+
+    function isPortraitTouch(){ return portraitQuery.matches; }
+    function clampLocal(value, min, max){ return Math.max(min, Math.min(max, value)); }
+
+    /* Bring back the joystick instruction popup on the first screen. For testing, this intentionally ignores the older stored flag. */
+    function showIntroTouchGuide(){
+        if(!guide || !isPortraitTouch()){ return; }
+        if(document.body.classList.contains('mobile-contact-portrait')){ return; }
+        guide.classList.add('show');
+        guide.setAttribute('aria-hidden','false');
+    }
+    setTimeout(showIntroTouchGuide, 550);
+
+    /* Replace the final getDisplayedImageRect with explicit mobile portrait framing.
+       - Main/intro hotspot page: 1920x1080 plane is not fullscreen; it matches the earlier green-box layout.
+       - Contact portrait: final card position is moved much further left so the card is centered. */
+    const desktopRectSource = function(){
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const imageAspect = imageNaturalWidth / imageNaturalHeight;
+        const imageBoxLeft = viewportWidth * -0.04;
+        const imageBoxTop = viewportHeight * -0.04;
+        const imageBoxWidth = viewportWidth * 1.08;
+        const imageBoxHeight = viewportHeight * 1.08;
+        const imageBoxAspect = imageBoxWidth / imageBoxHeight;
+        let displayedWidth, displayedHeight, left, top;
+        if(imageBoxAspect > imageAspect){
+            displayedWidth = imageBoxWidth;
+            displayedHeight = imageBoxWidth / imageAspect;
+            left = imageBoxLeft;
+            top = imageBoxTop + (imageBoxHeight - displayedHeight) / 2;
+        }else{
+            displayedHeight = imageBoxHeight;
+            displayedWidth = imageBoxHeight * imageAspect;
+            left = imageBoxLeft + (imageBoxWidth - displayedWidth) / 2;
+            top = imageBoxTop;
+        }
+        return {left, top, width:displayedWidth, height:displayedHeight};
+    };
+
+    window.getDisplayedImageRect = getDisplayedImageRect = function(){
+        if(isPortraitTouch()){
+            if(document.body.classList.contains('mobile-contact-portrait')){
+                const finalWidth = window.innerWidth * 2.50;
+                const finalHeight = finalWidth * (1080 / 1920);
+                return {
+                    left: window.innerWidth * -1.34,
+                    top: window.innerHeight * -0.145,
+                    width: finalWidth,
+                    height: finalHeight
+                };
+            }
+
+            const mainWidth = window.innerWidth * 2.62;
+            const mainHeight = mainWidth * (1080 / 1920);
+            return {
+                left: (window.innerWidth - mainWidth) / 2,
+                top: 0,
+                width: mainWidth,
+                height: mainHeight
+            };
+        }
+        return desktopRectSource();
+    };
+
+    /* Faster portrait panning and smoother easing. */
+    const oldUpdateMobileParallax = window.updateMobileParallaxFromCursor || (typeof updateMobileParallaxFromCursor !== 'undefined' ? updateMobileParallaxFromCursor : null);
+    window.updateMobileParallaxFromCursor = updateMobileParallaxFromCursor = function(){
+        if(!mobileTouchMode){ return; }
+        targetParallaxX = 0;
+        targetParallaxY = 0;
+        if(document.body.classList.contains('mobile-contact-portrait')){ return; }
+
+        const edgeSizeX = Math.max(62, window.innerWidth * 0.24);
+        const edgeSizeY = Math.max(74, window.innerHeight * 0.14);
+        const edgeSpeedX = Math.max(9.0, window.innerWidth * 0.030);
+        const edgeSpeedY = Math.max(2.0, window.innerHeight * 0.0045);
+        let edgeMoveX = 0;
+        let edgeMoveY = 0;
+
+        if(cursorTargetX < edgeSizeX){
+            edgeMoveX = Math.pow(1 - cursorTargetX / edgeSizeX, 1.55) * edgeSpeedX;
+        }else if(cursorTargetX > window.innerWidth - edgeSizeX){
+            edgeMoveX = -Math.pow(1 - (window.innerWidth - cursorTargetX) / edgeSizeX, 1.55) * edgeSpeedX;
+        }
+
+        if(cursorTargetY < edgeSizeY){
+            edgeMoveY = Math.pow(1 - cursorTargetY / edgeSizeY, 1.7) * edgeSpeedY;
+        }else if(cursorTargetY > window.innerHeight - edgeSizeY){
+            edgeMoveY = -Math.pow(1 - (window.innerHeight - cursorTargetY) / edgeSizeY, 1.7) * edgeSpeedY;
+        }
+
+        mobilePanTargetX += edgeMoveX;
+        mobilePanTargetY += edgeMoveY;
+        clampMobilePanTargets();
+    };
+
+    /* More reliable virtual click: hide touch-only overlays for one frame while checking what is under the cursor,
+       then dispatch pointer + mouse + click events on the real element. */
+    window.mobileClickAtCursor = mobileClickAtCursor = function(x = cursorX || cursorTargetX, y = cursorY || cursorTargetY, options = {}){
+        const clickX = clampLocal(x, 1, window.innerWidth - 1);
+        const clickY = clampLocal(y, 1, window.innerHeight - 1);
+        const temporarilyHidden = [];
+
+        [joystick, fade].forEach(el=>{
+            if(el && el.style.pointerEvents !== 'none'){
+                temporarilyHidden.push([el, el.style.pointerEvents]);
+                el.style.pointerEvents = 'none';
+            }
+        });
+
+        let element = document.elementFromPoint(clickX, clickY);
+        temporarilyHidden.forEach(([el, old])=>{ el.style.pointerEvents = old; });
+
+        if(!element || element.closest('#mobileTouchGuide')){ return; }
+        if(!options.allowJoystickClick && element.closest('#mobileJoystick')){ return; }
+
+        let clickable = element.closest(hoverTargetsSelector);
+        if(!clickable && document.elementsFromPoint){
+            const stack = document.elementsFromPoint(clickX, clickY);
+            for(const item of stack){
+                clickable = item.closest && item.closest(hoverTargetsSelector);
+                if(clickable){ break; }
+            }
+        }
+        if(!clickable){ return; }
+
+        mobileAllowVirtualClick = true;
+        const eventInit = {bubbles:true, cancelable:true, clientX:clickX, clientY:clickY};
+        try{ clickable.dispatchEvent(new PointerEvent('pointerdown', {...eventInit, pointerType:'touch'})); }catch(e){}
+        try{ clickable.dispatchEvent(new PointerEvent('pointerup', {...eventInit, pointerType:'touch'})); }catch(e){}
+        try{ clickable.dispatchEvent(new MouseEvent('mousedown', eventInit)); }catch(e){}
+        try{ clickable.dispatchEvent(new MouseEvent('mouseup', eventInit)); }catch(e){}
+        clickable.click();
+        setTimeout(()=>{ mobileAllowVirtualClick = false; }, 120);
+    };
+
+    /* Make joystick tap use the current cursor position and fire immediately. */
+    if(joystick){
+        joystick.addEventListener('click', function(e){
+            if(document.body.classList.contains('mobile-contact-portrait')){ return; }
+            if(guide && guide.classList.contains('show')){ return; }
+            e.preventDefault();
+            e.stopPropagation();
+            mobileClickAtCursor(cursorX || cursorTargetX, cursorY || cursorTargetY, {allowJoystickClick:true});
+        }, true);
+    }
+
+    /* DOWNLOAD CONTACT should be the only thing that opens the helper popup. */
+    function closeHelper(){
+        document.body.classList.remove('mobile-contact-info-open');
+        if(infoPopup){ infoPopup.classList.remove('show'); infoPopup.setAttribute('aria-hidden','true'); }
+    }
+    closeHelper();
+
+    if(qrBtn){
+        qrBtn.addEventListener('click', function(){
+            if(!isPortraitTouch() || !document.body.classList.contains('mobile-contact-portrait')){ return; }
+            setTimeout(()=>{
+                document.body.classList.add('mobile-contact-info-open');
+                if(infoPopup){ infoPopup.classList.add('show'); infoPopup.setAttribute('aria-hidden','false'); }
+            }, 120);
+        }, true);
+    }
+
+    window.addEventListener('resize', ()=>{
+        try{
+            positionMainImageForCurrentState();
+            positionHotspots();
+            drawHotspotAnchors();
+            clampMobilePanTargets();
+        }catch(e){}
+    });
+
+    setTimeout(()=>{
+        try{
+            positionMainImageForCurrentState();
+            positionHotspots();
+            drawHotspotAnchors();
+            clampMobilePanTargets();
+        }catch(e){}
+    }, 80);
+})();
+</script>
+
 </body>
 </html>
