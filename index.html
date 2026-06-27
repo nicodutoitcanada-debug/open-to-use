@@ -2117,108 +2117,6 @@ a,
     }
 }
 
-
-/* =========================
-   MOBILE PORTRAIT CONTACT POSITIONING
-========================= */
-.mobileContactDownloadHint{
-    position:fixed;
-    left:0;
-    right:0;
-    bottom:0;
-    height:46dvh;
-    z-index:170;
-    display:none;
-    align-items:center;
-    justify-content:center;
-    padding:18px;
-    pointer-events:none;
-}
-.mobileContactDownloadHint.show{
-    display:flex;
-    pointer-events:auto;
-}
-.mobileContactDownloadHintPanel{
-    width:min(360px, calc(100vw - 36px));
-    padding:20px 18px;
-    border-radius:22px;
-    background:rgba(0,0,0,.68);
-    border:1px solid rgba(255,255,255,.18);
-    box-shadow:0 24px 70px rgba(0,0,0,.44);
-    text-align:center;
-    backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-}
-.mobileContactDownloadHintPanel p{
-    margin:0 0 16px;
-    line-height:1.35;
-    color:rgba(255,255,255,.94);
-}
-#mobileContactDownloadHintOk{
-    border:1px solid rgba(255,255,255,.22);
-    cursor:pointer;
-    padding:11px 24px;
-    border-radius:999px;
-    background:rgba(255,255,255,.12);
-    color:white;
-    letter-spacing:1.5px;
-    font-weight:800;
-    transform:none !important;
-}
-
-@media (pointer:coarse) and (orientation:portrait){
-    body.mobile-contact-active #customCursor,
-    body.mobile-contact-active #customCursorPulse,
-    body.mobile-contact-active #mobileJoystick,
-    body.mobile-contact-active #mobileBottomFade,
-    body.mobile-contact-active #mobileTouchGuide,
-    body.mobile-contact-active .bottomBrainBtn{
-        display:none !important;
-    }
-
-    body.mobile-contact-active #contactFramePanel{
-        width:72vw !important;
-        left:14vw !important;
-        top:50dvh !important;
-        transform:translateY(-8%) !important;
-        padding:18px 16px !important;
-        border-radius:20px !important;
-    }
-
-    body.mobile-contact-active #contactFramePanel h2{
-        font-size:clamp(19px, 6vw, 24px) !important;
-        margin-bottom:10px !important;
-    }
-
-    body.mobile-contact-active #contactFramePanel p{
-        font-size:13px !important;
-        line-height:1.38 !important;
-    }
-
-    body.mobile-contact-active #contactFramePanel p:nth-of-type(2),
-    body.mobile-contact-active #contactFramePanel .contactCardActionText{
-        display:none !important;
-    }
-
-    body.mobile-contact-active .contactFrameActions{
-        padding-top:14px !important;
-        gap:8px !important;
-    }
-
-    body.mobile-contact-active .contactFrameBtn{
-        padding:10px 13px !important;
-        font-size:11px !important;
-        letter-spacing:.5px !important;
-    }
-
-    body.mobile-contact-active #contactEmailHotspot{
-        left:17vw !important;
-        top:35.8dvh !important;
-        width:64vw !important;
-        height:5.4dvh !important;
-    }
-}
-
 </style>
 </head>
 <body>
@@ -2278,7 +2176,7 @@ a,
         <p class="contactCardActionText"><strong>Click the hotspot on the business card to download contact info.</strong></p>
         <div class="contactFrameActions" aria-label="Contact page actions">
             <button id="contactFrameBackBtn" class="contactFrameBtn" type="button">◀ Back</button>
-            <button id="contactFrameQrBtn" class="contactFrameBtn" type="button">DOWNLOAD CONTACT</button>
+            <button id="contactFrameQrBtn" class="contactFrameBtn" type="button">QR CODE</button>
         </div>
     </div>
 
@@ -2306,13 +2204,6 @@ a,
                 <button id="productConfirmContinueBtn" class="productConfirmBtn" type="button">CONTINUE</button>
                 <button id="productConfirmWatchBtn" class="productConfirmBtn primary" type="button">WATCH VIDEO</button>
             </div>
-        </div>
-    </div>
-
-    <div id="mobileContactDownloadHint" class="mobileContactDownloadHint" aria-hidden="true">
-        <div class="mobileContactDownloadHintPanel" role="dialog" aria-modal="true">
-            <p>Tap on the QR code to download contact information or scan the QR code</p>
-            <button id="mobileContactDownloadHintOk" class="noMagnet" type="button">OK</button>
         </div>
     </div>
 
@@ -2668,86 +2559,6 @@ const movieControls = document.getElementById('movieControls');
 const moviePlayBtn = document.getElementById('moviePlayBtn');
 const moviePauseBtn = document.getElementById('moviePauseBtn');
 const contactEmailAddress = 'marie@homeviewsolutions.com';
-const contactPhoneNumber = '8259634410';
-const contactPhoneDisplay = '825 963 4410';
-const mobileContactDownloadHint = document.getElementById('mobileContactDownloadHint');
-const mobileContactDownloadHintOk = document.getElementById('mobileContactDownloadHintOk');
-let mobileContactSequenceProgress = 0;
-let mobileContactDownloadHintShown = false;
-
-function isMobilePortraitContactMode(){
-    return !!(window.matchMedia && window.matchMedia('(pointer:coarse) and (orientation:portrait)').matches && activeFeature === features.contact);
-}
-
-function easeInOutCubic(t){
-    t = Math.max(0, Math.min(1, t));
-    return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-}
-
-function getMobileContactSequenceRect(){
-    const base = getDisplayedImageRect();
-    if(!isMobilePortraitContactMode()){ return base; }
-
-    const targetWidth = window.innerWidth * 2.506;
-    const targetHeight = targetWidth * (imageNaturalHeight / imageNaturalWidth);
-    const targetLeft = window.innerWidth * -1.216;
-    const targetTop = window.innerHeight * -0.147;
-    const t = easeInOutCubic(mobileContactSequenceProgress);
-
-    return {
-        left: base.left + (targetLeft - base.left) * t,
-        top: base.top + (targetTop - base.top) * t,
-        width: base.width + (targetWidth - base.width) * t,
-        height: base.height + (targetHeight - base.height) * t
-    };
-}
-
-function getActiveSequenceRect(){
-    return isMobilePortraitContactMode() ? getMobileContactSequenceRect() : getDisplayedImageRect();
-}
-
-function makeContactVCardBlobUrl(){
-    const vcard = [
-        'BEGIN:VCARD',
-        'VERSION:3.0',
-        'N:Du Toit;Marie;;;',
-        'FN:Marie Du Toit',
-        'ORG:Home View Solutions',
-        'TEL;TYPE=CELL:' + contactPhoneNumber,
-        'EMAIL;TYPE=INTERNET:' + contactEmailAddress,
-        'END:VCARD'
-    ].join('\r\n');
-    return URL.createObjectURL(new Blob([vcard], {type:'text/vcard;charset=utf-8'}));
-}
-
-function downloadMarieContact(){
-    const url = makeContactVCardBlobUrl();
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'Marie-Du-Toit-Home-View-Solutions.vcf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 1200);
-}
-
-function showMobileContactDownloadHint(){
-    if(!mobileContactDownloadHint || mobileContactDownloadHintShown || !isMobilePortraitContactMode()){ return; }
-    mobileContactDownloadHintShown = true;
-    mobileContactDownloadHint.classList.add('show');
-    mobileContactDownloadHint.setAttribute('aria-hidden','false');
-}
-
-function hideMobileContactDownloadHint(){
-    if(!mobileContactDownloadHint){ return; }
-    mobileContactDownloadHint.classList.remove('show');
-    mobileContactDownloadHint.setAttribute('aria-hidden','true');
-}
-
-if(mobileContactDownloadHintOk){
-    mobileContactDownloadHintOk.addEventListener('click', hideMobileContactDownloadHint);
-}
-
 const productSteps = [
     {
         title: 'Customize Finishes in Real Time',
@@ -2867,7 +2678,7 @@ function positionSequenceImage(){
         return;
     }
 
-    const rect = getActiveSequenceRect();
+    const rect = getDisplayedImageRect();
     sequenceImage.style.left = `${rect.left}px`;
     sequenceImage.style.top = `${rect.top}px`;
     sequenceImage.style.width = `${rect.width}px`;
@@ -2876,7 +2687,7 @@ function positionSequenceImage(){
 
 function positionScreenDefaultImage(){
     if(!screenDefaultImage){ return; }
-    const rect = getActiveSequenceRect();
+    const rect = getDisplayedImageRect();
     screenDefaultImage.style.left = `${rect.left}px`;
     screenDefaultImage.style.top = `${rect.top}px`;
     screenDefaultImage.style.width = `${rect.width}px`;
@@ -2969,7 +2780,7 @@ function getPreloadedCardFrame(index){
 
 function positionCardSequenceOverlay(){
     if(!cardSequenceImage){ return; }
-    const rect = getActiveSequenceRect();
+    const rect = getDisplayedImageRect();
     const scale = rect.width / imageNaturalWidth;
     cardSequenceImage.style.left = `${rect.left + (CARD_SEQUENCE_X * scale)}px`;
     cardSequenceImage.style.top = `${rect.top + (CARD_SEQUENCE_Y * scale)}px`;
@@ -2979,7 +2790,7 @@ function positionCardSequenceOverlay(){
 
 function positionDownloadHotspot(){
     if(!downloadHotspot){ return; }
-    const rect = getActiveSequenceRect();
+    const rect = getDisplayedImageRect();
     const scale = rect.width / imageNaturalWidth;
     const point = getTransformedMainPlanePoint({
         x: rect.left + (DOWNLOAD_HOTSPOT_X * scale),
@@ -3281,7 +3092,7 @@ function positionFeatureVideo(){
 
 
 function positionContactFrameOverlays(){
-    const rect = getActiveSequenceRect();
+    const rect = getDisplayedImageRect();
     const scale = rect.width / imageNaturalWidth;
 
     if(contactFramePanel){
@@ -3619,7 +3430,7 @@ function playSequence(feature, start, end, onComplete, onFrame){
     isAnimatingSequence = true;
 
     const direction = start <= end ? 1 : -1;
-    const totalFrames = Math.max(1, Math.abs(end - start));
+
 
     let frame = start;
     let lastTime = 0;
@@ -3632,9 +3443,6 @@ function playSequence(feature, start, end, onComplete, onFrame){
         const currentFrameHold = frameHold;
 
         if(time - lastTime >= currentFrameHold){
-            if(feature === features.contact && direction === 1){
-                mobileContactSequenceProgress = Math.abs(frame - start) / totalFrames;
-            }
             positionSequenceImage();
             const preloadedFrame = getPreloadedFrame(feature, frame);
             sequenceImage.src = preloadedFrame ? preloadedFrame.src : frameName(feature, frame);
@@ -3652,9 +3460,6 @@ function playSequence(feature, start, end, onComplete, onFrame){
         if(stillInRange){
             requestAnimationFrame(animate);
         }else{
-            if(feature === features.contact){
-                mobileContactSequenceProgress = direction === 1 ? 1 : 0;
-            }
             positionSequenceImage();
             const preloadedEndFrame = getPreloadedFrame(feature, end);
             sequenceImage.src = preloadedEndFrame ? preloadedEndFrame.src : frameName(feature, end);
@@ -3966,9 +3771,6 @@ function reverseFeatureVideoToFirstFrame(callback, ignorePreloadedReverse = fals
 function resetAfterVideoReverse(){
     activeFeature = null;
     sequenceStarted = false;
-    mobileContactSequenceProgress = 0;
-    document.body.classList.remove('mobile-contact-active');
-    hideMobileContactDownloadHint();
     showDefaultFeatureVideoFirstFrame();
     setMainImageToDefaultFrame();
     showAllHotspots();
@@ -4000,16 +3802,6 @@ async function playForwardSequence(featureId){
 
     activeFeature = featureToPlay;
     sequenceStarted = true;
-    if(activeFeature === features.contact){
-        mobileContactSequenceProgress = 0;
-        mobileContactDownloadHintShown = false;
-        if(window.matchMedia && window.matchMedia('(pointer:coarse) and (orientation:portrait)').matches){
-            document.body.classList.add('mobile-contact-active');
-            resetMobileJoystick();
-        }
-    }else{
-        document.body.classList.remove('mobile-contact-active');
-    }
     infoPanelShownDuringSequence = false;
     hideAllHotspots();
     updateTopContactButtonVisibility();
@@ -4038,11 +3830,8 @@ async function playForwardSequence(featureId){
         }
 
         if(activeFeature === features.contact){
-            mobileContactSequenceProgress = 1;
-            positionSequenceImage();
             showContactFrameOverlays();
             showContactCardSequence();
-            showMobileContactDownloadHint();
         }
 
         if(activeFeature.showHowOverlay){
@@ -4071,9 +3860,6 @@ function goBackToDefaultFrame(){
         playSequence(featureToReverse, featureToReverse.lastFrame, featureToReverse.firstFrame, ()=>{
             activeFeature = null;
             sequenceStarted = false;
-            mobileContactSequenceProgress = 0;
-            document.body.classList.remove('mobile-contact-active');
-            hideMobileContactDownloadHint();
             positionExpandedDefaultImage();
             hideSequenceImage(false);
             showAllHotspots();
@@ -4325,7 +4111,6 @@ if(contactFrameQrBtn){
         event.preventDefault();
         event.stopPropagation();
         toggleContactCardSequence();
-        downloadMarieContact();
     });
 }
 
@@ -4377,8 +4162,6 @@ logoVideo.addEventListener('ended', ()=>{
 });
 
 window.addEventListener('resize', ()=>{
-    if(isMobilePortraitContactMode()){ document.body.classList.add('mobile-contact-active'); }
-    else if(activeFeature !== features.contact){ document.body.classList.remove('mobile-contact-active'); }
     positionMainImageForCurrentState();
     positionFeatureVideo();
     positionAllHotspots();
@@ -5313,14 +5096,7 @@ if(mobileTouchMode){
 
     document.addEventListener('pointerdown', (event)=>{
         if(!mainSite || !mainSite.classList.contains('show')){ return; }
-        if(isMobilePortraitContactMode() && event.clientY < window.innerHeight * 0.5){
-            downloadMarieContact();
-            showMobileContactDownloadHint();
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-        }
-        if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide') || event.target.closest('#mobileContactDownloadHint')){ return; }
+        if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
 
         mobilePanPointerId = event.pointerId;
         mobilePanStartX = event.clientX;
@@ -5372,7 +5148,7 @@ if(mobileTouchMode){
     document.addEventListener('click', (event)=>{
         if(mobileAllowVirtualClick){ return; }
         if(!mainSite || !mainSite.classList.contains('show')){ return; }
-        if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide') || event.target.closest('#mobileContactDownloadHint')){ return; }
+        if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
         event.preventDefault();
         event.stopPropagation();
     }, {capture:true});
@@ -5856,5 +5632,318 @@ document.addEventListener('keydown', (event)=>{
 });
 
 </script>
+
+
+<!-- MOBILE CONTACT PORTRAIT FIXES -->
+<style id="mobileContactPortraitFixStyles">
+@media (pointer:coarse){
+    /* These are moved out of #mainSite by the script below, so they can appear on the intro screen too. */
+    body > #mobileJoystick{ display:block; }
+    body > #mobileTouchGuide.show{ display:flex; }
+
+    @media (orientation:portrait){
+        .bottomBrainBtn{ display:none !important; }
+
+        /* Softer, taller fade with no visible cutoff line. */
+        #mobileBottomFade{
+            left:-28vw !important;
+            right:-28vw !important;
+            bottom:-18dvh !important;
+            height:78dvh !important;
+            background:
+                radial-gradient(125% 88% at 50% 100%, rgba(0,0,0,1) 0%, rgba(0,0,0,.98) 28%, rgba(0,0,0,.72) 52%, rgba(0,0,0,.24) 76%, rgba(0,0,0,0) 100%),
+                radial-gradient(82% 54% at 50% 58%, rgba(0,0,0,.78) 0%, rgba(0,0,0,.26) 58%, rgba(0,0,0,0) 100%) !important;
+        }
+    }
+
+    body.mobile-contact-portrait #mobileJoystick,
+    body.mobile-contact-portrait #customCursor,
+    body.mobile-contact-portrait #customCursorPulse,
+    body.mobile-contact-portrait #mobileBottomFade{
+        display:none !important;
+        opacity:0 !important;
+        pointer-events:none !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel{
+        left:14vw !important;
+        top:43dvh !important;
+        width:72vw !important;
+        max-width:72vw !important;
+        transform:none !important;
+        padding:18px 18px 16px !important;
+        border-radius:18px !important;
+        z-index:146 !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel h2{
+        font-size:clamp(18px, 5vw, 24px) !important;
+        margin-bottom:9px !important;
+        letter-spacing:1px !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel p{
+        font-size:clamp(12px, 3.4vw, 15px) !important;
+        line-height:1.35 !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel p:nth-of-type(2){
+        display:none !important;
+    }
+
+    body.mobile-contact-portrait #contactFramePanel .contactCardActionText{
+        margin-top:10px !important;
+        color:rgba(255,255,255,.9) !important;
+    }
+
+    body.mobile-contact-portrait .contactFrameActions{
+        padding-top:12px !important;
+        gap:8px !important;
+    }
+
+    body.mobile-contact-portrait .contactFrameBtn{
+        padding:10px 13px !important;
+        font-size:12px !important;
+    }
+}
+
+#mobileContactCardTap{
+    position:fixed;
+    left:0;
+    top:0;
+    width:100vw;
+    height:50dvh;
+    z-index:144;
+    display:none;
+    background:rgba(255,255,255,0);
+    border:0;
+    padding:0;
+    pointer-events:none;
+}
+body.mobile-contact-portrait #mobileContactCardTap{
+    display:block;
+    pointer-events:auto;
+}
+
+#mobileContactInfoPopup{
+    position:fixed;
+    left:50%;
+    bottom:18px;
+    z-index:170;
+    width:min(86vw, 360px);
+    transform:translate(-50%, 16px) scale(.96);
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    padding:18px;
+    border-radius:20px;
+    text-align:center;
+    background:rgba(0,0,0,.66);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:0 22px 60px rgba(0,0,0,.44);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    transition:opacity .28s ease, transform .28s ease, visibility .28s ease;
+}
+#mobileContactInfoPopup.show{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:translate(-50%, 0) scale(1);
+}
+#mobileContactInfoPopup p{
+    margin:0 0 14px;
+    line-height:1.35;
+    font-size:15px;
+    color:rgba(255,255,255,.94);
+}
+#mobileContactInfoPopup button{
+    border:1px solid rgba(255,255,255,.22);
+    border-radius:999px;
+    padding:10px 24px;
+    background:rgba(255,255,255,.12);
+    color:#fff;
+    font-weight:800;
+    letter-spacing:1px;
+    transform:none !important;
+}
+</style>
+
+<button id="mobileContactCardTap" type="button" aria-label="Download contact information"></button>
+<div id="mobileContactInfoPopup" aria-hidden="true">
+    <p>Tap on the QR code to download contact information or scan the QR code.</p>
+    <button id="mobileContactInfoOk" type="button">OK</button>
+</div>
+
+<script id="mobileContactPortraitFixScript">
+(function(){
+    const coarseTouch = window.matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window);
+    const portraitQuery = window.matchMedia('(orientation:portrait)');
+    const joystick = document.getElementById('mobileJoystick');
+    const guide = document.getElementById('mobileTouchGuide');
+    const fade = document.getElementById('mobileBottomFade');
+    const qrBtn = document.getElementById('contactFrameQrBtn');
+    const cardTap = document.getElementById('mobileContactCardTap');
+    const infoPopup = document.getElementById('mobileContactInfoPopup');
+    const infoOk = document.getElementById('mobileContactInfoOk');
+
+    if(qrBtn){ qrBtn.textContent = 'DOWNLOAD CONTACT'; }
+
+    /* Move the mobile controls outside #mainSite so they are visible on the intro screen too. */
+    [fade, joystick, guide].forEach(el=>{
+        if(el && el.parentElement !== document.body){ document.body.appendChild(el); }
+    });
+
+    function isPortraitTouch(){ return coarseTouch && portraitQuery.matches; }
+    function easeInOut(t){ t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
+
+    let mobileContactProgress = 0;
+    let mobileContactActive = false;
+
+    const originalGetDisplayedImageRect = window.getDisplayedImageRect || getDisplayedImageRect;
+    window.getDisplayedImageRect = getDisplayedImageRect = function(){
+        const base = originalGetDisplayedImageRect();
+        try{
+            if(isPortraitTouch() && mobileContactActive){
+                const finalWidth = window.innerWidth * 2.50;
+                const finalHeight = finalWidth * (1080 / 1920);
+                const finalRect = {
+                    left: (window.innerWidth - finalWidth) / 2,
+                    top: window.innerHeight * -0.145,
+                    width: finalWidth,
+                    height: finalHeight
+                };
+                const p = easeInOut(mobileContactProgress);
+                return {
+                    left: base.left + (finalRect.left - base.left) * p,
+                    top: base.top + (finalRect.top - base.top) * p,
+                    width: base.width + (finalRect.width - base.width) * p,
+                    height: base.height + (finalRect.height - base.height) * p
+                };
+            }
+        }catch(e){}
+        return base;
+    };
+
+    function enterMobileContactMode(){
+        if(!isPortraitTouch()){ return; }
+        mobileContactActive = true;
+        document.body.classList.add('mobile-contact-portrait');
+        try{
+            mobilePanTargetX = 0; mobilePanTargetY = 0; mobilePanCurrentX = 0; mobilePanCurrentY = 0;
+            targetParallaxX = 0; targetParallaxY = 0; parallaxX = 0; parallaxY = 0;
+        }catch(e){}
+    }
+
+    function leaveMobileContactMode(){
+        mobileContactActive = false;
+        mobileContactProgress = 0;
+        document.body.classList.remove('mobile-contact-portrait');
+        hideContactInfoPopup();
+    }
+
+    const originalPlaySequence = window.playSequence || playSequence;
+    window.playSequence = playSequence = function(feature, start, end, onComplete, onFrame){
+        const isContact = (typeof features !== 'undefined' && feature === features.contact);
+        const forward = start <= end;
+        if(isContact && isPortraitTouch()){
+            enterMobileContactMode();
+            mobileContactProgress = forward ? 0 : 1;
+        }
+
+        return originalPlaySequence(feature, start, end, function(){
+            if(isContact && isPortraitTouch()){
+                mobileContactProgress = forward ? 1 : 0;
+                try{ positionMainImageForCurrentState(); positionContactFrameOverlays(); positionCardSequenceOverlay(); positionDownloadHotspot(); }catch(e){}
+                if(forward){ setTimeout(showContactInfoPopup, 550); }
+                else{ leaveMobileContactMode(); }
+            }
+            if(typeof onComplete === 'function'){ onComplete(); }
+        }, function(frame){
+            if(isContact && isPortraitTouch()){
+                const first = Math.min(start, end);
+                const last = Math.max(start, end);
+                const raw = (frame - first) / Math.max(1, (last - first));
+                mobileContactProgress = forward ? raw : 1 - raw;
+            }
+            if(typeof onFrame === 'function'){ onFrame(frame); }
+        });
+    };
+
+    const originalHideFeatureOverlays = window.hideFeatureOverlays || hideFeatureOverlays;
+    window.hideFeatureOverlays = hideFeatureOverlays = function(callback){
+        hideContactInfoPopup();
+        return originalHideFeatureOverlays(function(){
+            if(typeof activeFeature !== 'undefined' && activeFeature === features.contact){
+                /* Keep mode active until reverse finishes; playSequence will remove it. */
+            }
+            if(typeof callback === 'function'){ callback(); }
+        });
+    };
+
+    function showContactInfoPopup(){
+        if(!isPortraitTouch() || !document.body.classList.contains('mobile-contact-portrait') || !infoPopup){ return; }
+        infoPopup.classList.add('show');
+        infoPopup.setAttribute('aria-hidden','false');
+    }
+
+    function hideContactInfoPopup(){
+        if(!infoPopup){ return; }
+        infoPopup.classList.remove('show');
+        infoPopup.setAttribute('aria-hidden','true');
+    }
+
+    if(infoOk){
+        infoOk.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); hideContactInfoPopup(); });
+    }
+
+    function downloadMarieVCard(){
+        const vcard = [
+            'BEGIN:VCARD',
+            'VERSION:3.0',
+            'N:Du Toit;Marie;;;',
+            'FN:Marie Du Toit',
+            'ORG:Home View Solutions',
+            'TITLE:Marketing Manager',
+            'EMAIL;TYPE=INTERNET:marie@homeviewsolutions.com',
+            'URL:https://homeviewsolutions.com',
+            'END:VCARD'
+        ].join('\n');
+        const blob = new Blob([vcard], {type:'text/vcard;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Marie-Du-Toit-Home-View-Solutions.vcf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 1200);
+    }
+
+    function handleContactDownloadTap(e){
+        if(!isPortraitTouch() || !document.body.classList.contains('mobile-contact-portrait')){ return; }
+        e.preventDefault();
+        e.stopPropagation();
+        downloadMarieVCard();
+        showContactInfoPopup();
+    }
+
+    if(cardTap){
+        cardTap.addEventListener('click', handleContactDownloadTap, {capture:true});
+        cardTap.addEventListener('pointerup', handleContactDownloadTap, {capture:true});
+    }
+
+    if(qrBtn){
+        qrBtn.addEventListener('click', function(){ setTimeout(showContactInfoPopup, 80); }, true);
+    }
+
+    window.addEventListener('resize', function(){
+        if(document.body.classList.contains('mobile-contact-portrait')){
+            try{ positionMainImageForCurrentState(); positionContactFrameOverlays(); positionCardSequenceOverlay(); }catch(e){}
+        }
+    });
+})();
+</script>
+
 </body>
 </html>
