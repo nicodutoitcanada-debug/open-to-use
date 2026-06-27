@@ -4892,46 +4892,77 @@ let mobilePanOffsetY = 0;
 let mobileGuideWasShown = false;
 let mobileAllowVirtualClick = false;
 
+/* Mobile panning is separate from the desktop parallax.
+   The target values change from joystick edge-hover and finger drag,
+   then the current values ease toward them in the animation loop. */
+let mobilePanTargetX = 0;
+let mobilePanTargetY = 0;
+let mobilePanCurrentX = 0;
+let mobilePanCurrentY = 0;
+
 function clamp(value, min, max){
     return Math.max(min, Math.min(max, value));
 }
 
 function updateMobileHoverFromCursor(){
     if(!mobileTouchMode){ return; }
-    const element = document.elementFromPoint(cursorTargetX, cursorTargetY);
+    const element = document.elementFromPoint(cursorX || cursorTargetX, cursorY || cursorTargetY);
     if(element){
         updateHoverState(element);
     }
 }
 
+function getMobilePanBounds(){
+    const rect = getDisplayedImageRect();
+    const safePadding = 10;
+
+    return {
+        minX: Math.min(0, window.innerWidth - (rect.left + rect.width) + safePadding),
+        maxX: Math.max(0, -rect.left - safePadding),
+        minY: Math.min(0, window.innerHeight - (rect.top + rect.height) + safePadding),
+        maxY: Math.max(0, -rect.top - safePadding)
+    };
+}
+
+function clampMobilePanTargets(){
+    const bounds = getMobilePanBounds();
+    mobilePanTargetX = clamp(mobilePanTargetX, bounds.minX, bounds.maxX);
+    mobilePanTargetY = clamp(mobilePanTargetY, bounds.minY, bounds.maxY);
+    mobilePanCurrentX = clamp(mobilePanCurrentX, bounds.minX, bounds.maxX);
+    mobilePanCurrentY = clamp(mobilePanCurrentY, bounds.minY, bounds.maxY);
+}
+
 function updateMobileParallaxFromCursor(){
     if(!mobileTouchMode){ return; }
 
-    const normalizedX = (cursorTargetX / Math.max(1, window.innerWidth) - 0.5) * 2;
-    const normalizedY = (cursorTargetY / Math.max(1, window.innerHeight) - 0.5) * 2;
+    /* On touch devices the cursor should pan the canvas, not rotate/parallax it. */
+    targetParallaxX = 0;
+    targetParallaxY = 0;
 
-    const edgeSizeX = Math.max(70, window.innerWidth * 0.18);
-    const edgeSizeY = Math.max(70, window.innerHeight * 0.18);
+    const edgeSizeX = Math.max(72, window.innerWidth * 0.20);
+    const edgeSizeY = Math.max(72, window.innerHeight * 0.14);
+    const edgeSpeedX = Math.max(2.2, window.innerWidth * 0.0068);
+    const edgeSpeedY = Math.max(1.2, window.innerHeight * 0.0032);
 
-    let edgeX = 0;
-    let edgeY = 0;
+    let edgeMoveX = 0;
+    let edgeMoveY = 0;
 
     if(cursorTargetX < edgeSizeX){
-        edgeX = -Math.pow(1 - cursorTargetX / edgeSizeX, 1.4);
+        edgeMoveX = Math.pow(1 - cursorTargetX / edgeSizeX, 1.7) * edgeSpeedX;
     }else if(cursorTargetX > window.innerWidth - edgeSizeX){
-        edgeX = Math.pow(1 - (window.innerWidth - cursorTargetX) / edgeSizeX, 1.4);
+        edgeMoveX = -Math.pow(1 - (window.innerWidth - cursorTargetX) / edgeSizeX, 1.7) * edgeSpeedX;
     }
 
     if(cursorTargetY < edgeSizeY){
-        edgeY = -Math.pow(1 - cursorTargetY / edgeSizeY, 1.4);
+        edgeMoveY = Math.pow(1 - cursorTargetY / edgeSizeY, 1.7) * edgeSpeedY;
     }else if(cursorTargetY > window.innerHeight - edgeSizeY){
-        edgeY = Math.pow(1 - (window.innerHeight - cursorTargetY) / edgeSizeY, 1.4);
+        edgeMoveY = -Math.pow(1 - (window.innerHeight - cursorTargetY) / edgeSizeY, 1.7) * edgeSpeedY;
     }
 
-    targetParallaxX = clamp(normalizedX * 0.72 + edgeX * 0.86 + mobilePanOffsetX, -1.35, 1.35);
-    targetParallaxY = clamp(normalizedY * 0.62 + edgeY * 0.58 + mobilePanOffsetY, -1.18, 1.18);
+    mobilePanTargetX += edgeMoveX;
+    mobilePanTargetY += edgeMoveY;
+    clampMobilePanTargets();
 }
-
 function showMobileTouchGuideWhenReady(){
     if(!mobileTouchMode || !mobileTouchGuide || mobileGuideWasShown){ return; }
     if(localStorage.getItem('homeViewMobileTouchGuideSeen') === '1'){ return; }
@@ -4950,7 +4981,9 @@ function hideMobileTouchGuide(){
 }
 
 function mobileClickAtCursor(){
-    const element = document.elementFromPoint(cursorTargetX, cursorTargetY);
+    const clickX = cursorX || cursorTargetX;
+    const clickY = cursorY || cursorTargetY;
+    const element = document.elementFromPoint(clickX, clickY);
     if(!element || element.closest('#mobileJoystick') || element.closest('#mobileTouchGuide')){
         return;
     }
@@ -5072,8 +5105,10 @@ if(mobileTouchMode){
 
         if(mobileTouchMoved){
             event.preventDefault();
-            mobilePanOffsetX = clamp(mobilePanOffsetX - dx / Math.max(1, window.innerWidth) * 1.65, -0.72, 0.72);
-            mobilePanOffsetY = clamp(mobilePanOffsetY - dy / Math.max(1, window.innerHeight) * 1.15, -0.56, 0.56);
+            /* Finger drag pans the canvas smoothly. The content follows the finger. */
+            mobilePanTargetX += dx;
+            mobilePanTargetY += dy;
+            clampMobilePanTargets();
             updateMobileParallaxFromCursor();
         }
 
@@ -5104,6 +5139,7 @@ if(mobileTouchMode){
 
     window.addEventListener('resize', ()=>{
         setMobileCursorPosition(cursorTargetX, cursorTargetY);
+        clampMobilePanTargets();
         resetMobileJoystick();
     });
 }
@@ -5183,11 +5219,18 @@ function animateCursorAndParallax(){
     }
 
     if(mainSite.classList.contains('show')){
-        const mainRotateY = bgRotateY * 1.45;
-        const mainRotateX = bgRotateX * 1.45;
-        const mainMoveX = bgMoveX * 1.58;
-        const mainMoveY = bgMoveY * 1.58;
-        mainPlane.style.transform = `perspective(1150px) translate3d(${mainMoveX}px, ${mainMoveY}px, 0) rotateX(${mainRotateX}deg) rotateY(${mainRotateY}deg) scale(1.13)`;
+        if(mobileTouchMode){
+            clampMobilePanTargets();
+            mobilePanCurrentX += (mobilePanTargetX - mobilePanCurrentX) * 0.095;
+            mobilePanCurrentY += (mobilePanTargetY - mobilePanCurrentY) * 0.095;
+            mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0) scale(1)`;
+        }else{
+            const mainRotateY = bgRotateY * 1.45;
+            const mainRotateX = bgRotateX * 1.45;
+            const mainMoveX = bgMoveX * 1.58;
+            const mainMoveY = bgMoveY * 1.58;
+            mainPlane.style.transform = `perspective(1150px) translate3d(${mainMoveX}px, ${mainMoveY}px, 0) rotateX(${mainRotateX}deg) rotateY(${mainRotateY}deg) scale(1.13)`;
+        }
     }
 
     setParallaxVars(document.querySelector('.center-wrap'), parallaxX * 20, parallaxY * 14);
@@ -5213,8 +5256,8 @@ function animateCursorAndParallax(){
     Object.values(features).forEach((feature, index)=>{
         const hotspot = document.getElementById(feature.hotspotElementId);
         const depth = getHotspotDepth(index);
-        const hotX = parallaxX * depth;
-        const hotY = parallaxY * depth * .78;
+        const hotX = mobileTouchMode ? mobilePanCurrentX : parallaxX * depth;
+        const hotY = mobileTouchMode ? mobilePanCurrentY : parallaxY * depth * .78;
         setParallaxVars(hotspot, hotX, hotY);
     });
     activeHotspotLabelElement = null;
