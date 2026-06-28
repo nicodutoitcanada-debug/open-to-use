@@ -2135,6 +2135,15 @@ a,
     border-color:rgba(255,157,46,.9) !important;
 }
 
+#customCursor.mobile-snap-ready{
+    background:rgba(255,157,46,.72) !important;
+    border-color:rgba(255,177,72,.98) !important;
+    box-shadow:
+        0 0 0 1px rgba(255,157,46,.72),
+        0 0 24px rgba(255,157,46,.96),
+        0 0 58px rgba(255,157,46,.56) !important;
+}
+
 
 /* =========================
    MOBILE PORTRAIT HOTSPOT STATE
@@ -2164,13 +2173,13 @@ a,
     }
 
     body.mobilePortraitHotspotActive .infoPanel{
-        top:55dvh !important;
+        top:50dvh !important;
         bottom:auto !important;
         right:50% !important;
         width:min(470px, calc(100vw - 28px)) !important;
-        max-height:calc(45dvh - 18px) !important;
+        max-height:calc(50dvh - 18px) !important;
         overflow:hidden !important;
-        padding:18px !important;
+        padding:16px 18px 18px !important;
         transform:translateX(50%) scale(.88) !important;
     }
 
@@ -2180,9 +2189,9 @@ a,
 
     body.mobilePortraitHotspotActive .contactFramePanel{
         left:50% !important;
-        top:55dvh !important;
+        top:52dvh !important;
         width:min(600px, calc(100vw - 28px)) !important;
-        max-height:calc(45dvh - 18px) !important;
+        max-height:calc(48dvh - 18px) !important;
         overflow:hidden !important;
         padding:18px !important;
         transform:translateX(-50%) !important;
@@ -5056,6 +5065,7 @@ let mobilePortraitPanLocked = false;
 let mobilePortraitLockedPanX = 0;
 let mobilePortraitLockedPanY = 0;
 let mobileSnapHotspotElement = null;
+let mobileSnapReleaseCooldownUntil = 0;
 
 function isMobilePortraitTouchLayout(){
     return mobileTouchMode && isMobilePortraitLayout();
@@ -5084,7 +5094,21 @@ function getFeatureCenteredMobilePanX(feature){
     const rect = getDisplayedImageRect();
     const hotspotX = rect.left + (feature.x / imageNaturalWidth) * rect.width;
     const bounds = getMobilePanBounds();
-    return clamp((window.innerWidth / 2) - hotspotX, bounds.minX, bounds.maxX);
+    let target = (window.innerWidth / 2) - hotspotX;
+    if(feature === features.finishes){
+        target -= 30;
+    }else if(feature === features.contact){
+        target += 30;
+    }
+    return clamp(target, bounds.minX, bounds.maxX);
+}
+
+function getFeatureCenteredMobilePanY(feature){
+    const bounds = getMobilePanBounds();
+    if(feature === features.finishes){
+        return clamp(-62, bounds.minY, bounds.maxY);
+    }
+    return clamp(0, bounds.minY, bounds.maxY);
 }
 
 function panMobilePortraitToFeature(feature, duration = 1050){
@@ -5096,7 +5120,7 @@ function panMobilePortraitToFeature(feature, duration = 1050){
     const startX = mobilePanCurrentX;
     const startY = mobilePanCurrentY;
     const endX = getFeatureCenteredMobilePanX(feature);
-    const endY = 0;
+    const endY = getFeatureCenteredMobilePanY(feature);
     const startTime = performance.now();
 
     return new Promise(resolve=>{
@@ -5143,6 +5167,7 @@ function clearMobileHotspotSnap(){
         mobileSnapHotspotElement.classList.remove('mobile-snap-ready');
         mobileSnapHotspotElement = null;
     }
+    if(customCursor){ customCursor.classList.remove('mobile-snap-ready'); }
 }
 
 function getVisibleMobileSnapHotspots(){
@@ -5168,12 +5193,18 @@ function updateMobileHotspotSnap(){
         return;
     }
 
+    const now = performance.now();
+    if(now < mobileSnapReleaseCooldownUntil){
+        clearMobileHotspotSnap();
+        return;
+    }
+
     let closest = null;
     let closestDistance = Infinity;
     let closestCenterX = 0;
     let closestCenterY = 0;
-    const snapRadius = isMobilePortraitLayout() ? 86 : 72;
-    const releaseRadius = snapRadius * 1.42;
+    const snapRadius = isMobilePortraitLayout() ? 78 : 68;
+    const holdRadius = snapRadius * 1.12;
 
     getVisibleMobileSnapHotspots().forEach(hotspot=>{
         const rect = hotspot.getBoundingClientRect();
@@ -5182,7 +5213,7 @@ function updateMobileHotspotSnap(){
         const dx = centerX - cursorTargetX;
         const dy = centerY - cursorTargetY;
         const distance = Math.hypot(dx, dy);
-        const radius = hotspot === mobileSnapHotspotElement ? releaseRadius : snapRadius;
+        const radius = hotspot === mobileSnapHotspotElement ? holdRadius : snapRadius;
 
         if(distance < radius && distance < closestDistance){
             closest = hotspot;
@@ -5195,29 +5226,32 @@ function updateMobileHotspotSnap(){
     if(closest){
         const toHotspotX = closestCenterX - cursorTargetX;
         const toHotspotY = closestCenterY - cursorTargetY;
-        const movingAway = (mobileJoystickX * toHotspotX + mobileJoystickY * toHotspotY) < -18;
+        const distanceSafe = Math.max(1, Math.hypot(toHotspotX, toHotspotY));
+        const awayAmount = -((mobileJoystickX * toHotspotX) + (mobileJoystickY * toHotspotY)) / distanceSafe;
 
-        if(movingAway && closestDistance > snapRadius * 0.46){
-            closest = null;
+        /* Release quickly when the user pushes away. Do not keep pulling the cursor back,
+           otherwise the mobile joystick feels stuck to the hotspot. */
+        if(closest === mobileSnapHotspotElement && awayAmount > 0.22){
+            mobileSnapReleaseCooldownUntil = now + 260;
+            clearMobileHotspotSnap();
+            return;
         }
-    }
 
-    if(closest){
         if(mobileSnapHotspotElement && mobileSnapHotspotElement !== closest){
             mobileSnapHotspotElement.classList.remove('mobile-snap-ready');
         }
         mobileSnapHotspotElement = closest;
         mobileSnapHotspotElement.classList.add('mobile-snap-ready', 'label-active');
+        if(customCursor){ customCursor.classList.add('mobile-snap-ready'); }
 
-        const closeness = 1 - Math.min(1, closestDistance / releaseRadius);
-        const snapEase = 0.20 + closeness * 0.34;
+        const closeness = 1 - Math.min(1, closestDistance / holdRadius);
+        const snapEase = 0.08 + closeness * 0.13;
         cursorTargetX += (closestCenterX - cursorTargetX) * snapEase;
         cursorTargetY += (closestCenterY - cursorTargetY) * snapEase;
     }else{
         clearMobileHotspotSnap();
     }
 }
-
 function updateMobileHoverFromCursor(){
     if(!mobileTouchMode){ return; }
     const element = document.elementFromPoint(cursorX || cursorTargetX, cursorY || cursorTargetY);
@@ -5498,6 +5532,7 @@ if(mobileTouchMode){
         const touchPageActive = (mainSite && mainSite.classList.contains('show')) || (intro && !intro.classList.contains('fadeOut'));
         if(!touchPageActive){ return; }
         if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
+        if(document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout()){ return; }
         event.preventDefault();
         event.stopPropagation();
     }, {capture:true});
