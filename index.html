@@ -2214,6 +2214,39 @@ a,
     }
 }
 
+
+
+/* Mobile touch polish: prevent blue text/image selection while using the joystick. */
+@media (pointer:coarse){
+    html, body, #mainSite, #intro, #mainPlane, #mobileJoystick, #mobileJoystick *{
+        -webkit-user-select:none !important;
+        user-select:none !important;
+        -webkit-touch-callout:none !important;
+        -webkit-tap-highlight-color:rgba(0,0,0,0) !important;
+    }
+
+    #mobileJoystick.joystick-active::before{
+        content:"";
+        position:absolute;
+        left:50%;
+        top:50%;
+        width:170px;
+        height:170px;
+        border-radius:999px;
+        transform:translate(-50%,-50%);
+        pointer-events:none;
+        background:radial-gradient(circle, rgba(255,157,46,.55) 0%, rgba(255,157,46,.28) 36%, rgba(255,157,46,0) 72%);
+        filter:blur(6px);
+        z-index:-1;
+    }
+
+    body.mobileChessActive #mobileJoystick,
+    body.mobileChessActive #customCursor,
+    body.mobileChessActive #customCursorPulse{
+        display:none !important;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -5015,7 +5048,7 @@ function applyDeviceParallax(event){
     targetParallaxY = orientationY;
 }
 
-window.addEventListener('deviceorientation', applyDeviceParallax);
+// Removed deviceorientation listener so phones do not ask for motion/orientation permission.
 
 function enableIOSMotionIfNeeded(){
     if(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function'){
@@ -5023,7 +5056,7 @@ function enableIOSMotionIfNeeded(){
     }
 }
 
-document.addEventListener('pointerdown', enableIOSMotionIfNeeded, {once:true});
+// Removed iOS motion permission request; touch movement is handled by the joystick instead.
 refreshMagneticTargets();
 
 /* =========================
@@ -5031,6 +5064,13 @@ refreshMagneticTargets();
    Single tap clicks only when the finger did not move. Drag/swipe pans.
 ========================= */
 const mobileTouchMode = window.matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window);
+
+if(mobileTouchMode){
+    document.querySelectorAll('.monitorActionText, .contactCardActionText').forEach(element=>{
+        element.innerHTML = element.innerHTML.replace(/Click the hotspot/gi, 'Tap the hotspot');
+    });
+}
+
 const mobileJoystick = document.getElementById('mobileJoystick');
 const mobileJoystickKnob = document.getElementById('mobileJoystickKnob');
 const mobileTouchGuide = document.getElementById('mobileTouchGuide');
@@ -5082,6 +5122,14 @@ function setMobilePortraitHotspotActive(isActive){
         if(customCursor){ customCursor.classList.remove('show', 'hovering'); }
         if(customCursorPulse){ customCursorPulse.classList.remove('hovering'); }
     }else if(mobileTouchMode && customCursor){
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        cursorTargetX = centerX;
+        cursorTargetY = centerY;
+        cursorX = centerX;
+        cursorY = centerY;
+        customCursor.style.left = `${centerX}px`;
+        customCursor.style.top = `${centerY}px`;
         customCursor.classList.add('show');
     }
 }
@@ -5095,10 +5143,12 @@ function getFeatureCenteredMobilePanX(feature){
     const hotspotX = rect.left + (feature.x / imageNaturalWidth) * rect.width;
     const bounds = getMobilePanBounds();
     let target = (window.innerWidth / 2) - hotspotX;
-    if(feature === features.finishes){
-        target -= 30;
-    }else if(feature === features.contact){
+    if(feature === features.howWeDoIt){
+        target = 0;
+    }else if(feature === features.finishes){
         target += 30;
+    }else if(feature === features.contact){
+        target -= 30;
     }
     return clamp(target, bounds.minX, bounds.maxX);
 }
@@ -5372,8 +5422,11 @@ function mobileClickAtCursor(x = cursorTargetX, y = cursorTargetY, options = {})
 function setMobileCursorPosition(x, y){
     cursorHasMoved = true;
     customCursor.classList.add('show');
+    const maxCursorY = (isMobilePortraitLayout() && mobileJoystick)
+        ? Math.max(12, mobileJoystick.getBoundingClientRect().top - 12)
+        : window.innerHeight - 12;
     cursorTargetX = clamp(x, 12, window.innerWidth - 12);
-    cursorTargetY = clamp(y, 12, window.innerHeight - 12);
+    cursorTargetY = clamp(y, 12, maxCursorY);
 
     updateMobileHotspotSnap();
 
@@ -5395,6 +5448,10 @@ function resetMobileJoystick(){
     mobileJoystickPointerId = null;
     mobileJoystickX = 0;
     mobileJoystickY = 0;
+    mobileJoystickMoved = false;
+    if(mobileJoystick){
+        mobileJoystick.classList.remove('joystick-active');
+    }
     if(mobileJoystickKnob){
         mobileJoystickKnob.style.transform = 'translate(-50%,-50%)';
     }
@@ -5452,6 +5509,10 @@ if(mobileTouchMode){
 
             mobileJoystickX = dx / maxRadius;
             mobileJoystickY = dy / maxRadius;
+
+            if(mobileJoystick){
+                mobileJoystick.classList.toggle('joystick-active', Math.hypot(mobileJoystickX, mobileJoystickY) > 0.05);
+            }
 
             if(mobileJoystickKnob){
                 mobileJoystickKnob.style.transform = `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px))`;
@@ -5884,10 +5945,31 @@ function openChessOverlay(event){
     if(!chessOverlay){ return; }
     chessOverlay.classList.add('show');
     chessOverlay.setAttribute('aria-hidden','false');
+    if(mobileTouchMode){
+        document.body.classList.add('mobileChessActive');
+        resetMobileJoystick();
+        if(customCursor){ customCursor.classList.remove('show', 'hovering'); }
+        if(customCursorPulse){ customCursorPulse.classList.remove('hovering'); }
+    }
     resetChessPuzzle();
     refreshMagneticTargets();
 }
-function closeChessOverlay(){ chessOverlay.classList.remove('show'); chessOverlay.setAttribute('aria-hidden','true'); }
+function closeChessOverlay(){
+    chessOverlay.classList.remove('show');
+    chessOverlay.setAttribute('aria-hidden','true');
+    document.body.classList.remove('mobileChessActive');
+    if(mobileTouchMode && !document.body.classList.contains('mobilePortraitHotspotActive') && customCursor){
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        cursorTargetX = centerX;
+        cursorTargetY = centerY;
+        cursorX = centerX;
+        cursorY = centerY;
+        customCursor.style.left = `${centerX}px`;
+        customCursor.style.top = `${centerY}px`;
+        customCursor.classList.add('show');
+    }
+}
 buildChessBoard(); resetChessPuzzle();
 if(bottomBrainBtn) bottomBrainBtn.addEventListener('click', openChessOverlay);
 closeChessBtn.addEventListener('click', closeChessOverlay);
