@@ -2306,7 +2306,7 @@ a,
         <p class="contactCardActionText"><strong>Click the hotspot on the business card to download contact info.</strong></p>
         <div class="contactFrameActions" aria-label="Contact page actions">
             <button id="contactFrameBackBtn" class="contactFrameBtn" type="button">◀ Back</button>
-            <button id="contactFrameQrBtn" class="contactFrameBtn" type="button">QR CODE</button>
+            <button id="contactFrameQrBtn" class="contactFrameBtn" type="button">DOWNLOAD CONTACT</button>
         </div>
     </div>
 
@@ -2690,6 +2690,13 @@ const movieControls = document.getElementById('movieControls');
 const moviePlayBtn = document.getElementById('moviePlayBtn');
 const moviePauseBtn = document.getElementById('moviePauseBtn');
 const contactEmailAddress = 'marie@homeviewsolutions.com';
+const contactPhoneNumber = '8259634410';
+const contactDisplayPhone = '825 963 4410';
+const contactFirstName = 'Marie';
+const contactLastName = 'Du Toit';
+const contactFullName = `${contactFirstName} ${contactLastName}`;
+const contactCompanyName = 'Home View Solutions';
+const contactVCardFileName = 'Marie-Du-Toit-Home-View-Solutions.vcf';
 const productSteps = [
     {
         title: 'Customize Finishes in Real Time',
@@ -3288,25 +3295,33 @@ function positionContactFrameOverlays(){
     }
 
     if(contactEmailHotspot){
-        /* TWEAK THESE FOUR NUMBERS if the invisible email click area needs nudging. */
+        /*
+           Invisible business-card click area:
+           - Before the card is flipped open, it stays over the email area and opens email.
+           - After DOWNLOAD CONTACT / DOWNLOAD is clicked, it grows 3x taller upward
+             while keeping the bottom edge locked in the same spot, and downloads the vCard.
+        */
         const emailX = 1046;
         const emailY = 566;
         const emailW = 542;
         const emailH = 68;
+        const activeH = cardSequenceOpen ? emailH * 3 : emailH;
+        const activeY = cardSequenceOpen ? emailY - (emailH * 2) : emailY;
 
         const topLeft = getTransformedMainPlanePoint({
             x: rect.left + (emailX * scale),
-            y: rect.top + (emailY * scale)
+            y: rect.top + (activeY * scale)
         });
         const bottomRight = getTransformedMainPlanePoint({
             x: rect.left + ((emailX + emailW) * scale),
-            y: rect.top + ((emailY + emailH) * scale)
+            y: rect.top + ((activeY + activeH) * scale)
         });
 
         contactEmailHotspot.style.left = `${Math.min(topLeft.x, bottomRight.x)}px`;
         contactEmailHotspot.style.top = `${Math.min(topLeft.y, bottomRight.y)}px`;
         contactEmailHotspot.style.width = `${Math.abs(bottomRight.x - topLeft.x)}px`;
         contactEmailHotspot.style.height = `${Math.abs(bottomRight.y - topLeft.y)}px`;
+        contactEmailHotspot.setAttribute('aria-label', cardSequenceOpen ? 'Download Marie Du Toit contact details' : 'Email Marie at Home View Solutions');
     }
 }
 
@@ -3346,9 +3361,39 @@ function showContactEmailClickArea(){
 }
 
 
+function downloadMarieContactCard(){
+    const vcard = [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        `N:${contactLastName};${contactFirstName};;;`,
+        `FN:${contactFullName}`,
+        `ORG:${contactCompanyName}`,
+        `TEL;TYPE=CELL:${contactPhoneNumber}`,
+        `EMAIL;TYPE=INTERNET:${contactEmailAddress}`,
+        'END:VCARD'
+    ].join('\r\n');
+
+    const blob = new Blob([vcard], {type:'text/vcard;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = contactVCardFileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
 if(contactEmailHotspot){
     contactEmailHotspot.addEventListener('click', (event)=>{
         event.preventDefault();
+
+        if(cardSequenceOpen){
+            downloadMarieContactCard();
+            return;
+        }
+
         window.location.href = `mailto:${contactEmailAddress}`;
     });
 }
@@ -4280,6 +4325,7 @@ function toggleContactCardSequence(){
             cardSequenceOpen = true;
             setDownloadHotspotLabel('FLIP BACK');
             showDownloadHotspot();
+            showContactEmailClickArea();
         });
     }
 }
@@ -5148,7 +5194,7 @@ function getFeatureCenteredMobilePanX(feature){
     }else if(feature === features.finishes){
         target += 30;
     }else if(feature === features.contact){
-        target -= 30;
+        target -= 8;
     }
     return clamp(target, bounds.minX, bounds.maxX);
 }
@@ -5157,6 +5203,9 @@ function getFeatureCenteredMobilePanY(feature){
     const bounds = getMobilePanBounds();
     if(feature === features.finishes){
         return clamp(-62, bounds.minY, bounds.maxY);
+    }
+    if(feature === features.contact){
+        return clamp(-18, bounds.minY, bounds.maxY);
     }
     return clamp(0, bounds.minY, bounds.maxY);
 }
