@@ -2254,18 +2254,19 @@ a,
 
     <div id="mobileBottomFade" aria-hidden="true"></div>
 
-    <div id="mobileJoystick" aria-label="Touch joystick for cursor control">
-        <div id="mobileJoystickOuter"></div>
-        <div id="mobileJoystickKnob"></div>
-    </div>
+</div>
 
-    <div id="mobileTouchGuide" aria-hidden="true">
-        <div class="mobileTouchGuidePanel" role="dialog" aria-modal="true">
-            <p>Use the joystick to move.<br>Tap to click.</p>
-            <button id="mobileTouchGuideGotIt" type="button">GOT IT</button>
-        </div>
-    </div>
+<!-- Mobile controls live outside #mainSite so they also work on the intro nebula page. -->
+<div id="mobileJoystick" aria-label="Touch joystick for cursor control">
+    <div id="mobileJoystickOuter"></div>
+    <div id="mobileJoystickKnob"></div>
+</div>
 
+<div id="mobileTouchGuide" aria-hidden="true">
+    <div class="mobileTouchGuidePanel" role="dialog" aria-modal="true">
+        <p>Use the joystick to move.<br>Tap to click.</p>
+        <button id="mobileTouchGuideGotIt" type="button">GOT IT</button>
+    </div>
 </div>
 
 
@@ -4986,7 +4987,20 @@ function hideMobileTouchGuide(){
 function mobileClickAtCursor(x = cursorTargetX, y = cursorTargetY, options = {}){
     const clickX = clamp(x, 1, window.innerWidth - 1);
     const clickY = clamp(y, 1, window.innerHeight - 1);
+
+    /* The joystick is fixed above the page, so temporarily ignore it for hit-testing.
+       This lets a joystick tap click the button/hotspot under the virtual cursor. */
+    const previousJoystickPointerEvents = mobileJoystick ? mobileJoystick.style.pointerEvents : '';
+    if(mobileJoystick){
+        mobileJoystick.style.pointerEvents = 'none';
+    }
+
     const element = document.elementFromPoint(clickX, clickY);
+
+    if(mobileJoystick){
+        mobileJoystick.style.pointerEvents = previousJoystickPointerEvents;
+    }
+
     if(!element || element.closest('#mobileTouchGuide')){
         return;
     }
@@ -5000,7 +5014,7 @@ function mobileClickAtCursor(x = cursorTargetX, y = cursorTargetY, options = {})
         clickable.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, cancelable:true, pointerType:'touch', clientX:clickX, clientY:clickY}));
         clickable.dispatchEvent(new PointerEvent('pointerup', {bubbles:true, cancelable:true, pointerType:'touch', clientX:clickX, clientY:clickY}));
         clickable.click();
-        setTimeout(()=>{ mobileAllowVirtualClick = false; }, 40);
+        setTimeout(()=>{ mobileAllowVirtualClick = false; }, 120);
     }
 }
 
@@ -5009,6 +5023,17 @@ function setMobileCursorPosition(x, y){
     customCursor.classList.add('show');
     cursorTargetX = clamp(x, 12, window.innerWidth - 12);
     cursorTargetY = clamp(y, 12, window.innerHeight - 12);
+
+    /* Feed the virtual cursor into the intro particle systems too.
+       This makes joystick movement affect the blue nebula just like desktop mouse movement. */
+    if(introNebula && intro && !intro.classList.contains('fadeOut')){
+        introNebula.setPointer(cursorTargetX, cursorTargetY, 1);
+    }
+
+    if(introForegroundDust && intro && !intro.classList.contains('fadeOut')){
+        introForegroundDust.setPointer(cursorTargetX, cursorTargetY, 1);
+    }
+
     updateMobileParallaxFromCursor();
     updateMobileHoverFromCursor();
 }
@@ -5095,7 +5120,8 @@ if(mobileTouchMode){
     }
 
     document.addEventListener('pointerdown', (event)=>{
-        if(!mainSite || !mainSite.classList.contains('show')){ return; }
+        const touchPageActive = (mainSite && mainSite.classList.contains('show')) || (intro && !intro.classList.contains('fadeOut'));
+        if(!touchPageActive){ return; }
         if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
 
         mobilePanPointerId = event.pointerId;
@@ -5134,7 +5160,9 @@ if(mobileTouchMode){
     document.addEventListener('pointerup', (event)=>{
         if(event.pointerId !== mobilePanPointerId){ return; }
 
-        if(!mobileTouchMoved && mainSite && mainSite.classList.contains('show')){
+        const touchPageActive = (mainSite && mainSite.classList.contains('show')) || (intro && !intro.classList.contains('fadeOut'));
+
+        if(!mobileTouchMoved && touchPageActive){
             event.preventDefault();
             event.stopPropagation();
             setMobileCursorPosition(event.clientX, event.clientY);
@@ -5147,7 +5175,8 @@ if(mobileTouchMode){
 
     document.addEventListener('click', (event)=>{
         if(mobileAllowVirtualClick){ return; }
-        if(!mainSite || !mainSite.classList.contains('show')){ return; }
+        const touchPageActive = (mainSite && mainSite.classList.contains('show')) || (intro && !intro.classList.contains('fadeOut'));
+        if(!touchPageActive){ return; }
         if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
         event.preventDefault();
         event.stopPropagation();
@@ -5199,7 +5228,7 @@ document.addEventListener('mouseleave', ()=>{
 
 function animateCursorAndParallax(){
     if(mobileTouchMode && (Math.abs(mobileJoystickX) > 0.015 || Math.abs(mobileJoystickY) > 0.015)){
-        const speed = Math.max(4.0, Math.min(10.5, Math.min(window.innerWidth, window.innerHeight) * 0.014));
+        const speed = Math.max(2.0, Math.min(5.8, Math.min(window.innerWidth, window.innerHeight) * 0.0078));
         setMobileCursorPosition(cursorTargetX + mobileJoystickX * speed, cursorTargetY + mobileJoystickY * speed);
     }else if(mobileTouchMode){
         updateMobileParallaxFromCursor();
