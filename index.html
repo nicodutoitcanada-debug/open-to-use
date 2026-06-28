@@ -2630,14 +2630,24 @@ function isMobilePortraitLayout(){
     return window.innerHeight > window.innerWidth && window.innerWidth <= 900;
 }
 
+const MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO = 0.755;
+const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
+
 function getMobilePortraitVisualHeight(){
-    /* THIS is the actual zoom-out: the 1920 x 1080 plane is sized to only
-       this much of the portrait screen height, top aligned. No clipping. */
-    return window.innerHeight * 0.77;
+    /*
+       MOBILE PORTRAIT MASTER SCALE
+       This is the single source of truth for the green 1920 x 1080 area.
+       It deliberately makes the whole 1920 x 1080 sequence plane smaller
+       than the phone height, top-aligned, with the sides extending offscreen.
+
+       Because every image, sequence, mask, card overlay and hotspot is
+       positioned from getDisplayedImageRect(), they all shrink together.
+    */
+    return window.innerHeight * MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO;
 }
 
-function getMobilePortraitZoomScale(){
-    return 1;
+function getMobilePortraitVisualTop(){
+    return window.innerHeight * MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO;
 }
 
 function getDisplayedImageRect(){
@@ -2662,7 +2672,7 @@ function getDisplayedImageRect(){
         const displayedWidth = displayedHeight * imageAspect;
         return {
             left: (viewportWidth - displayedWidth) / 2,
-            top: 0,
+            top: getMobilePortraitVisualTop(),
             width: displayedWidth,
             height: displayedHeight
         };
@@ -4740,8 +4750,11 @@ function getTransformedMainPlanePoint(point){
 
     const planeWidth = window.innerWidth;
     const planeHeight = window.innerHeight;
+
+    /* Match the JS transform-origin used on #mainPlane.
+       Portrait mobile uses 50% 0%; everything else uses 50% 50%. */
     const originX = planeWidth / 2;
-    const originY = planeHeight / 2;
+    const originY = isMobilePortraitLayout() ? 0 : (planeHeight / 2);
 
     try{
         const matrix = new DOMMatrixReadOnly(transform);
@@ -5304,11 +5317,18 @@ function animateCursorAndParallax(){
             mobilePanCurrentY += (mobilePanTargetY - mobilePanCurrentY) * 0.145;
             if(isMobilePortraitLayout()){
                 mainPlane.style.transformOrigin = '50% 0%';
-                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0) scale(1)`;
+                /* IMPORTANT: no extra scale here. The portrait zoom-out is controlled only
+                   by getDisplayedImageRect(), so no transform can accidentally undo it. */
+                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0)`;
             }else{
                 mainPlane.style.transformOrigin = '50% 50%';
-                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0) scale(1)`;
+                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0)`;
             }
+        }else if(isMobilePortraitLayout()){
+            /* Also protect browser/device emulation portrait mode where pointer is fine.
+               This prevents the desktop parallax scale(1.13) from overriding the mobile portrait scale. */
+            mainPlane.style.transformOrigin = '50% 0%';
+            mainPlane.style.transform = 'translate3d(0px, 0px, 0px)';
         }else{
             const mainRotateY = bgRotateY * 1.45;
             const mainRotateX = bgRotateX * 1.45;
