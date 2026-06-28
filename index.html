@@ -2623,6 +2623,23 @@ function setMainImageToDefaultFrame(){
     hideScreenDefaultImage(true);
 }
 
+function isMobilePortraitLayout(){
+    /* Portrait layout must not depend only on pointer:coarse.
+       Some mobile browsers / preview tools report pointer differently, which made
+       the old portrait zoom-out code never run. */
+    return window.innerHeight > window.innerWidth && window.innerWidth <= 900;
+}
+
+function getMobilePortraitVisualHeight(){
+    /* THIS is the actual zoom-out: the 1920 x 1080 plane is sized to only
+       this much of the portrait screen height, top aligned. No clipping. */
+    return window.innerHeight * 0.77;
+}
+
+function getMobilePortraitZoomScale(){
+    return 1;
+}
+
 function getDisplayedImageRect(){
     /*
        This is the real 1920 x 1080 sequence plane.
@@ -2633,6 +2650,23 @@ function getDisplayedImageRect(){
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const imageAspect = imageNaturalWidth / imageNaturalHeight;
+
+    if(isMobilePortraitLayout()){
+        /* MOBILE PORTRAIT ZOOM OUT:
+           Size the actual 1920 x 1080 image/sequence plane to the green-box area:
+           top aligned, much smaller than full screen height, and allowed to extend
+           left/right. This affects the default frame, sequences, overlays, masks,
+           card PNG sequence, hotspots, anchor dots and button hit areas because
+           they all use this same rect. DO NOT CLIP. */
+        const displayedHeight = getMobilePortraitVisualHeight();
+        const displayedWidth = displayedHeight * imageAspect;
+        return {
+            left: (viewportWidth - displayedWidth) / 2,
+            top: 0,
+            width: displayedWidth,
+            height: displayedHeight
+        };
+    }
 
     const imageBoxLeft = viewportWidth * -0.04;
     const imageBoxTop = viewportHeight * -0.04;
@@ -5268,12 +5302,19 @@ function animateCursorAndParallax(){
             clampMobilePanTargets();
             mobilePanCurrentX += (mobilePanTargetX - mobilePanCurrentX) * 0.145;
             mobilePanCurrentY += (mobilePanTargetY - mobilePanCurrentY) * 0.145;
-            mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0) scale(1)`;
+            if(isMobilePortraitLayout()){
+                mainPlane.style.transformOrigin = '50% 0%';
+                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0) scale(1)`;
+            }else{
+                mainPlane.style.transformOrigin = '50% 50%';
+                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0) scale(1)`;
+            }
         }else{
             const mainRotateY = bgRotateY * 1.45;
             const mainRotateX = bgRotateX * 1.45;
             const mainMoveX = bgMoveX * 1.58;
             const mainMoveY = bgMoveY * 1.58;
+            mainPlane.style.transformOrigin = '50% 50%';
             mainPlane.style.transform = `perspective(1150px) translate3d(${mainMoveX}px, ${mainMoveY}px, 0) rotateX(${mainRotateX}deg) rotateY(${mainRotateY}deg) scale(1.13)`;
         }
     }
