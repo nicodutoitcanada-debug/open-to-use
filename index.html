@@ -2117,6 +2117,76 @@ a,
     }
 }
 
+
+/* =========================
+   MOBILE PORTRAIT HOTSPOT STATE
+   - Chess button starts centered at the top on the main hotspot page.
+   - Once any main hotspot is opened, the joystick/cursor/chess button disappear
+     while the bottom fade stays visible.
+   - Product/contact panels sit in the lower half of portrait screens.
+========================= */
+@media (orientation:portrait) and (max-width:900px){
+    #mainSite.show .bottomBrainBtn{
+        top:14px !important;
+        left:50% !important;
+        right:auto !important;
+        bottom:auto !important;
+        transform:translateX(-50%) translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(var(--magnetScale)) !important;
+    }
+
+    #mainSite.show .bottomBrainBtn:hover{
+        transform:translateX(-50%) translate3d(var(--parallaxX), var(--parallaxY), 0) translate3d(var(--magnetX), var(--magnetY), 0) scale(calc(var(--magnetScale) * 1.06)) !important;
+    }
+
+    body.mobilePortraitHotspotActive #mobileJoystick,
+    body.mobilePortraitHotspotActive #customCursor,
+    body.mobilePortraitHotspotActive #customCursorPulse,
+    body.mobilePortraitHotspotActive .bottomBrainBtn{
+        display:none !important;
+    }
+
+    body.mobilePortraitHotspotActive .infoPanel{
+        top:55dvh !important;
+        bottom:auto !important;
+        right:50% !important;
+        width:min(470px, calc(100vw - 28px)) !important;
+        max-height:calc(45dvh - 18px) !important;
+        overflow:hidden !important;
+        padding:18px !important;
+        transform:translateX(50%) scale(.88) !important;
+    }
+
+    body.mobilePortraitHotspotActive .infoPanel.show{
+        transform:translateX(50%) scale(1) !important;
+    }
+
+    body.mobilePortraitHotspotActive .contactFramePanel{
+        left:50% !important;
+        top:55dvh !important;
+        width:min(600px, calc(100vw - 28px)) !important;
+        max-height:calc(45dvh - 18px) !important;
+        overflow:hidden !important;
+        padding:18px !important;
+        transform:translateX(-50%) !important;
+    }
+
+    body.mobilePortraitHotspotActive .contactFramePanel h2{
+        font-size:clamp(20px, 5vw, 28px) !important;
+        margin-bottom:10px !important;
+    }
+
+    body.mobilePortraitHotspotActive .contactFramePanel p{
+        font-size:clamp(13px, 3.3vw, 16px) !important;
+        line-height:1.38 !important;
+    }
+
+    body.mobilePortraitHotspotActive .contactFrameActions,
+    body.mobilePortraitHotspotActive .infoPanelActions{
+        padding-top:12px !important;
+        margin-top:12px !important;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -3824,6 +3894,7 @@ function resetAfterVideoReverse(){
     hideContactCardSequence();
     hideProductPlayHotspot();
     hideMovieControls();
+    setMobilePortraitHotspotActive(false);
 }
 
 async function playForwardSequence(featureId){
@@ -3837,8 +3908,13 @@ async function playForwardSequence(featureId){
         return;
     }
 
+    setMobilePortraitHotspotActive(true);
+
     isPreparingSequence = true;
-    await waitForFeatureFrames(featureId, featureToPlay);
+    await Promise.all([
+        waitForFeatureFrames(featureId, featureToPlay),
+        panMobilePortraitToFeature(featureToPlay)
+    ]);
     isPreparingSequence = false;
 
     if(sequenceStarted || isAnimatingSequence){
@@ -3910,6 +3986,7 @@ function goBackToDefaultFrame(){
             showAllHotspots();
             positionAllHotspots();
             updateTopContactButtonVisibility();
+            setMobilePortraitHotspotActive(false);
         });
     });
 }
@@ -4216,6 +4293,11 @@ window.addEventListener('resize', ()=>{
     positionDownloadHotspot();
     positionProductPlayHotspot();
     positionMovieControls();
+    if(sequenceStarted){
+        setMobilePortraitHotspotActive(true);
+    }else{
+        setMobilePortraitHotspotActive(false);
+    }
     refreshMagneticTargets();
 });
 
@@ -4951,6 +5033,73 @@ let mobilePanTargetX = 0;
 let mobilePanTargetY = 0;
 let mobilePanCurrentX = 0;
 let mobilePanCurrentY = 0;
+let mobilePanTweenToken = 0;
+
+function isMobilePortraitTouchLayout(){
+    return mobileTouchMode && isMobilePortraitLayout();
+}
+
+function setMobilePortraitHotspotActive(isActive){
+    document.body.classList.toggle('mobilePortraitHotspotActive', !!isActive && isMobilePortraitLayout());
+    if(isActive){
+        resetMobileJoystick();
+        if(customCursor){ customCursor.classList.remove('show', 'hovering'); }
+        if(customCursorPulse){ customCursorPulse.classList.remove('hovering'); }
+    }else if(mobileTouchMode && customCursor){
+        customCursor.classList.add('show');
+    }
+}
+
+function easeInOutCubic(t){
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function getFeatureCenteredMobilePanX(feature){
+    const rect = getDisplayedImageRect();
+    const hotspotX = rect.left + (feature.x / imageNaturalWidth) * rect.width;
+    const bounds = getMobilePanBounds();
+    return clamp((window.innerWidth / 2) - hotspotX, bounds.minX, bounds.maxX);
+}
+
+function panMobilePortraitToFeature(feature, duration = 1050){
+    if(!isMobilePortraitTouchLayout() || !feature){
+        return Promise.resolve();
+    }
+
+    const token = ++mobilePanTweenToken;
+    const startX = mobilePanCurrentX;
+    const startY = mobilePanCurrentY;
+    const endX = getFeatureCenteredMobilePanX(feature);
+    const endY = 0;
+    const startTime = performance.now();
+
+    return new Promise(resolve=>{
+        function animate(now){
+            if(token !== mobilePanTweenToken){
+                resolve();
+                return;
+            }
+
+            const t = clamp((now - startTime) / duration, 0, 1);
+            const eased = easeInOutCubic(t);
+            const x = startX + (endX - startX) * eased;
+            const y = startY + (endY - startY) * eased;
+
+            mobilePanTargetX = x;
+            mobilePanCurrentX = x;
+            mobilePanTargetY = y;
+            mobilePanCurrentY = y;
+
+            if(t < 1){
+                requestAnimationFrame(animate);
+            }else{
+                resolve();
+            }
+        }
+
+        requestAnimationFrame(animate);
+    });
+}
 
 function clamp(value, min, max){
     return Math.max(min, Math.min(max, value));
