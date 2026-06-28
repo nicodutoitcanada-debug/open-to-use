@@ -1064,6 +1064,12 @@ a,
     -webkit-backdrop-filter:none;
 }
 
+#aboutOverlay .howBackdrop{
+    background:rgba(0,0,0,.68);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+}
+
 .contactPanel{
     position:relative;
     z-index:2;
@@ -2172,6 +2178,16 @@ a,
         display:none !important;
     }
 
+
+    body.mobilePortraitHotspotActive button,
+    body.mobilePortraitHotspotActive a,
+    body.mobilePortraitHotspotActive [role="button"],
+    body.mobilePortraitHotspotActive .hotspot{
+        --magnetX:0px !important;
+        --magnetY:0px !important;
+        --magnetScale:1 !important;
+    }
+
     body.mobilePortraitHotspotActive .infoPanel{
         top:50dvh !important;
         bottom:auto !important;
@@ -2306,11 +2322,11 @@ a,
         <p class="contactCardActionText"><strong>Click the hotspot on the business card to download contact info.</strong></p>
         <div class="contactFrameActions" aria-label="Contact page actions">
             <button id="contactFrameBackBtn" class="contactFrameBtn" type="button">◀ Back</button>
-            <button id="contactFrameQrBtn" class="contactFrameBtn" type="button">QR CODE</button>
+            <button id="contactFrameQrBtn" class="contactFrameBtn" type="button">DOWNLOAD CONTACT</button>
         </div>
     </div>
 
-    <a id="contactEmailHotspot" href="mailto:marie@homeviewsolutions.com" aria-label="Email Marie at Home View Solutions"></a>
+    <a id="contactEmailHotspot" href="#" download="Marie-Du-Toit.vcf" aria-label="Download Marie Du Toit contact details"></a>
     <button id="downloadHotspot" class="hotspot" type="button" aria-label="Download contact card">
         <span class="hotspotLabel" aria-hidden="true">DOWNLOAD</span>
     </button>
@@ -2690,6 +2706,38 @@ const movieControls = document.getElementById('movieControls');
 const moviePlayBtn = document.getElementById('moviePlayBtn');
 const moviePauseBtn = document.getElementById('moviePauseBtn');
 const contactEmailAddress = 'marie@homeviewsolutions.com';
+const contactPhoneNumber = '8259634410';
+const contactDisplayPhone = '825 963 4410';
+const contactVCardText = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'N:Du Toit;Marie;;;',
+    'FN:Marie Du Toit',
+    'ORG:Home View Solutions',
+    `TEL;TYPE=CELL:${contactPhoneNumber}`,
+    `EMAIL;TYPE=INTERNET:${contactEmailAddress}`,
+    'END:VCARD'
+].join('\r\n');
+const contactVCardUrl = `data:text/vcard;charset=utf-8,${encodeURIComponent(contactVCardText)}`;
+
+function downloadMarieContact(event){
+    if(event){
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    const link = document.createElement('a');
+    link.href = contactVCardUrl;
+    link.download = 'Marie-Du-Toit.vcf';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+
+if(contactEmailHotspot){
+    contactEmailHotspot.href = contactVCardUrl;
+}
+
 const productSteps = [
     {
         title: 'Customize Finishes in Real Time',
@@ -2762,6 +2810,8 @@ function isMobilePortraitLayout(){
 
 const MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO = 0.755;
 const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
+const MOBILE_PORTRAIT_PRODUCT_ZOOM_MULTIPLIER = 0.85;
+let mobilePortraitSequenceZoomMultiplier = 1;
 
 function getMobilePortraitVisualHeight(){
     /*
@@ -2773,7 +2823,7 @@ function getMobilePortraitVisualHeight(){
        Because every image, sequence, mask, card overlay and hotspot is
        positioned from getDisplayedImageRect(), they all shrink together.
     */
-    return window.innerHeight * MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO;
+    return window.innerHeight * MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO * mobilePortraitSequenceZoomMultiplier;
 }
 
 function getMobilePortraitVisualTop(){
@@ -3293,14 +3343,16 @@ function positionContactFrameOverlays(){
         const emailY = 566;
         const emailW = 542;
         const emailH = 68;
+        const emailExpandedH = emailH * 3;
+        const emailExpandedY = emailY + emailH - emailExpandedH;
 
         const topLeft = getTransformedMainPlanePoint({
             x: rect.left + (emailX * scale),
-            y: rect.top + (emailY * scale)
+            y: rect.top + (emailExpandedY * scale)
         });
         const bottomRight = getTransformedMainPlanePoint({
             x: rect.left + ((emailX + emailW) * scale),
-            y: rect.top + ((emailY + emailH) * scale)
+            y: rect.top + ((emailExpandedY + emailExpandedH) * scale)
         });
 
         contactEmailHotspot.style.left = `${Math.min(topLeft.x, bottomRight.x)}px`;
@@ -3347,10 +3399,7 @@ function showContactEmailClickArea(){
 
 
 if(contactEmailHotspot){
-    contactEmailHotspot.addEventListener('click', (event)=>{
-        event.preventDefault();
-        window.location.href = `mailto:${contactEmailAddress}`;
-    });
+    contactEmailHotspot.addEventListener('click', downloadMarieContact);
 }
 
 function updateTopContactButtonVisibility(){
@@ -4285,15 +4334,11 @@ function toggleContactCardSequence(){
 }
 
 if(downloadHotspot){
-    downloadHotspot.addEventListener('click', toggleContactCardSequence);
+    downloadHotspot.addEventListener('click', downloadMarieContact);
 }
 
 if(contactFrameQrBtn){
-    contactFrameQrBtn.addEventListener('click', (event)=>{
-        event.preventDefault();
-        event.stopPropagation();
-        toggleContactCardSequence();
-    });
+    contactFrameQrBtn.addEventListener('click', downloadMarieContact);
 }
 
 if(contactFrameBackBtn){
@@ -5111,12 +5156,42 @@ function isMobilePortraitTouchLayout(){
     return mobileTouchMode && isMobilePortraitLayout();
 }
 
+
+function resetAllMagneticTargets(){
+    magneticTargets.forEach(target=>{
+        target.x = 0;
+        target.y = 0;
+        target.scale = 1;
+        if(target.element){
+            target.element.style.setProperty('--magnetX', '0px');
+            target.element.style.setProperty('--magnetY', '0px');
+            target.element.style.setProperty('--magnetScale', '1');
+        }
+    });
+    document.querySelectorAll('button, a, [role="button"], .hotspot').forEach(element=>{
+        element.style.setProperty('--magnetX', '0px');
+        element.style.setProperty('--magnetY', '0px');
+        element.style.setProperty('--magnetScale', '1');
+    });
+}
+
 function setMobilePortraitHotspotActive(isActive){
     document.body.classList.toggle('mobilePortraitHotspotActive', !!isActive && isMobilePortraitLayout());
     if(!isActive){
         mobilePortraitPanLocked = false;
+        mobilePortraitSequenceZoomMultiplier = 1;
         clearMobileHotspotSnap();
+        positionMainImageForCurrentState();
+        positionFeatureVideo();
+        positionAllHotspots();
+        positionLogoVideo();
+        positionContactFrameOverlays();
+        positionCardSequenceOverlay();
+        positionDownloadHotspot();
+        positionProductPlayHotspot();
+        positionMovieControls();
     }
+    resetAllMagneticTargets();
     if(isActive){
         resetMobileJoystick();
         if(customCursor){ customCursor.classList.remove('show', 'hovering'); }
@@ -5146,9 +5221,9 @@ function getFeatureCenteredMobilePanX(feature){
     if(feature === features.howWeDoIt){
         target = 0;
     }else if(feature === features.finishes){
-        target += 30;
+        target += 42;
     }else if(feature === features.contact){
-        target -= 30;
+        target -= 38;
     }
     return clamp(target, bounds.minX, bounds.maxX);
 }
@@ -5157,6 +5232,9 @@ function getFeatureCenteredMobilePanY(feature){
     const bounds = getMobilePanBounds();
     if(feature === features.finishes){
         return clamp(-62, bounds.minY, bounds.maxY);
+    }
+    if(feature === features.contact){
+        return clamp(-18, bounds.minY, bounds.maxY);
     }
     return clamp(0, bounds.minY, bounds.maxY);
 }
@@ -5169,6 +5247,8 @@ function panMobilePortraitToFeature(feature, duration = 1050){
     const token = ++mobilePanTweenToken;
     const startX = mobilePanCurrentX;
     const startY = mobilePanCurrentY;
+    const startZoom = mobilePortraitSequenceZoomMultiplier;
+    const endZoom = feature === features.finishes ? MOBILE_PORTRAIT_PRODUCT_ZOOM_MULTIPLIER : 1;
     const endX = getFeatureCenteredMobilePanX(feature);
     const endY = getFeatureCenteredMobilePanY(feature);
     const startTime = performance.now();
@@ -5184,6 +5264,16 @@ function panMobilePortraitToFeature(feature, duration = 1050){
             const eased = easeInOutCubic(t);
             const x = startX + (endX - startX) * eased;
             const y = startY + (endY - startY) * eased;
+            mobilePortraitSequenceZoomMultiplier = startZoom + (endZoom - startZoom) * eased;
+            positionMainImageForCurrentState();
+            positionFeatureVideo();
+            positionAllHotspots();
+            positionLogoVideo();
+            positionContactFrameOverlays();
+            positionCardSequenceOverlay();
+            positionDownloadHotspot();
+            positionProductPlayHotspot();
+            positionMovieControls();
 
             mobilePanTargetX = x;
             mobilePanCurrentX = x;
@@ -5200,6 +5290,9 @@ function panMobilePortraitToFeature(feature, duration = 1050){
                 mobilePanCurrentX = endX;
                 mobilePanTargetY = endY;
                 mobilePanCurrentY = endY;
+                mobilePortraitSequenceZoomMultiplier = endZoom;
+                positionMainImageForCurrentState();
+                positionAllHotspots();
                 resolve();
             }
         }
@@ -5787,6 +5880,13 @@ function animateCursorAndParallax(){
 
     if(activeHotspotLabelElement){
         activeHotspotLabelElement.classList.add('label-active');
+    }
+
+    if(document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout()){
+        resetAllMagneticTargets();
+        updateHotspotAnchorLines();
+        requestAnimationFrame(animateEverything);
+        return;
     }
 
     magneticTargets.forEach(target=>{
