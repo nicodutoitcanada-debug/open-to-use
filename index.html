@@ -1971,7 +1971,7 @@ a,
     right:-12vw;
     bottom:-2px;
     height:56dvh;
-    z-index:42;
+    z-index:7;
     pointer-events:none;
     /* Taller overfilled gradients prevent a visible cutoff line in portrait. */
     background:
@@ -2115,6 +2115,24 @@ a,
             height:50px;
         }
     }
+}
+
+
+/* Mobile joystick hotspot snap cue. */
+.hotspot.mobile-snap-ready{
+    background:rgba(255,157,46,.34) !important;
+    box-shadow:
+        0 0 0 1px rgba(255,157,46,.92),
+        0 0 22px rgba(255,157,46,.95),
+        0 0 54px rgba(255,157,46,.54) !important;
+}
+
+.hotspot.mobile-snap-ready:before{
+    background:#ff9d2e !important;
+}
+
+.hotspot.mobile-snap-ready:after{
+    border-color:rgba(255,157,46,.9) !important;
 }
 
 
@@ -5034,6 +5052,10 @@ let mobilePanTargetY = 0;
 let mobilePanCurrentX = 0;
 let mobilePanCurrentY = 0;
 let mobilePanTweenToken = 0;
+let mobilePortraitPanLocked = false;
+let mobilePortraitLockedPanX = 0;
+let mobilePortraitLockedPanY = 0;
+let mobileSnapHotspotElement = null;
 
 function isMobilePortraitTouchLayout(){
     return mobileTouchMode && isMobilePortraitLayout();
@@ -5041,6 +5063,10 @@ function isMobilePortraitTouchLayout(){
 
 function setMobilePortraitHotspotActive(isActive){
     document.body.classList.toggle('mobilePortraitHotspotActive', !!isActive && isMobilePortraitLayout());
+    if(!isActive){
+        mobilePortraitPanLocked = false;
+        clearMobileHotspotSnap();
+    }
     if(isActive){
         resetMobileJoystick();
         if(customCursor){ customCursor.classList.remove('show', 'hovering'); }
@@ -5093,6 +5119,13 @@ function panMobilePortraitToFeature(feature, duration = 1050){
             if(t < 1){
                 requestAnimationFrame(animate);
             }else{
+                mobilePortraitLockedPanX = endX;
+                mobilePortraitLockedPanY = endY;
+                mobilePortraitPanLocked = true;
+                mobilePanTargetX = endX;
+                mobilePanCurrentX = endX;
+                mobilePanTargetY = endY;
+                mobilePanCurrentY = endY;
                 resolve();
             }
         }
@@ -5103,6 +5136,86 @@ function panMobilePortraitToFeature(feature, duration = 1050){
 
 function clamp(value, min, max){
     return Math.max(min, Math.min(max, value));
+}
+
+function clearMobileHotspotSnap(){
+    if(mobileSnapHotspotElement){
+        mobileSnapHotspotElement.classList.remove('mobile-snap-ready');
+        mobileSnapHotspotElement = null;
+    }
+}
+
+function getVisibleMobileSnapHotspots(){
+    return Array.from(document.querySelectorAll('.hotspot')).filter(hotspot=>{
+        if(!hotspot || hotspot.classList.contains('hide')){ return false; }
+        const computedStyle = window.getComputedStyle(hotspot);
+        return computedStyle.pointerEvents !== 'none'
+            && computedStyle.visibility !== 'hidden'
+            && computedStyle.display !== 'none'
+            && parseFloat(computedStyle.opacity || '1') >= 0.04;
+    });
+}
+
+function updateMobileHotspotSnap(){
+    if(!mobileTouchMode || !mainSite.classList.contains('show') || document.body.classList.contains('mobilePortraitHotspotActive')){
+        clearMobileHotspotSnap();
+        return;
+    }
+
+    const joystickStrength = Math.hypot(mobileJoystickX, mobileJoystickY);
+    if(joystickStrength < 0.015){
+        clearMobileHotspotSnap();
+        return;
+    }
+
+    let closest = null;
+    let closestDistance = Infinity;
+    let closestCenterX = 0;
+    let closestCenterY = 0;
+    const snapRadius = isMobilePortraitLayout() ? 86 : 72;
+    const releaseRadius = snapRadius * 1.42;
+
+    getVisibleMobileSnapHotspots().forEach(hotspot=>{
+        const rect = hotspot.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dx = centerX - cursorTargetX;
+        const dy = centerY - cursorTargetY;
+        const distance = Math.hypot(dx, dy);
+        const radius = hotspot === mobileSnapHotspotElement ? releaseRadius : snapRadius;
+
+        if(distance < radius && distance < closestDistance){
+            closest = hotspot;
+            closestDistance = distance;
+            closestCenterX = centerX;
+            closestCenterY = centerY;
+        }
+    });
+
+    if(closest){
+        const toHotspotX = closestCenterX - cursorTargetX;
+        const toHotspotY = closestCenterY - cursorTargetY;
+        const movingAway = (mobileJoystickX * toHotspotX + mobileJoystickY * toHotspotY) < -18;
+
+        if(movingAway && closestDistance > snapRadius * 0.46){
+            closest = null;
+        }
+    }
+
+    if(closest){
+        if(mobileSnapHotspotElement && mobileSnapHotspotElement !== closest){
+            mobileSnapHotspotElement.classList.remove('mobile-snap-ready');
+        }
+        mobileSnapHotspotElement = closest;
+        mobileSnapHotspotElement.classList.add('mobile-snap-ready', 'label-active');
+
+        const closeness = 1 - Math.min(1, closestDistance / releaseRadius);
+        const snapEase = 0.20 + closeness * 0.34;
+        cursorTargetX += (closestCenterX - cursorTargetX) * snapEase;
+        cursorTargetY += (closestCenterY - cursorTargetY) * snapEase;
+    }else{
+        clearMobileHotspotSnap();
+    }
 }
 
 function updateMobileHoverFromCursor(){
@@ -5135,6 +5248,14 @@ function clampMobilePanTargets(){
 
 function updateMobileParallaxFromCursor(){
     if(!mobileTouchMode){ return; }
+
+    if(mobilePortraitPanLocked && isMobilePortraitLayout()){
+        mobilePanTargetX = mobilePortraitLockedPanX;
+        mobilePanTargetY = mobilePortraitLockedPanY;
+        mobilePanCurrentX = mobilePortraitLockedPanX;
+        mobilePanCurrentY = mobilePortraitLockedPanY;
+        return;
+    }
 
     /* On touch devices the cursor should pan the canvas, not rotate/parallax it. */
     targetParallaxX = 0;
@@ -5219,6 +5340,8 @@ function setMobileCursorPosition(x, y){
     customCursor.classList.add('show');
     cursorTargetX = clamp(x, 12, window.innerWidth - 12);
     cursorTargetY = clamp(y, 12, window.innerHeight - 12);
+
+    updateMobileHotspotSnap();
 
     /* Feed the virtual cursor into the intro particle systems too.
        This makes joystick movement affect the blue nebula just like desktop mouse movement. */
@@ -5319,6 +5442,7 @@ if(mobileTouchMode){
         const touchPageActive = (mainSite && mainSite.classList.contains('show')) || (intro && !intro.classList.contains('fadeOut'));
         if(!touchPageActive){ return; }
         if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
+        if(document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout()){ return; }
 
         mobilePanPointerId = event.pointerId;
         mobilePanStartX = event.clientX;
@@ -5426,6 +5550,7 @@ function animateCursorAndParallax(){
     if(mobileTouchMode && (Math.abs(mobileJoystickX) > 0.015 || Math.abs(mobileJoystickY) > 0.015)){
         const speed = Math.max(2.0, Math.min(5.8, Math.min(window.innerWidth, window.innerHeight) * 0.0078));
         setMobileCursorPosition(cursorTargetX + mobileJoystickX * speed, cursorTargetY + mobileJoystickY * speed);
+        updateMobileHotspotSnap();
     }else if(mobileTouchMode){
         updateMobileParallaxFromCursor();
         updateMobileHoverFromCursor();
@@ -5461,6 +5586,10 @@ function animateCursorAndParallax(){
 
     if(mainSite.classList.contains('show')){
         if(mobileTouchMode){
+            if(mobilePortraitPanLocked && isMobilePortraitLayout()){
+                mobilePanTargetX = mobilePortraitLockedPanX;
+                mobilePanTargetY = mobilePortraitLockedPanY;
+            }
             clampMobilePanTargets();
             mobilePanCurrentX += (mobilePanTargetX - mobilePanCurrentX) * 0.145;
             mobilePanCurrentY += (mobilePanTargetY - mobilePanCurrentY) * 0.145;
