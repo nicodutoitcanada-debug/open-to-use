@@ -1956,19 +1956,6 @@ a,
 
 
 
-
-/* About Us uses the same blurred glass backdrop as the Contact window. */
-#aboutOverlay .howBackdrop{
-    background:rgba(0,0,0,.68) !important;
-    backdrop-filter:blur(16px) !important;
-    -webkit-backdrop-filter:blur(16px) !important;
-}
-
-
-#contactEmailHotspot.contact-download-mode{
-    cursor:pointer;
-}
-
 /* =========================
    MOBILE TOUCH CURSOR + JOYSTICK
 ========================= */
@@ -2317,10 +2304,9 @@ a,
             We can walk you through the interactive features, show how buyers can explore options in real time, and explain how the experience can be customized for your homes or developments.
         </p>
         <p class="contactCardActionText"><strong>Click the hotspot on the business card to download contact info.</strong></p>
-        <p class="contactMiniDetails">Marie Du Toit · 825 963 4410 · marie@homeviewsolutions.com</p>
         <div class="contactFrameActions" aria-label="Contact page actions">
             <button id="contactFrameBackBtn" class="contactFrameBtn" type="button">◀ Back</button>
-            <button id="contactFrameQrBtn" class="contactFrameBtn" type="button">DOWNLOAD CONTACT</button>
+            <button id="contactFrameQrBtn" class="contactFrameBtn" type="button">QR CODE</button>
         </div>
     </div>
 
@@ -2704,37 +2690,6 @@ const movieControls = document.getElementById('movieControls');
 const moviePlayBtn = document.getElementById('moviePlayBtn');
 const moviePauseBtn = document.getElementById('moviePauseBtn');
 const contactEmailAddress = 'marie@homeviewsolutions.com';
-const contactVCardFileName = 'Marie_Du_Toit_Home_View_Solutions.vcf';
-const contactVCardText = [
-    'BEGIN:VCARD',
-    'VERSION:3.0',
-    'N:Du Toit;Marie;;;',
-    'FN:Marie Du Toit',
-    'ORG:Home View Solutions',
-    'TEL;TYPE=CELL:8259634410',
-    'EMAIL;TYPE=INTERNET:marie@homeviewsolutions.com',
-    'END:VCARD'
-].join('\r\n');
-
-function getContactVCardHref(){
-    return `data:text/vcard;charset=utf-8,${encodeURIComponent(contactVCardText)}`;
-}
-
-function setContactEmailHotspotMode(mode){
-    if(!contactEmailHotspot){ return; }
-
-    if(mode === 'download'){
-        contactEmailHotspot.href = getContactVCardHref();
-        contactEmailHotspot.setAttribute('download', contactVCardFileName);
-        contactEmailHotspot.setAttribute('aria-label', 'Download Marie Du Toit contact details');
-        contactEmailHotspot.classList.add('contact-download-mode');
-    }else{
-        contactEmailHotspot.href = `mailto:${contactEmailAddress}`;
-        contactEmailHotspot.removeAttribute('download');
-        contactEmailHotspot.setAttribute('aria-label', 'Email Marie at Home View Solutions');
-        contactEmailHotspot.classList.remove('contact-download-mode');
-    }
-}
 const productSteps = [
     {
         title: 'Customize Finishes in Real Time',
@@ -3333,22 +3288,19 @@ function positionContactFrameOverlays(){
     }
 
     if(contactEmailHotspot){
-        /* TWEAK THESE FOUR NUMBERS if the invisible email/contact click area needs nudging. */
+        /* TWEAK THESE FOUR NUMBERS if the invisible email click area needs nudging. */
         const emailX = 1046;
         const emailY = 566;
         const emailW = 542;
         const emailH = 68;
-        const isDownloadMode = contactEmailHotspot.classList.contains('contact-download-mode');
-        const finalEmailH = isDownloadMode ? emailH * 3 : emailH;
-        const finalEmailY = isDownloadMode ? emailY - (finalEmailH - emailH) : emailY;
 
         const topLeft = getTransformedMainPlanePoint({
             x: rect.left + (emailX * scale),
-            y: rect.top + (finalEmailY * scale)
+            y: rect.top + (emailY * scale)
         });
         const bottomRight = getTransformedMainPlanePoint({
             x: rect.left + ((emailX + emailW) * scale),
-            y: rect.top + ((finalEmailY + finalEmailH) * scale)
+            y: rect.top + ((emailY + emailH) * scale)
         });
 
         contactEmailHotspot.style.left = `${Math.min(topLeft.x, bottomRight.x)}px`;
@@ -3365,7 +3317,7 @@ function showContactFrameOverlays(){
         contactFramePanel.setAttribute('aria-hidden','false');
     }
     if(contactEmailHotspot && !cardSequenceOpen && !isCardSequenceAnimating){
-        showContactEmailClickArea('email');
+        contactEmailHotspot.classList.add('show');
     }
     refreshMagneticTargets();
 }
@@ -3377,7 +3329,6 @@ function hideContactFrameOverlays(){
     }
     if(contactEmailHotspot){
         contactEmailHotspot.classList.remove('show');
-        setContactEmailHotspotMode('email');
     }
 }
 
@@ -3387,32 +3338,16 @@ function hideContactEmailClickArea(){
     }
 }
 
-function showContactEmailClickArea(mode = 'email'){
-    if(contactEmailHotspot && activeFeature === features.contact){
-        setContactEmailHotspotMode(mode);
+function showContactEmailClickArea(){
+    if(contactEmailHotspot && activeFeature === features.contact && !cardSequenceOpen && !isCardSequenceAnimating){
         positionContactFrameOverlays();
         contactEmailHotspot.classList.add('show');
     }
 }
 
-function triggerContactVCardDownload(){
-    const link = document.createElement('a');
-    link.href = getContactVCardHref();
-    link.download = contactVCardFileName;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
 
 if(contactEmailHotspot){
     contactEmailHotspot.addEventListener('click', (event)=>{
-        if(contactEmailHotspot.classList.contains('contact-download-mode')){
-            event.preventDefault();
-            triggerContactVCardDownload();
-            return;
-        }
-
         event.preventDefault();
         window.location.href = `mailto:${contactEmailAddress}`;
     });
@@ -4337,7 +4272,7 @@ function toggleContactCardSequence(){
             cardSequenceOpen = false;
             setDownloadHotspotLabel('DOWNLOAD');
             showDownloadHotspot();
-            showContactEmailClickArea('email');
+            showContactEmailClickArea();
         });
     }else{
         hideContactEmailClickArea();
@@ -4345,7 +4280,6 @@ function toggleContactCardSequence(){
             cardSequenceOpen = true;
             setDownloadHotspotLabel('FLIP BACK');
             showDownloadHotspot();
-            showContactEmailClickArea('download');
         });
     }
 }
@@ -5078,25 +5012,6 @@ function updateHoverState(target){
     customCursorPulse.classList.toggle('hovering', hoveringClickable);
 }
 
-
-function clearAllMagneticPull(){
-    magneticTargets.forEach(target=>{
-        target.x = 0;
-        target.y = 0;
-        target.scale = 1;
-        if(target.element){
-            target.element.style.setProperty('--magnetX', '0px');
-            target.element.style.setProperty('--magnetY', '0px');
-            target.element.style.setProperty('--magnetScale', '1');
-        }
-    });
-    document.querySelectorAll(hoverTargetsSelector).forEach(element=>{
-        element.style.setProperty('--magnetX', '0px');
-        element.style.setProperty('--magnetY', '0px');
-        element.style.setProperty('--magnetScale', '1');
-    });
-}
-
 function refreshMagneticTargets(){
     magneticTargets.length = 0;
     document.querySelectorAll(hoverTargetsSelector).forEach(element=>{
@@ -5185,9 +5100,6 @@ let mobilePanTargetX = 0;
 let mobilePanTargetY = 0;
 let mobilePanCurrentX = 0;
 let mobilePanCurrentY = 0;
-let mobilePanScaleTarget = 1;
-let mobilePanScaleCurrent = 1;
-let mobilePortraitLockedScale = 1;
 let mobilePanTweenToken = 0;
 let mobilePortraitPanLocked = false;
 let mobilePortraitLockedPanX = 0;
@@ -5203,15 +5115,10 @@ function setMobilePortraitHotspotActive(isActive){
     document.body.classList.toggle('mobilePortraitHotspotActive', !!isActive && isMobilePortraitLayout());
     if(!isActive){
         mobilePortraitPanLocked = false;
-        mobilePortraitLockedScale = 1;
-        mobilePanScaleTarget = 1;
-        mobilePanScaleCurrent = 1;
         clearMobileHotspotSnap();
-        clearAllMagneticPull();
     }
     if(isActive){
         resetMobileJoystick();
-        clearAllMagneticPull();
         if(customCursor){ customCursor.classList.remove('show', 'hovering'); }
         if(customCursorPulse){ customCursorPulse.classList.remove('hovering'); }
     }else if(mobileTouchMode && customCursor){
@@ -5231,50 +5138,27 @@ function easeInOutCubic(t){
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-function getMobilePortraitFeatureScale(feature){
-    /* THE PRODUCT gets an extra 15% zoom-out during the portrait pan. */
-    return feature === features.finishes ? 0.85 : 1;
-}
-
-function getMobilePortraitFeatureOffsetX(feature){
-    if(feature === features.howWeDoIt){
-        return 0;
-    }
-    if(feature === features.finishes){
-        return 6;
-    }
-    if(feature === features.contact){
-        return -5;
-    }
-    return 0;
-}
-
-function getMobilePortraitFeatureOffsetY(feature){
-    if(feature === features.finishes){
-        return -72; /* previous -62, now 10px higher */
-    }
-    if(feature === features.contact){
-        return -15;
-    }
-    return 0;
-}
-
 function getFeatureCenteredMobilePanX(feature){
     const rect = getDisplayedImageRect();
     const hotspotX = rect.left + (feature.x / imageNaturalWidth) * rect.width;
-    const finalScale = getMobilePortraitFeatureScale(feature);
-    const originX = window.innerWidth / 2;
-    const desiredScreenX = (window.innerWidth / 2) + getMobilePortraitFeatureOffsetX(feature);
-    const target = ((desiredScreenX - originX) / finalScale + originX) - hotspotX;
-    const bounds = getMobilePanBounds(finalScale);
+    const bounds = getMobilePanBounds();
+    let target = (window.innerWidth / 2) - hotspotX;
+    if(feature === features.howWeDoIt){
+        target = 0;
+    }else if(feature === features.finishes){
+        target += 30;
+    }else if(feature === features.contact){
+        target -= 30;
+    }
     return clamp(target, bounds.minX, bounds.maxX);
 }
 
 function getFeatureCenteredMobilePanY(feature){
-    const finalScale = getMobilePortraitFeatureScale(feature);
-    const target = getMobilePortraitFeatureOffsetY(feature) / finalScale;
-    const bounds = getMobilePanBounds(finalScale);
-    return clamp(target, bounds.minY, bounds.maxY);
+    const bounds = getMobilePanBounds();
+    if(feature === features.finishes){
+        return clamp(-62, bounds.minY, bounds.maxY);
+    }
+    return clamp(0, bounds.minY, bounds.maxY);
 }
 
 function panMobilePortraitToFeature(feature, duration = 1050){
@@ -5285,8 +5169,6 @@ function panMobilePortraitToFeature(feature, duration = 1050){
     const token = ++mobilePanTweenToken;
     const startX = mobilePanCurrentX;
     const startY = mobilePanCurrentY;
-    const startScale = mobilePanScaleCurrent;
-    const endScale = getMobilePortraitFeatureScale(feature);
     const endX = getFeatureCenteredMobilePanX(feature);
     const endY = getFeatureCenteredMobilePanY(feature);
     const startTime = performance.now();
@@ -5302,28 +5184,22 @@ function panMobilePortraitToFeature(feature, duration = 1050){
             const eased = easeInOutCubic(t);
             const x = startX + (endX - startX) * eased;
             const y = startY + (endY - startY) * eased;
-            const scale = startScale + (endScale - startScale) * eased;
 
             mobilePanTargetX = x;
             mobilePanCurrentX = x;
             mobilePanTargetY = y;
             mobilePanCurrentY = y;
-            mobilePanScaleTarget = scale;
-            mobilePanScaleCurrent = scale;
 
             if(t < 1){
                 requestAnimationFrame(animate);
             }else{
                 mobilePortraitLockedPanX = endX;
                 mobilePortraitLockedPanY = endY;
-                mobilePortraitLockedScale = endScale;
                 mobilePortraitPanLocked = true;
                 mobilePanTargetX = endX;
                 mobilePanCurrentX = endX;
                 mobilePanTargetY = endY;
                 mobilePanCurrentY = endY;
-                mobilePanScaleTarget = endScale;
-                mobilePanScaleCurrent = endScale;
                 resolve();
             }
         }
@@ -5434,23 +5310,15 @@ function updateMobileHoverFromCursor(){
     }
 }
 
-function getMobilePanBounds(scaleOverride = mobilePanScaleTarget || 1){
+function getMobilePanBounds(){
     const rect = getDisplayedImageRect();
     const safePadding = 10;
-    const scale = scaleOverride || 1;
-    const originX = window.innerWidth / 2;
-    const originY = isMobilePortraitLayout() ? 0 : (window.innerHeight / 2);
-
-    const transformedLeft = originX + (rect.left - originX) * scale;
-    const transformedRight = originX + ((rect.left + rect.width) - originX) * scale;
-    const transformedTop = originY + (rect.top - originY) * scale;
-    const transformedBottom = originY + ((rect.top + rect.height) - originY) * scale;
 
     return {
-        minX: Math.min(0, window.innerWidth - transformedRight + safePadding),
-        maxX: Math.max(0, -transformedLeft - safePadding),
-        minY: Math.min(0, window.innerHeight - transformedBottom + safePadding),
-        maxY: Math.max(0, -transformedTop - safePadding)
+        minX: Math.min(0, window.innerWidth - (rect.left + rect.width) + safePadding),
+        maxX: Math.max(0, -rect.left - safePadding),
+        minY: Math.min(0, window.innerHeight - (rect.top + rect.height) + safePadding),
+        maxY: Math.max(0, -rect.top - safePadding)
     };
 }
 
@@ -5470,8 +5338,6 @@ function updateMobileParallaxFromCursor(){
         mobilePanTargetY = mobilePortraitLockedPanY;
         mobilePanCurrentX = mobilePortraitLockedPanX;
         mobilePanCurrentY = mobilePortraitLockedPanY;
-        mobilePanScaleTarget = mobilePortraitLockedScale;
-        mobilePanScaleCurrent = mobilePortraitLockedScale;
         return;
     }
 
@@ -5823,10 +5689,11 @@ function animateCursorAndParallax(){
             clampMobilePanTargets();
             mobilePanCurrentX += (mobilePanTargetX - mobilePanCurrentX) * 0.145;
             mobilePanCurrentY += (mobilePanTargetY - mobilePanCurrentY) * 0.145;
-            mobilePanScaleCurrent += (mobilePanScaleTarget - mobilePanScaleCurrent) * 0.145;
             if(isMobilePortraitLayout()){
                 mainPlane.style.transformOrigin = '50% 0%';
-                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0) scale(${mobilePanScaleCurrent.toFixed(4)})`;
+                /* IMPORTANT: no extra scale here. The portrait zoom-out is controlled only
+                   by getDisplayedImageRect(), so no transform can accidentally undo it. */
+                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0)`;
             }else{
                 mainPlane.style.transformOrigin = '50% 50%';
                 mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0)`;
@@ -5834,10 +5701,8 @@ function animateCursorAndParallax(){
         }else if(isMobilePortraitLayout()){
             /* Also protect browser/device emulation portrait mode where pointer is fine.
                This prevents the desktop parallax scale(1.13) from overriding the mobile portrait scale. */
-            mobilePanScaleTarget = 1;
-            mobilePanScaleCurrent += (mobilePanScaleTarget - mobilePanScaleCurrent) * 0.145;
             mainPlane.style.transformOrigin = '50% 0%';
-            mainPlane.style.transform = `translate3d(0px, 0px, 0px) scale(${mobilePanScaleCurrent.toFixed(4)})`;
+            mainPlane.style.transform = 'translate3d(0px, 0px, 0px)';
         }else{
             const mainRotateY = bgRotateY * 1.45;
             const mainRotateX = bgRotateX * 1.45;
@@ -5926,18 +5791,6 @@ function animateCursorAndParallax(){
 
     magneticTargets.forEach(target=>{
         const element = target.element;
-
-        if(document.body.classList.contains('mobilePortraitHotspotActive')){
-            target.x = 0;
-            target.y = 0;
-            target.scale = 1;
-            if(element){
-                element.style.setProperty('--magnetX', '0px');
-                element.style.setProperty('--magnetY', '0px');
-                element.style.setProperty('--magnetScale', '1');
-            }
-            return;
-        }
 
         if(!element || element.classList.contains('hide')){
             return;
