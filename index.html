@@ -2895,150 +2895,6 @@ let currentLogoVideoIndex = 0;
 let isCardSequenceAnimating = false;
 let cardSequenceOpen = false;
 
-/*
-   INTRO / LOW-SIGNAL ASSET PRELOAD STRATEGY
-   ------------------------------------------
-   The old loader created every sequence Image and every video at once. That can
-   saturate a phone's connection, especially on 3G/low-signal cellular service.
-   This queue starts the useful key frames immediately, then brings in the rest
-   gradually while the blue-nebula intro is on screen. A visitor who taps a
-   hotspot still promotes that feature's frames immediately through
-   waitForFeatureFrames(), so interaction always takes priority.
-*/
-const assetPreloadQueue = [];
-const priorityPreloadImages = [];
-const assetPreloadQueuedKeys = new Set();
-let assetPreloadActiveCount = 0;
-let assetPreloadPumpScheduled = false;
-let assetBackgroundPreloadTimer = null;
-
-function getAssetPreloadProfile(){
-    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    const effectiveType = connection && connection.effectiveType ? connection.effectiveType : '';
-    const saveData = !!(connection && connection.saveData);
-
-    if(saveData || effectiveType === 'slow-2g' || effectiveType === '2g'){
-        return {concurrency:1, startDelay:3200};
-    }
-    if(effectiveType === '3g'){
-        return {concurrency:2, startDelay:1450};
-    }
-    return {concurrency:4, startDelay:500};
-}
-
-function decodeImageWhenPossible(image){
-    if(!image || typeof image.decode !== 'function'){
-        return Promise.resolve();
-    }
-    return image.decode().catch(()=>{});
-}
-
-function requestAssetPreloadPump(){
-    if(assetPreloadPumpScheduled){ return; }
-    assetPreloadPumpScheduled = true;
-
-    const schedule = window.requestIdleCallback
-        ? callback => window.requestIdleCallback(callback, {timeout:900})
-        : callback => window.setTimeout(callback, 40);
-
-    schedule(()=>{
-        assetPreloadPumpScheduled = false;
-        const {concurrency} = getAssetPreloadProfile();
-
-        while(assetPreloadActiveCount < concurrency && assetPreloadQueue.length){
-            const task = assetPreloadQueue.shift();
-            assetPreloadQueuedKeys.delete(task.key);
-
-            if(task.isAlreadyLoaded()){
-                continue;
-            }
-
-            assetPreloadActiveCount += 1;
-            task.start(()=>{
-                assetPreloadActiveCount = Math.max(0, assetPreloadActiveCount - 1);
-                requestAssetPreloadPump();
-            });
-        }
-    });
-}
-
-function queueImagePreload(key, isAlreadyLoaded, start, priority = 1){
-    if(assetPreloadQueuedKeys.has(key) || isAlreadyLoaded()){
-        return;
-    }
-
-    assetPreloadQueuedKeys.add(key);
-    assetPreloadQueue.push({key, isAlreadyLoaded, start, priority});
-    assetPreloadQueue.sort((a, b)=>a.priority - b.priority);
-    requestAssetPreloadPump();
-}
-
-function createPreloadImage(src, onReady, onDone){
-    const image = new Image();
-    image.decoding = 'async';
-    image.onload = ()=>{
-        decodeImageWhenPossible(image).finally(onDone);
-    };
-    image.onerror = onDone;
-    onReady(image);
-    image.src = src;
-}
-
-function ensureSequenceImageStore(featureId){
-    if(!sequenceImages[featureId]){
-        sequenceImages[featureId] = [];
-    }
-    return sequenceImages[featureId];
-}
-
-function enqueueSequenceFramePreload(featureId, feature, frameIndex, priority = 1){
-    const key = `sequence:${featureId}:${frameIndex}`;
-    queueImagePreload(
-        key,
-        ()=>!!(sequenceImages[featureId] && sequenceImages[featureId][frameIndex]),
-        done=>{
-            const frames = ensureSequenceImageStore(featureId);
-            if(frames[frameIndex]){
-                done();
-                return;
-            }
-            createPreloadImage(frameName(feature, frameIndex), image=>{
-                frames[frameIndex] = image;
-            }, done);
-        },
-        priority
-    );
-}
-
-function enqueueCardFramePreload(frameIndex, priority = 1){
-    const key = `card:${frameIndex}`;
-    queueImagePreload(
-        key,
-        ()=>!!cardSequenceImages[frameIndex],
-        done=>{
-            if(cardSequenceImages[frameIndex]){
-                done();
-                return;
-            }
-            createPreloadImage(cardFrameName(frameIndex), image=>{
-                cardSequenceImages[frameIndex] = image;
-            }, done);
-        },
-        priority
-    );
-}
-
-function createCardFrameImmediately(frameIndex){
-    if(cardSequenceImages[frameIndex]){
-        return cardSequenceImages[frameIndex];
-    }
-    const image = new Image();
-    image.decoding = 'async';
-    image.src = cardFrameName(frameIndex);
-    cardSequenceImages[frameIndex] = image;
-    return image;
-}
-
 function setDownloadHotspotLabel(text){
     if(!downloadHotspot){ return; }
     const label = downloadHotspot.querySelector('.hotspotLabel');
@@ -3263,25 +3119,34 @@ function cardFrameName(index){
 
 function preloadCardSequence(){
     for(let i = CARD_SEQUENCE_FIRST_FRAME; i <= CARD_SEQUENCE_LAST_FRAME; i++){
-        /* The visible beginning/end frames get a head start; the rest are staged. */
-        const priority = (i === CARD_SEQUENCE_FIRST_FRAME || i === CARD_SEQUENCE_LAST_FRAME) ? 0 : 3;
-        enqueueCardFramePreload(i, priority);
+        if(cardSequenceImages[i]){ continue; }
+        const img = new Image();
+        img.src = cardFrameName(i);
+        cardSequenceImages[i] = img;
     }
 }
 
 function waitForCardFrame(index){
     preloadCardSequence();
-    /* A card is about to be shown, so this particular frame takes priority now. */
-    const img = createCardFrameImmediately(index);
+    const img = cardSequenceImages[index];
 
-    if(img.complete && img.naturalWidth > 0){
-        return decodeImageWhenPossible(img);
+    if(img && img.complete && img.naturalWidth > 0){
+        if(typeof img.decode === 'function'){
+            return img.decode().catch(()=>{});
+        }
+        return Promise.resolve();
     }
 
     return new Promise(resolve=>{
-        const finish = ()=>decodeImageWhenPossible(img).finally(resolve);
-        img.addEventListener('load', finish, {once:true});
-        img.addEventListener('error', resolve, {once:true});
+        if(!img){ resolve(); return; }
+        img.onload = ()=>{
+            if(typeof img.decode === 'function'){
+                img.decode().then(resolve).catch(resolve);
+            }else{
+                resolve();
+            }
+        };
+        img.onerror = resolve;
     });
 }
 
@@ -3810,6 +3675,162 @@ function positionLogoVideo(){
     logoVideo.style.transformOrigin = 'left top';
 }
 
+/*
+   INTRO SEQUENCE PRELOADING
+   -------------------------
+   The old version created every JPG and all five MP4s at once. On a weak phone
+   connection that can flood the browser's request queue and delay the exact
+   sequence frames the visitor needs first.
+
+   This version:
+   1. Gives every hotspot's opening frames priority during the nebula intro.
+   2. Continues through all remaining frames with only 1–2 concurrent requests.
+   3. Lets a tapped hotspot immediately jump ahead of the background queue.
+   4. Loads only video metadata during intro so MP4s do not compete with JPGs.
+
+   When a feature is selected early, waitForFeatureFrames still guarantees the
+   complete chosen sequence is ready before it plays.
+*/
+const INTRO_PRELOAD_LEAD_FRAMES = 12;
+const introPreloadPriorityQueue = [];
+const introPreloadBackgroundQueue = [];
+const introPreloadQueuedKeys = new Set();
+let introPreloadActiveRequests = 0;
+let introPreloadBackgroundScheduled = false;
+
+function getIntroPreloadConcurrency(){
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const effectiveType = connection && connection.effectiveType ? connection.effectiveType : '';
+    const lowBandwidth = !!(connection && (connection.saveData || /(^|-)2g/.test(effectiveType)));
+
+    /* One request at a time on 2G/Data Saver; two elsewhere prevents request floods. */
+    return lowBandwidth ? 1 : 2;
+}
+
+function waitForPreloadImage(img, onSettled){
+    if(!img){
+        onSettled();
+        return;
+    }
+
+    let finished = false;
+    const settle = ()=>{
+        if(finished){ return; }
+        finished = true;
+        onSettled();
+    };
+
+    if(img.complete){
+        queueMicrotask(settle);
+        return;
+    }
+
+    img.addEventListener('load', settle, {once:true});
+    img.addEventListener('error', settle, {once:true});
+}
+
+function pumpIntroPreloadQueue(){
+    const concurrency = getIntroPreloadConcurrency();
+
+    while(introPreloadActiveRequests < concurrency){
+        const task = introPreloadPriorityQueue.shift() || introPreloadBackgroundQueue.shift();
+        if(!task){
+            return;
+        }
+
+        introPreloadActiveRequests += 1;
+
+        const frames = sequenceImages[task.featureId] || (sequenceImages[task.featureId] = []);
+        let img = frames[task.frameIndex];
+
+        if(!img){
+            img = new Image();
+            img.decoding = 'async';
+
+            /* fetchPriority is safely ignored by browsers that do not support it. */
+            if('fetchPriority' in img){
+                img.fetchPriority = task.priority === 'high' ? 'high' : 'low';
+            }
+
+            frames[task.frameIndex] = img;
+            img.src = frameName(task.feature, task.frameIndex);
+        }
+
+        waitForPreloadImage(img, ()=>{
+            introPreloadActiveRequests = Math.max(0, introPreloadActiveRequests - 1);
+            pumpIntroPreloadQueue();
+        });
+    }
+}
+
+function queueIntroSequenceFrame(featureId, feature, frameIndex, priority = 'low'){
+    if(frameIndex < feature.firstFrame || frameIndex > feature.lastFrame){
+        return;
+    }
+
+    const frames = sequenceImages[featureId];
+    if(frames && frames[frameIndex]){
+        return;
+    }
+
+    const key = `${featureId}:${frameIndex}`;
+    if(introPreloadQueuedKeys.has(key)){
+        return;
+    }
+
+    introPreloadQueuedKeys.add(key);
+
+    const task = {featureId, feature, frameIndex, priority};
+    if(priority === 'high'){
+        introPreloadPriorityQueue.push(task);
+    }else{
+        introPreloadBackgroundQueue.push(task);
+    }
+
+    pumpIntroPreloadQueue();
+}
+
+function queueRemainingIntroSequenceFrames(){
+    if(introPreloadBackgroundScheduled){
+        return;
+    }
+
+    introPreloadBackgroundScheduled = true;
+
+    const enabledFeatures = Object.entries(features).filter(([, feature])=>!feature.disabledUntilSequenceIsAdded);
+    const largestLastFrame = Math.max(...enabledFeatures.map(([, feature])=>feature.lastFrame));
+
+    /*
+       Round-robin ordering means every hotspot keeps making progress. The visitor
+       is not punished for choosing About Us or How It Works instead of Product.
+    */
+    for(let frameIndex = 0; frameIndex <= largestLastFrame; frameIndex++){
+        enabledFeatures.forEach(([featureId, feature])=>{
+            const leadFrameEnd = Math.min(feature.lastFrame, feature.firstFrame + INTRO_PRELOAD_LEAD_FRAMES - 1);
+
+            if(frameIndex < feature.firstFrame || frameIndex > feature.lastFrame || frameIndex <= leadFrameEnd){
+                return;
+            }
+
+            queueIntroSequenceFrame(featureId, feature, frameIndex, 'low');
+        });
+    }
+}
+
+function scheduleRemainingIntroSequenceFrames(){
+    const queueRemainder = ()=>queueRemainingIntroSequenceFrames();
+
+    /*
+       Begin the long tail after the opening frames have a head start. The timeout
+       guarantees progress even while the animated nebula keeps the browser busy.
+    */
+    if('requestIdleCallback' in window){
+        window.requestIdleCallback(queueRemainder, {timeout:1600});
+    }else{
+        window.setTimeout(queueRemainder, 700);
+    }
+}
+
 function preloadAssets(){
     if(preloadStarted){
         return;
@@ -3817,46 +3838,44 @@ function preloadAssets(){
 
     preloadStarted = true;
 
-    /* Key frames are tiny in number and make the first transition / final hold
-       safer. All in-between frames are introduced gradually by the queue. */
-    Object.entries(features).forEach(([featureId, feature])=>{
-        if(feature.disabledUntilSequenceIsAdded){
-            return;
-        }
-
-        ensureSequenceImageStore(featureId);
-        enqueueSequenceFramePreload(featureId, feature, feature.firstFrame, 0);
-        enqueueSequenceFramePreload(featureId, feature, feature.lastFrame, 0);
-
-        if(Number.isFinite(feature.infoPanelTriggerFrame)){
-            enqueueSequenceFramePreload(featureId, feature, feature.infoPanelTriggerFrame, 0);
-        }
+    const enabledFeatures = Object.entries(features).filter(([, feature])=>!feature.disabledUntilSequenceIsAdded);
+    enabledFeatures.forEach(([featureId])=>{
+        sequenceImages[featureId] = sequenceImages[featureId] || [];
     });
 
-    /* screen_default.png is used immediately after THE PRODUCT finishes. */
-    const screenDefaultPreload = new Image();
-    screenDefaultPreload.decoding = 'async';
-    screenDefaultPreload.src = screenDefaultFrameSrc;
-    priorityPreloadImages.push(screenDefaultPreload);
-
-    /* Use metadata only for videos during the intro. Starting five full MP4
-       downloads alongside hundreds of frames is counterproductive on mobile. */
-    logoVideo.preload = 'metadata';
-    logoVideo.src = productSteps[0].videos[0];
-    logoVideo.load();
-
-    preloadCardSequence();
-
-    const {startDelay} = getAssetPreloadProfile();
-    assetBackgroundPreloadTimer = window.setTimeout(()=>{
-        Object.entries(features).forEach(([featureId, feature])=>{
-            if(feature.disabledUntilSequenceIsAdded){ return; }
-            for(let i = feature.firstFrame; i <= feature.lastFrame; i++){
-                enqueueSequenceFramePreload(featureId, feature, i, 2);
+    /*
+       First, interleave the opening frames from all paths. This makes every
+       hotspot responsive even when the visitor leaves the intro quickly.
+    */
+    for(let frameOffset = 0; frameOffset < INTRO_PRELOAD_LEAD_FRAMES; frameOffset++){
+        enabledFeatures.forEach(([featureId, feature])=>{
+            const frameIndex = feature.firstFrame + frameOffset;
+            if(frameIndex <= feature.lastFrame){
+                queueIntroSequenceFrame(featureId, feature, frameIndex, 'high');
             }
         });
-        preloadCardSequence();
-    }, startDelay);
+    }
+
+    scheduleRemainingIntroSequenceFrames();
+
+    /*
+       Keep MP4 requests light during the intro. Full video bytes load only after
+       the visitor opens the Product path, leaving bandwidth for JPG sequences.
+    */
+    if(logoVideo){
+        logoVideo.preload = 'metadata';
+        logoVideo.src = productSteps[0].videos[0];
+        logoVideo.load();
+    }
+
+    productSteps.flatMap(step=>step.videos).forEach(file=>{
+        const preloadVideo = document.createElement('video');
+        preloadVideo.preload = 'metadata';
+        preloadVideo.muted = true;
+        preloadVideo.playsInline = true;
+        preloadVideo.src = file;
+        preloadVideo.load();
+    });
 }
 
 
@@ -3871,33 +3890,38 @@ function getPreloadedFrame(feature, frameIndex){
 }
 
 function waitForFeatureFrames(featureId, feature){
-    const frames = ensureSequenceImageStore(featureId);
+    const frames = sequenceImages[featureId] || [];
     const promises = [];
 
     for(let i = feature.firstFrame; i <= feature.lastFrame; i++){
         let img = frames[i];
 
-        /* The visitor chose this sequence. Create any still-queued frame now,
-           rather than waiting for unrelated background work to finish first. */
         if(!img){
             img = new Image();
-            img.decoding = 'async';
             img.src = frameName(feature, i);
             frames[i] = img;
         }
 
         if(img.complete && img.naturalWidth > 0){
-            promises.push(decodeImageWhenPossible(img));
+            if(typeof img.decode === 'function'){
+                promises.push(img.decode().catch(()=>{}));
+            }
             continue;
         }
 
         promises.push(new Promise(resolve=>{
-            const finish = ()=>decodeImageWhenPossible(img).finally(resolve);
-            img.addEventListener('load', finish, {once:true});
-            img.addEventListener('error', resolve, {once:true});
+            img.onload = ()=>{
+                if(typeof img.decode === 'function'){
+                    img.decode().then(resolve).catch(resolve);
+                }else{
+                    resolve();
+                }
+            };
+            img.onerror = resolve;
         }));
     }
 
+    sequenceImages[featureId] = frames;
     return Promise.all(promises);
 }
 
@@ -4385,6 +4409,15 @@ async function playForwardSequence(featureId){
         return;
     }
 
+    /*
+       Start the smaller contact-card PNG sequence only after the main Contact
+       frames are ready. It can load while the Contact camera move plays without
+       competing with the large main sequence during the nebula intro.
+    */
+    if(featureToPlay === features.contact){
+        preloadCardSequence();
+    }
+
     activeFeature = featureToPlay;
     sequenceStarted = true;
     infoPanelShownDuringSequence = false;
@@ -4768,13 +4801,6 @@ logoVideo.addEventListener('ended', ()=>{
         logoVideo.pause();
         showProductPlayHotspot();
         hideMovieControls();
-    }
-});
-
-window.addEventListener('pagehide', ()=>{
-    if(assetBackgroundPreloadTimer){
-        window.clearTimeout(assetBackgroundPreloadTimer);
-        assetBackgroundPreloadTimer = null;
     }
 });
 
@@ -6391,17 +6417,20 @@ function animateCursorAndParallax(){
             return;
         }
 
-        /* In portrait, these three hotspot experiences remove the joystick/cursor.
-           Keep the fixed Contact and Back controls stable too, instead of letting
-           invisible cursor movement pull them around. */
-        const mobilePortraitFixedControlNoMagnet = isMobilePortraitLayout()
-            && sequenceStarted
-            && (activeFeature === features.finishes
-                || activeFeature === features.howWeDoIt
-                || activeFeature === features.aboutUs)
-            && (element === backBtn || element === topContactBtn || element.classList.contains('topContactBtn'));
+        /*
+           On portrait phones, opening any hotspot removes the joystick and cursor.
+           At that point the floating Contact and Back controls must stay perfectly
+           still as well. This covers THE PRODUCT, CONTACT, ABOUT US and HOW IT
+           WORKS from the instant its hotspot is tapped through its return path.
+        */
+        const mobilePortraitFloatingControl = isMobilePortraitLayout()
+            && document.body.classList.contains('mobilePortraitHotspotActive')
+            && (element === backBtn || element.classList.contains('topContactBtn'));
 
-        if(mobilePortraitFixedControlNoMagnet){
+        if(mobilePortraitFloatingControl){
+            target.x = 0;
+            target.y = 0;
+            target.scale = 1;
             element.style.setProperty('--magnetX', '0px');
             element.style.setProperty('--magnetY', '0px');
             element.style.setProperty('--magnetScale', '1');
