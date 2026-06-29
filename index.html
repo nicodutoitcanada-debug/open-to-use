@@ -2834,6 +2834,12 @@ function isMobilePortraitLayout(){
 const MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO = 0.755;
 const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
 
+/* THE PRODUCT temporarily scales the complete portrait scene down by 15%.
+   This stays separate from the base mobile portrait scale so every product
+   asset can animate together and return cleanly to the original layout. */
+const MOBILE_PORTRAIT_PRODUCT_ZOOM_MULTIPLIER = 0.85;
+let mobilePortraitSequenceZoomMultiplier = 1;
+
 function getMobilePortraitVisualHeight(){
     /*
        MOBILE PORTRAIT MASTER SCALE
@@ -2844,7 +2850,9 @@ function getMobilePortraitVisualHeight(){
        Because every image, sequence, mask, card overlay and hotspot is
        positioned from getDisplayedImageRect(), they all shrink together.
     */
-    return window.innerHeight * MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO;
+    return window.innerHeight
+        * MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO
+        * mobilePortraitSequenceZoomMultiplier;
 }
 
 function getMobilePortraitVisualTop(){
@@ -5254,11 +5262,28 @@ function isMobilePortraitTouchLayout(){
     return mobileTouchMode && isMobilePortraitLayout();
 }
 
+/* All items that use the 1920 x 1080 scene rectangle must be recalculated
+   while the product scale is tweening. This preserves the shared top edge and
+   keeps sequences, the default still, video mask, overlays and hit areas aligned. */
+function positionMobilePortraitZoomedScene(){
+    positionMainImageForCurrentState();
+    positionFeatureVideo();
+    positionAllHotspots();
+    positionLogoVideo();
+    positionContactFrameOverlays();
+    positionCardSequenceOverlay();
+    positionDownloadHotspot();
+    positionProductPlayHotspot();
+    positionMovieControls();
+}
+
 function setMobilePortraitHotspotActive(isActive){
     document.body.classList.toggle('mobilePortraitHotspotActive', !!isActive && isMobilePortraitLayout());
     if(!isActive){
         mobilePortraitPanLocked = false;
         mobilePortraitPanMinYOverride = 0;
+        mobilePortraitSequenceZoomMultiplier = 1;
+        positionMobilePortraitZoomedScene();
         clearMobileHotspotSnap();
     }
     if(isActive){
@@ -5326,8 +5351,10 @@ function resetMobilePortraitProductHeightBeforeReverse(feature, duration = 820){
     const token = ++mobilePanTweenToken;
     const startX = mobilePanCurrentX;
     const startY = mobilePanCurrentY;
+    const startZoom = mobilePortraitSequenceZoomMultiplier;
     const endX = mobilePortraitLockedPanX;
     const endY = 0;
+    const endZoom = 1;
     const startTime = performance.now();
 
     mobilePortraitPanLocked = true;
@@ -5346,6 +5373,14 @@ function resetMobilePortraitProductHeightBeforeReverse(feature, duration = 820){
             const x = startX + (endX - startX) * eased;
             const y = startY + (endY - startY) * eased;
 
+            /*
+               Reverse the 15% product zoom at exactly the same eased rate as
+               the downward pan. The image rectangle remains top-aligned because
+               its top value never changes; only its shared width/height scale does.
+            */
+            mobilePortraitSequenceZoomMultiplier = startZoom + (endZoom - startZoom) * eased;
+            positionMobilePortraitZoomedScene();
+
             mobilePortraitLockedPanX = x;
             mobilePortraitLockedPanY = y;
             mobilePanTargetX = x;
@@ -5359,6 +5394,8 @@ function resetMobilePortraitProductHeightBeforeReverse(feature, duration = 820){
             }
 
             mobilePortraitPanMinYOverride = 0;
+            mobilePortraitSequenceZoomMultiplier = endZoom;
+            positionMobilePortraitZoomedScene();
             mobilePortraitLockedPanX = endX;
             mobilePortraitLockedPanY = endY;
             mobilePanTargetX = endX;
@@ -5391,6 +5428,10 @@ function panMobilePortraitToFeature(feature, duration = 1050){
     const token = ++mobilePanTweenToken;
     const startX = mobilePanCurrentX;
     const startY = mobilePanCurrentY;
+    const startZoom = mobilePortraitSequenceZoomMultiplier;
+    const endZoom = feature === features.finishes
+        ? MOBILE_PORTRAIT_PRODUCT_ZOOM_MULTIPLIER
+        : 1;
     const endX = getFeatureCenteredMobilePanX(feature);
     const endY = getFeatureCenteredMobilePanY(feature);
     const startTime = performance.now();
@@ -5407,6 +5448,15 @@ function panMobilePortraitToFeature(feature, duration = 1050){
             const x = startX + (endX - startX) * eased;
             const y = startY + (endY - startY) * eased;
 
+            /*
+               THE PRODUCT alone scales to 85% during its existing pre-sequence
+               pan. The scene rect uses a top value of zero, so reducing its
+               height/width keeps its top edge locked in place instead of scaling
+               around the viewport centre.
+            */
+            mobilePortraitSequenceZoomMultiplier = startZoom + (endZoom - startZoom) * eased;
+            positionMobilePortraitZoomedScene();
+
             mobilePanTargetX = x;
             mobilePanCurrentX = x;
             mobilePanTargetY = y;
@@ -5422,6 +5472,8 @@ function panMobilePortraitToFeature(feature, duration = 1050){
                 mobilePanCurrentX = endX;
                 mobilePanTargetY = endY;
                 mobilePanCurrentY = endY;
+                mobilePortraitSequenceZoomMultiplier = endZoom;
+                positionMobilePortraitZoomedScene();
                 resolve();
             }
         }
