@@ -280,6 +280,50 @@ html,body{
     opacity:1;
     transform-origin:left top;
     will-change:transform;
+
+    /*
+       15px soft edge on every product MP4 (HV_Logo, HV_Logo_02,
+       HV_video-02_01, HV_video-02_02 and HV_video-03).
+       All five files use this one video element, so the feather stays in place
+       even when a browser does not load mask.jpg in time.
+    */
+    -webkit-mask-image:
+        linear-gradient(to right,
+            transparent 0,
+            #000 15px,
+            #000 calc(100% - 15px),
+            transparent 100%),
+        linear-gradient(to bottom,
+            transparent 0,
+            #000 15px,
+            #000 calc(100% - 15px),
+            transparent 100%);
+    -webkit-mask-size:100% 100%;
+    -webkit-mask-position:center;
+    -webkit-mask-repeat:no-repeat;
+    -webkit-mask-composite:source-in;
+    mask-image:
+        linear-gradient(to right,
+            transparent 0,
+            #000 15px,
+            #000 calc(100% - 15px),
+            transparent 100%),
+        linear-gradient(to bottom,
+            transparent 0,
+            #000 15px,
+            #000 calc(100% - 15px),
+            transparent 100%);
+    mask-size:100% 100%;
+    mask-position:center;
+    mask-repeat:no-repeat;
+    mask-composite:intersect;
+}
+
+/* If mask.jpg cannot be loaded, retain the MP4 with its 15px soft edge instead
+   of allowing the missing monitor mask to hide the video entirely. */
+#logoVideoMaskPlane.mask-unavailable{
+    -webkit-mask-image:none;
+    mask-image:none;
 }
 
 .backBtn{
@@ -2707,6 +2751,16 @@ const contactVCardDetails = {
 };
 const CONTACT_DOWNLOAD_FILENAME = 'Marie-Du-Toit-Home-View-Solutions.vcf';
 const CONTACT_INVISIBLE_HOTSPOT_HEIGHT_MULTIPLIER = 3;
+
+/* Keep the soft-edge video visible if the external monitor mask is unavailable. */
+(function monitorMaskFallback(){
+    if(!logoVideoMaskPlane){ return; }
+    const monitorMask = new Image();
+    monitorMask.onload = ()=>logoVideoMaskPlane.classList.remove('mask-unavailable');
+    monitorMask.onerror = ()=>logoVideoMaskPlane.classList.add('mask-unavailable');
+    monitorMask.src = 'mask.jpg';
+})();
+
 const productSteps = [
     {
         title: 'Customize Finishes in Real Time',
@@ -4110,7 +4164,15 @@ function goBackToDefaultFrame(){
 
     const featureToReverse = activeFeature;
 
-    hideFeatureOverlays(()=>{
+    hideFeatureOverlays(async ()=>{
+        /*
+           On mobile portrait, THE PRODUCT intentionally finishes 62px higher.
+           Restore that Y offset with a smooth ease-in/ease-out transition before
+           the reverse JPG frames begin, so the final reverse frame aligns cleanly
+           with default frame.jpg.
+        */
+        await resetMobilePortraitProductHeightBeforeReverse(featureToReverse);
+
         playSequence(featureToReverse, featureToReverse.lastFrame, featureToReverse.firstFrame, ()=>{
             activeFeature = null;
             sequenceStarted = false;
@@ -5247,6 +5309,67 @@ function getFeatureCenteredMobilePanY(feature){
         return clamp(-15, bounds.minY, bounds.maxY);
     }
     return clamp(0, bounds.minY, bounds.maxY);
+}
+
+/*
+   THE PRODUCT begins its portrait sequence with a deliberate upward pan.
+   Before its JPG sequence reverses, settle that vertical difference back to
+   zero so screen63 / screen00 and the default frame share the exact same Y.
+   Keeping the portrait pan locked during this tween prevents the normal mobile
+   parallax loop from overriding the animation mid-return.
+*/
+function resetMobilePortraitProductHeightBeforeReverse(feature, duration = 820){
+    if(!isMobilePortraitTouchLayout() || feature !== features.finishes){
+        return Promise.resolve();
+    }
+
+    const token = ++mobilePanTweenToken;
+    const startX = mobilePanCurrentX;
+    const startY = mobilePanCurrentY;
+    const endX = mobilePortraitLockedPanX;
+    const endY = 0;
+    const startTime = performance.now();
+
+    mobilePortraitPanLocked = true;
+    /* Keep the current negative start value legal until the animation reaches 0. */
+    mobilePortraitPanMinYOverride = Math.min(0, startY);
+
+    return new Promise(resolve=>{
+        function animate(now){
+            if(token !== mobilePanTweenToken){
+                resolve();
+                return;
+            }
+
+            const t = clamp((now - startTime) / duration, 0, 1);
+            const eased = easeInOutCubic(t);
+            const x = startX + (endX - startX) * eased;
+            const y = startY + (endY - startY) * eased;
+
+            mobilePortraitLockedPanX = x;
+            mobilePortraitLockedPanY = y;
+            mobilePanTargetX = x;
+            mobilePanCurrentX = x;
+            mobilePanTargetY = y;
+            mobilePanCurrentY = y;
+
+            if(t < 1){
+                requestAnimationFrame(animate);
+                return;
+            }
+
+            mobilePortraitPanMinYOverride = 0;
+            mobilePortraitLockedPanX = endX;
+            mobilePortraitLockedPanY = endY;
+            mobilePanTargetX = endX;
+            mobilePanCurrentX = endX;
+            mobilePanTargetY = endY;
+            mobilePanCurrentY = endY;
+            resolve();
+        }
+
+        requestAnimationFrame(animate);
+    });
 }
 
 function panMobilePortraitToFeature(feature, duration = 1050){
