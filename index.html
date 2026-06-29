@@ -2310,7 +2310,7 @@ a,
         </div>
     </div>
 
-    <a id="contactEmailHotspot" href="#" aria-label="Download Marie Du Toit contact details"></a>
+    <a id="contactEmailHotspot" href="#" aria-label="Download Marie Du Toit's contact details as vCard"></a>
     <button id="downloadHotspot" class="hotspot" type="button" aria-label="Download contact card">
         <span class="hotspotLabel" aria-hidden="true">DOWNLOAD</span>
     </button>
@@ -2690,11 +2690,27 @@ const movieControls = document.getElementById('movieControls');
 const moviePlayBtn = document.getElementById('moviePlayBtn');
 const moviePauseBtn = document.getElementById('moviePauseBtn');
 const contactEmailAddress = 'marie@homeviewsolutions.com';
-const contactPhoneNumber = '8259634410';
-const contactDisplayPhone = '825 963 4410';
-const contactFullName = 'Marie Du Toit';
-const contactOrganization = 'Home View Solutions';
-const contactVCardFilename = 'Marie-Du-Toit-Home-View-Solutions.vcf';
+
+function downloadContactVCard(){
+    /* vCard for Marie Du Toit - triggered by the enlarged invisible hotspot
+       or the DOWNLOAD CONTACT button in the contact frame panel. */
+    const vcardContent = `BEGIN:VCARD
+VERSION:3.0
+FN:Marie Du Toit
+TEL:825 963 4410
+EMAIL:marie@homeviewsolutions.com
+END:VCARD`;
+    const blob = new Blob([vcardContent], { type: 'text/vcard;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'Marie_Du_Toit.vcf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
 const productSteps = [
     {
         title: 'Customize Finishes in Real Time',
@@ -3293,11 +3309,13 @@ function positionContactFrameOverlays(){
     }
 
     if(contactEmailHotspot){
-        /* TWEAK THESE FOUR NUMBERS if the invisible email click area needs nudging. */
+        /* TWEAK THESE FOUR NUMBERS if the invisible email click area needs nudging.
+           Grow 3x taller upwards (bottom stays fixed) so the tap target is much larger
+           for downloading the contact card on mobile. */
         const emailX = 1046;
-        const emailY = 566;
+        const emailY = 430;   // was 566, moved up by 136px to keep bottom at original 634
         const emailW = 542;
-        const emailH = 68;
+        const emailH = 204;   // 3x original 68px height, upwards only
 
         const topLeft = getTransformedMainPlanePoint({
             x: rect.left + (emailX * scale),
@@ -3308,17 +3326,10 @@ function positionContactFrameOverlays(){
             y: rect.top + ((emailY + emailH) * scale)
         });
 
-        const hotspotLeft = Math.min(topLeft.x, bottomRight.x);
-        const hotspotTop = Math.min(topLeft.y, bottomRight.y);
-        const hotspotWidth = Math.abs(bottomRight.x - topLeft.x);
-        const hotspotHeight = Math.abs(bottomRight.y - topLeft.y);
-        const expandedHotspotHeight = hotspotHeight * 3;
-
-        contactEmailHotspot.style.left = `${hotspotLeft}px`;
-        contactEmailHotspot.style.top = `${hotspotTop - (expandedHotspotHeight - hotspotHeight)}px`;
-        contactEmailHotspot.style.width = `${hotspotWidth}px`;
-        contactEmailHotspot.style.height = `${expandedHotspotHeight}px`;
-        contactEmailHotspot.setAttribute('aria-label', `Download ${contactFullName} contact details`);
+        contactEmailHotspot.style.left = `${Math.min(topLeft.x, bottomRight.x)}px`;
+        contactEmailHotspot.style.top = `${Math.min(topLeft.y, bottomRight.y)}px`;
+        contactEmailHotspot.style.width = `${Math.abs(bottomRight.x - topLeft.x)}px`;
+        contactEmailHotspot.style.height = `${Math.abs(bottomRight.y - topLeft.y)}px`;
     }
 }
 
@@ -3357,29 +3368,6 @@ function showContactEmailClickArea(){
     }
 }
 
-
-function downloadContactVCard(){
-    const vcard = [
-        'BEGIN:VCARD',
-        'VERSION:3.0',
-        `N:Du Toit;Marie;;;`,
-        `FN:${contactFullName}`,
-        `ORG:${contactOrganization}`,
-        `TEL;TYPE=CELL:${contactPhoneNumber}`,
-        `EMAIL:${contactEmailAddress}`,
-        'END:VCARD'
-    ].join('\r\n');
-
-    const blob = new Blob([vcard], {type:'text/vcard;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = contactVCardFilename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 1000);
-}
 
 if(contactEmailHotspot){
     contactEmailHotspot.addEventListener('click', (event)=>{
@@ -4320,10 +4308,7 @@ function toggleContactCardSequence(){
 }
 
 if(downloadHotspot){
-    downloadHotspot.addEventListener('click', (event)=>{
-        event.preventDefault();
-        downloadContactVCard();
-    });
+    downloadHotspot.addEventListener('click', toggleContactCardSequence);
 }
 
 if(contactFrameQrBtn){
@@ -5195,8 +5180,7 @@ function getFeatureCenteredMobilePanY(feature){
     const bounds = getMobilePanBounds();
     if(feature === features.finishes){
         return clamp(-62, bounds.minY, bounds.maxY);
-    }
-    if(feature === features.contact){
+    }else if(feature === features.contact){
         return clamp(-18, bounds.minY, bounds.maxY);
     }
     return clamp(0, bounds.minY, bounds.maxY);
