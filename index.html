@@ -1962,6 +1962,76 @@ a,
     border-color:rgba(255,157,46,.44);
 }
 
+/* Contact-card QR guidance is a self-contained glass window only.
+   There is intentionally no full-screen backdrop or page-level blur. */
+#contactQrPopup{
+    position:fixed;
+    left:50%;
+    bottom:max(18px, env(safe-area-inset-bottom, 0px));
+    z-index:142;
+    width:min(420px, calc(100vw - 28px));
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform:translate3d(-50%, 18px, 0) scale(.97);
+    transition:opacity .32s ease, transform .32s cubic-bezier(.22, 1, .36, 1), visibility .32s ease;
+}
+
+#contactQrPopup.show{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:translate3d(-50%, 0, 0) scale(1);
+}
+
+.contactQrPopupPanel{
+    padding:22px 20px 20px;
+    border-radius:22px;
+    background:rgba(0,0,0,.62);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:0 24px 70px rgba(0,0,0,.46);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+    text-align:center;
+}
+
+.contactQrPopupPanel p{
+    margin:0;
+    font-size:18px;
+    line-height:1.38;
+    color:rgba(255,255,255,.94);
+}
+
+.contactQrPopupPanel .contactQrPopupSubtext{
+    margin-top:8px;
+    font-size:13px;
+    color:rgba(255,255,255,.68);
+}
+
+#contactQrPopupOkBtn{
+    margin-top:18px;
+    min-width:112px;
+    border:1px solid rgba(255,255,255,.20);
+    cursor:pointer;
+    padding:11px 22px;
+    border-radius:999px;
+    background:rgba(255,255,255,.12);
+    color:white;
+    letter-spacing:1px;
+    transform:none !important;
+}
+
+#contactQrPopupOkBtn:hover{
+    background:rgba(255,255,255,.20);
+    transform:none !important;
+}
+
+@media (orientation:portrait) and (max-width:900px){
+    #contactQrPopup{
+        bottom:max(22px, env(safe-area-inset-bottom, 0px));
+    }
+}
+
 /* Keep these buttons clickable while About Us / How It Works overlays are open,
    but let Contact, Chess and product confirmation popups sit above them. */
 .topContactBtn,
@@ -2027,6 +2097,8 @@ a,
     background:
         radial-gradient(120% 86% at 50% 100%, rgba(0,0,0,1) 0%, rgba(0,0,0,.98) 30%, rgba(0,0,0,.74) 54%, rgba(0,0,0,.28) 75%, rgba(0,0,0,0) 100%),
         radial-gradient(72% 48% at 50% 66%, rgba(0,0,0,.90) 0%, rgba(0,0,0,.38) 54%, rgba(0,0,0,0) 100%);
+    transform:translate3d(0,0,0);
+    will-change:transform;
 }
 
 #mobileJoystick{
@@ -2384,6 +2456,15 @@ a,
                 <button id="productConfirmContinueBtn" class="productConfirmBtn" type="button">CONTINUE</button>
                 <button id="productConfirmWatchBtn" class="productConfirmBtn primary" type="button">WATCH VIDEO</button>
             </div>
+        </div>
+    </div>
+
+    <!-- This is intentionally a bottom-half glass panel rather than a full-screen overlay. -->
+    <div id="contactQrPopup" aria-hidden="true">
+        <div class="contactQrPopupPanel" role="dialog" aria-labelledby="contactQrPopupTitle">
+            <p id="contactQrPopupTitle">Tap on the QR code to download contact.</p>
+            <p class="contactQrPopupSubtext">Or scan the QR code</p>
+            <button id="contactQrPopupOkBtn" type="button">OK</button>
         </div>
     </div>
 
@@ -2793,6 +2874,14 @@ const productPanelNextBtn = infoPanel ? infoPanel.querySelector('.nextBtn') : nu
 const productConfirmOverlay = document.getElementById('productConfirmOverlay');
 const productConfirmContinueBtn = document.getElementById('productConfirmContinueBtn');
 const productConfirmWatchBtn = document.getElementById('productConfirmWatchBtn');
+const contactQrPopup = document.getElementById('contactQrPopup');
+const contactQrPopupOkBtn = document.getElementById('contactQrPopupOkBtn');
+const CONTACT_QR_POPUP_SESSION_KEY = 'homeViewContactQrPopupShown';
+let contactQrPopupHasBeenShown = false;
+
+try{
+    contactQrPopupHasBeenShown = window.sessionStorage.getItem(CONTACT_QR_POPUP_SESSION_KEY) === '1';
+}catch(error){}
 const sequenceImages = {};
 const cardSequenceImages = [];
 
@@ -2811,6 +2900,36 @@ function setDownloadHotspotLabel(text){
     const label = downloadHotspot.querySelector('.hotspotLabel');
     if(label){ label.textContent = text; }
     downloadHotspot.setAttribute('aria-label', text === 'FLIP BACK' ? 'Flip contact card back' : 'Download contact card');
+}
+
+function setContactFrameQrButtonLabel(text){
+    if(!contactFrameQrBtn){ return; }
+    contactFrameQrBtn.textContent = text;
+    contactFrameQrBtn.setAttribute(
+        'aria-label',
+        text === 'FLIP CARD BACK' ? 'Flip contact card back' : 'Show contact QR code'
+    );
+}
+
+function closeContactQrPopup(){
+    if(!contactQrPopup){ return; }
+    contactQrPopup.classList.remove('show');
+    contactQrPopup.setAttribute('aria-hidden', 'true');
+}
+
+function showContactQrPopupOnce(){
+    /* The helper is specifically for the mobile portrait contact-card experience. */
+    if(!contactQrPopup || !isMobilePortraitLayout() || contactQrPopupHasBeenShown){
+        return;
+    }
+
+    contactQrPopupHasBeenShown = true;
+    try{
+        window.sessionStorage.setItem(CONTACT_QR_POPUP_SESSION_KEY, '1');
+    }catch(error){}
+
+    contactQrPopup.classList.add('show');
+    contactQrPopup.setAttribute('aria-hidden', 'false');
 }
 
 function frameName(feature, index){
@@ -2838,6 +2957,9 @@ const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
    This stays separate from the base mobile portrait scale so every product
    asset can animate together and return cleanly to the original layout. */
 const MOBILE_PORTRAIT_PRODUCT_ZOOM_MULTIPLIER = 0.85;
+/* Extra overlap moves the fade slightly past the calculated image edge,
+   preventing the transparent portion of the gradient from exposing a seam. */
+const MOBILE_PORTRAIT_PRODUCT_FADE_OVERLAP_PX = 22;
 let mobilePortraitSequenceZoomMultiplier = 1;
 
 function getMobilePortraitVisualHeight(){
@@ -3301,6 +3423,7 @@ async function showContactCardSequence(){
 
     cardSequenceOpen = false;
     setDownloadHotspotLabel('DOWNLOAD');
+    setContactFrameQrButtonLabel('DOWNLOAD CONTACT');
     showDownloadHotspot();
 }
 
@@ -3320,6 +3443,7 @@ async function hideContactCardSequence(restoreContact62First = false){
     isCardSequenceAnimating = false;
     cardSequenceOpen = false;
     setDownloadHotspotLabel('DOWNLOAD');
+    setContactFrameQrButtonLabel('DOWNLOAD CONTACT');
 }
 
 
@@ -3698,12 +3822,14 @@ async function reverseContactCardBeforeLeaving(){
         await playCardSequenceAsync(CARD_SEQUENCE_LAST_FRAME, CARD_SEQUENCE_FIRST_FRAME);
         cardSequenceOpen = false;
         setDownloadHotspotLabel('DOWNLOAD');
+        setContactFrameQrButtonLabel('DOWNLOAD CONTACT');
     }
 
     await hideContactCardSequence(true);
 }
 
 async function hideFeatureOverlays(callback){
+    closeContactQrPopup();
     infoPanel.classList.remove('show');
     hideContactFrameOverlays();
     hideProductPlayHotspot();
@@ -4404,16 +4530,19 @@ if(moviePauseBtn){
     moviePauseBtn.addEventListener('click', pauseProductMovieFromControls);
 }
 
-function toggleContactCardSequence(){
+function toggleContactCardSequence(onQrCardOpened){
     if(isCardSequenceAnimating || !activeFeature || activeFeature !== features.contact){
         return;
     }
 
     if(cardSequenceOpen){
+        /* Change the menu label as soon as the user requests the reverse flip. */
+        setContactFrameQrButtonLabel('DOWNLOAD CONTACT');
         hideContactEmailClickArea();
         playCardSequence(CARD_SEQUENCE_LAST_FRAME, CARD_SEQUENCE_FIRST_FRAME, ()=>{
             cardSequenceOpen = false;
             setDownloadHotspotLabel('DOWNLOAD');
+            setContactFrameQrButtonLabel('DOWNLOAD CONTACT');
             showDownloadHotspot();
             showContactEmailClickArea();
         });
@@ -4422,9 +4551,13 @@ function toggleContactCardSequence(){
         playCardSequence(CARD_SEQUENCE_FIRST_FRAME, CARD_SEQUENCE_LAST_FRAME, ()=>{
             cardSequenceOpen = true;
             setDownloadHotspotLabel('FLIP BACK');
+            setContactFrameQrButtonLabel('FLIP CARD BACK');
             showDownloadHotspot();
             /* The enlarged invisible area is now the vCard download target. */
             showContactEmailClickArea();
+            if(typeof onQrCardOpened === 'function'){
+                onQrCardOpened();
+            }
         });
     }
 }
@@ -4438,11 +4571,14 @@ if(contactFrameQrBtn){
         event.preventDefault();
         event.stopPropagation();
 
-        /* This button opens the card only. FLIP BACK remains the hotspot action. */
-        if(!cardSequenceOpen && !isCardSequenceAnimating){
-            toggleContactCardSequence();
-        }
+        /* DOWNLOAD CONTACT flips forward; FLIP CARD BACK performs the same reverse
+           sequence as the existing FLIP BACK hotspot. */
+        toggleContactCardSequence(showContactQrPopupOnce);
     });
+}
+
+if(contactQrPopupOkBtn){
+    contactQrPopupOkBtn.addEventListener('click', closeContactQrPopup);
 }
 
 if(contactFrameBackBtn){
@@ -5220,6 +5356,7 @@ if(mobileTouchMode){
     });
 }
 
+const mobileBottomFade = document.getElementById('mobileBottomFade');
 const mobileJoystick = document.getElementById('mobileJoystick');
 const mobileJoystickKnob = document.getElementById('mobileJoystickKnob');
 const mobileTouchGuide = document.getElementById('mobileTouchGuide');
@@ -5262,6 +5399,29 @@ function isMobilePortraitTouchLayout(){
     return mobileTouchMode && isMobilePortraitLayout();
 }
 
+/* Product-only portrait fade alignment.
+   The complete 1920x1080 plane moves upward by mobilePanCurrentY and becomes
+   shorter by the 15% scale. Match both changes, then add a small overlap so
+   the soft gradient is already covering the plane's lower edge. */
+function updateMobileBottomFadePosition(){
+    if(!mobileBottomFade){ return; }
+
+    let offsetY = 0;
+    const productPortraitPanIsActive = isMobilePortraitLayout()
+        && mobilePortraitPanMinYOverride <= -60;
+
+    if(productPortraitPanIsActive){
+        const baseSceneHeight = window.innerHeight * MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO;
+        const scaleEdgeLift = baseSceneHeight * (1 - mobilePortraitSequenceZoomMultiplier);
+        offsetY = Math.min(
+            0,
+            mobilePanCurrentY - scaleEdgeLift - MOBILE_PORTRAIT_PRODUCT_FADE_OVERLAP_PX
+        );
+    }
+
+    mobileBottomFade.style.transform = `translate3d(0, ${offsetY.toFixed(2)}px, 0)`;
+}
+
 /* All items that use the 1920 x 1080 scene rectangle must be recalculated
    while the product scale is tweening. This preserves the shared top edge and
    keeps sequences, the default still, video mask, overlays and hit areas aligned. */
@@ -5275,6 +5435,7 @@ function positionMobilePortraitZoomedScene(){
     positionDownloadHotspot();
     positionProductPlayHotspot();
     positionMovieControls();
+    updateMobileBottomFadePosition();
 }
 
 function setMobilePortraitHotspotActive(isActive){
@@ -5315,7 +5476,8 @@ function getFeatureCenteredMobilePanX(feature){
     if(feature === features.howWeDoIt){
         target = 0;
     }else if(feature === features.finishes){
-        target += 30;
+        /* Keep the established product framing, then finish 8px farther right. */
+        target += 38;
     }else if(feature === features.contact){
         /* Keep the existing contact framing, then move it an additional 12px left. */
         target -= 30;
@@ -5387,6 +5549,7 @@ function resetMobilePortraitProductHeightBeforeReverse(feature, duration = 820){
             mobilePanCurrentX = x;
             mobilePanTargetY = y;
             mobilePanCurrentY = y;
+            updateMobileBottomFadePosition();
 
             if(t < 1){
                 requestAnimationFrame(animate);
@@ -5402,6 +5565,7 @@ function resetMobilePortraitProductHeightBeforeReverse(feature, duration = 820){
             mobilePanCurrentX = endX;
             mobilePanTargetY = endY;
             mobilePanCurrentY = endY;
+            updateMobileBottomFadePosition();
             resolve();
         }
 
@@ -5461,6 +5625,7 @@ function panMobilePortraitToFeature(feature, duration = 1050){
             mobilePanCurrentX = x;
             mobilePanTargetY = y;
             mobilePanCurrentY = y;
+            updateMobileBottomFadePosition();
 
             if(t < 1){
                 requestAnimationFrame(animate);
@@ -5474,6 +5639,7 @@ function panMobilePortraitToFeature(feature, duration = 1050){
                 mobilePanCurrentY = endY;
                 mobilePortraitSequenceZoomMultiplier = endZoom;
                 positionMobilePortraitZoomedScene();
+                updateMobileBottomFadePosition();
                 resolve();
             }
         }
@@ -5976,6 +6142,7 @@ function animateCursorAndParallax(){
                 mainPlane.style.transformOrigin = '50% 50%';
                 mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0)`;
             }
+            updateMobileBottomFadePosition();
         }else if(isMobilePortraitLayout()){
             /* Also protect browser/device emulation portrait mode where pointer is fine.
                This prevents the desktop parallax scale(1.13) from overriding the mobile portrait scale. */
@@ -6071,6 +6238,18 @@ function animateCursorAndParallax(){
         const element = target.element;
 
         if(!element || element.classList.contains('hide')){
+            return;
+        }
+
+        const mobilePortraitProductControl = isMobilePortraitLayout()
+            && activeFeature === features.finishes
+            && sequenceStarted
+            && (element === backBtn || element.classList.contains('topContactBtn'));
+
+        if(mobilePortraitProductControl){
+            element.style.setProperty('--magnetX', '0px');
+            element.style.setProperty('--magnetY', '0px');
+            element.style.setProperty('--magnetScale', '1');
             return;
         }
 
