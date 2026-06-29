@@ -628,6 +628,12 @@ html,body{
     pointer-events:auto;
 }
 
+/* When the contact card is flipped, this invisible area becomes the vCard download target.
+   Its dimensions are set in JavaScript so the bottom edge stays in exactly the same place. */
+#contactEmailHotspot.is-contact-download-target{
+    cursor:pointer;
+}
+
 .topContactBtn.forceShow{ display:flex; }
 .topContactBtn.forceHide{ display:none; }
 
@@ -2690,9 +2696,17 @@ const movieControls = document.getElementById('movieControls');
 const moviePlayBtn = document.getElementById('moviePlayBtn');
 const moviePauseBtn = document.getElementById('moviePauseBtn');
 const contactEmailAddress = 'marie@homeviewsolutions.com';
-const contactFullName = 'Marie Du Toit';
-const contactPhoneNumber = '825 963 4410';
-const contactOrganization = 'Home View Solutions';
+
+/* Marie's downloadable phone contact. */
+const contactVCardDetails = {
+    firstName: 'Marie',
+    lastName: 'Du Toit',
+    phone: '+1-825-963-4410',
+    email: contactEmailAddress,
+    organization: 'Home View Solutions'
+};
+const CONTACT_DOWNLOAD_FILENAME = 'Marie-Du-Toit-Home-View-Solutions.vcf';
+const CONTACT_INVISIBLE_HOTSPOT_HEIGHT_MULTIPLIER = 3;
 const productSteps = [
     {
         title: 'Customize Finishes in Real Time',
@@ -3291,25 +3305,43 @@ function positionContactFrameOverlays(){
     }
 
     if(contactEmailHotspot){
-        /* TWEAK THESE FOUR NUMBERS if the invisible email click area needs nudging. */
+        /*
+           The original invisible button is the email strip on the business card.
+           Once the card is flipped, use the same bottom edge but grow its hit area
+           upward to three times the original height for the vCard download target.
+        */
         const emailX = 1046;
         const emailY = 566;
         const emailW = 542;
-        const emailH = 68 * 3;
+        const emailH = 68;
+        const isDownloadTarget = cardSequenceOpen && !isCardSequenceAnimating;
+        const interactiveH = isDownloadTarget
+            ? emailH * CONTACT_INVISIBLE_HOTSPOT_HEIGHT_MULTIPLIER
+            : emailH;
+        const interactiveY = isDownloadTarget
+            ? emailY + emailH - interactiveH
+            : emailY;
 
         const topLeft = getTransformedMainPlanePoint({
             x: rect.left + (emailX * scale),
-            y: rect.top + ((emailY - (emailH - 68)) * scale)
+            y: rect.top + (interactiveY * scale)
         });
         const bottomRight = getTransformedMainPlanePoint({
             x: rect.left + ((emailX + emailW) * scale),
-            y: rect.top + ((emailY + 68) * scale)
+            y: rect.top + ((interactiveY + interactiveH) * scale)
         });
 
         contactEmailHotspot.style.left = `${Math.min(topLeft.x, bottomRight.x)}px`;
         contactEmailHotspot.style.top = `${Math.min(topLeft.y, bottomRight.y)}px`;
         contactEmailHotspot.style.width = `${Math.abs(bottomRight.x - topLeft.x)}px`;
         contactEmailHotspot.style.height = `${Math.abs(bottomRight.y - topLeft.y)}px`;
+        contactEmailHotspot.classList.toggle('is-contact-download-target', isDownloadTarget);
+        contactEmailHotspot.setAttribute(
+            'aria-label',
+            isDownloadTarget
+                ? 'Download Marie Du Toit contact details'
+                : 'Email Marie at Home View Solutions'
+        );
     }
 }
 
@@ -3319,7 +3351,7 @@ function showContactFrameOverlays(){
         contactFramePanel.classList.add('show');
         contactFramePanel.setAttribute('aria-hidden','false');
     }
-    if(contactEmailHotspot && !cardSequenceOpen && !isCardSequenceAnimating){
+    if(contactEmailHotspot && !isCardSequenceAnimating){
         contactEmailHotspot.classList.add('show');
     }
     refreshMagneticTargets();
@@ -3342,43 +3374,55 @@ function hideContactEmailClickArea(){
 }
 
 function showContactEmailClickArea(){
-    if(contactEmailHotspot && activeFeature === features.contact && !cardSequenceOpen && !isCardSequenceAnimating){
+    if(contactEmailHotspot && activeFeature === features.contact && !isCardSequenceAnimating){
         positionContactFrameOverlays();
         contactEmailHotspot.classList.add('show');
     }
 }
 
+function escapeVCardValue(value){
+    return String(value || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/\n/g, '\\n')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,');
+}
 
-function downloadMarieContactCard(){
-    const vCardLines = [
+function downloadMarieContact(){
+    const vCard = [
         'BEGIN:VCARD',
         'VERSION:3.0',
-        'N:Du Toit;Marie;;;',
-        `FN:${contactFullName}`,
-        `ORG:${contactOrganization}`,
-        `TEL;TYPE=CELL:${contactPhoneNumber}`,
-        `EMAIL:${contactEmailAddress}`,
-        'END:VCARD'
-    ];
+        `N:${escapeVCardValue(contactVCardDetails.lastName)};${escapeVCardValue(contactVCardDetails.firstName)};;;`,
+        `FN:${escapeVCardValue(`${contactVCardDetails.firstName} ${contactVCardDetails.lastName}`)}`,
+        `ORG:${escapeVCardValue(contactVCardDetails.organization)}`,
+        `TEL;TYPE=CELL:${contactVCardDetails.phone}`,
+        `EMAIL;TYPE=INTERNET:${contactVCardDetails.email}`,
+        'END:VCARD',
+        ''
+    ].join('\r\n');
 
-    const vCardBlob = new Blob([vCardLines.join('\r\n')], {type:'text/vcard;charset=utf-8'});
-    const downloadUrl = URL.createObjectURL(vCardBlob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = 'Marie_Du_Toit_Home_View_Solutions.vcf';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(()=>URL.revokeObjectURL(downloadUrl), 1000);
+    const contactBlob = new Blob([vCard], { type:'text/vcard;charset=utf-8' });
+    const contactUrl = URL.createObjectURL(contactBlob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = contactUrl;
+    downloadLink.download = CONTACT_DOWNLOAD_FILENAME;
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(contactUrl), 1000);
 }
 
 if(contactEmailHotspot){
-    contactEmailHotspot.setAttribute('aria-label', 'Download Marie Du Toit contact card');
-    contactEmailHotspot.removeAttribute('href');
     contactEmailHotspot.addEventListener('click', (event)=>{
         event.preventDefault();
-        event.stopPropagation();
-        downloadMarieContactCard();
+
+        if(cardSequenceOpen && !isCardSequenceAnimating){
+            downloadMarieContact();
+            return;
+        }
+
+        window.location.href = `mailto:${contactEmailAddress}`;
     });
 }
 
@@ -4309,23 +4353,25 @@ function toggleContactCardSequence(){
             cardSequenceOpen = true;
             setDownloadHotspotLabel('FLIP BACK');
             showDownloadHotspot();
+            /* The enlarged invisible area is now the vCard download target. */
+            showContactEmailClickArea();
         });
     }
 }
 
 if(downloadHotspot){
-    downloadHotspot.addEventListener('click', (event)=>{
-        event.preventDefault();
-        event.stopPropagation();
-        downloadMarieContactCard();
-    });
+    downloadHotspot.addEventListener('click', toggleContactCardSequence);
 }
 
 if(contactFrameQrBtn){
     contactFrameQrBtn.addEventListener('click', (event)=>{
         event.preventDefault();
         event.stopPropagation();
-        downloadMarieContactCard();
+
+        /* This button opens the card only. FLIP BACK remains the hotspot action. */
+        if(!cardSequenceOpen && !isCardSequenceAnimating){
+            toggleContactCardSequence();
+        }
     });
 }
 
@@ -5137,6 +5183,8 @@ let mobilePanTweenToken = 0;
 let mobilePortraitPanLocked = false;
 let mobilePortraitLockedPanX = 0;
 let mobilePortraitLockedPanY = 0;
+/* Allows a prepared portrait hotspot pan to hold a deliberate upward offset. */
+let mobilePortraitPanMinYOverride = 0;
 let mobileSnapHotspotElement = null;
 let mobileSnapReleaseCooldownUntil = 0;
 
@@ -5148,6 +5196,7 @@ function setMobilePortraitHotspotActive(isActive){
     document.body.classList.toggle('mobilePortraitHotspotActive', !!isActive && isMobilePortraitLayout());
     if(!isActive){
         mobilePortraitPanLocked = false;
+        mobilePortraitPanMinYOverride = 0;
         clearMobileHotspotSnap();
     }
     if(isActive){
@@ -5181,7 +5230,9 @@ function getFeatureCenteredMobilePanX(feature){
     }else if(feature === features.finishes){
         target += 30;
     }else if(feature === features.contact){
-        target -= 8;
+        /* Keep the existing contact framing, then move it an additional 12px left. */
+        target -= 30;
+        target -= 12;
     }
     return clamp(target, bounds.minX, bounds.maxX);
 }
@@ -5192,7 +5243,8 @@ function getFeatureCenteredMobilePanY(feature){
         return clamp(-62, bounds.minY, bounds.maxY);
     }
     if(feature === features.contact){
-        return clamp(-18, bounds.minY, bounds.maxY);
+        /* End the contact pre-sequence pan 15px higher than its current position. */
+        return clamp(-15, bounds.minY, bounds.maxY);
     }
     return clamp(0, bounds.minY, bounds.maxY);
 }
@@ -5201,6 +5253,17 @@ function panMobilePortraitToFeature(feature, duration = 1050){
     if(!isMobilePortraitTouchLayout() || !feature){
         return Promise.resolve();
     }
+
+    /*
+       The portrait sequence plane is intentionally shorter than the phone viewport.
+       Permit only the requested feature's deliberate upward target while this
+       pre-sequence pan is active, so its value is not clamped back to zero.
+    */
+    mobilePortraitPanMinYOverride = feature === features.finishes
+        ? -62
+        : feature === features.contact
+            ? -15
+            : 0;
 
     const token = ++mobilePanTweenToken;
     const startX = mobilePanCurrentX;
@@ -5349,11 +5412,15 @@ function updateMobileHoverFromCursor(){
 function getMobilePanBounds(){
     const rect = getDisplayedImageRect();
     const safePadding = 10;
+    const naturalMinY = Math.min(0, window.innerHeight - (rect.top + rect.height) + safePadding);
+    const requestedPortraitMinY = isMobilePortraitLayout()
+        ? Math.min(0, mobilePortraitPanMinYOverride)
+        : 0;
 
     return {
         minX: Math.min(0, window.innerWidth - (rect.left + rect.width) + safePadding),
         maxX: Math.max(0, -rect.left - safePadding),
-        minY: Math.min(0, window.innerHeight - (rect.top + rect.height) + safePadding),
+        minY: Math.min(naturalMinY, requestedPortraitMinY),
         maxY: Math.max(0, -rect.top - safePadding)
     };
 }
