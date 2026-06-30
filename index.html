@@ -1962,37 +1962,47 @@ a,
     border-color:rgba(255,157,46,.44);
 }
 
-/* Contact-card QR guidance is a self-contained glass window only.
-   There is intentionally no full-screen backdrop or page-level blur. */
+/* Contact-card QR guidance is a centered modal. It intentionally blurs the
+   entire current Contact scene, so the QR instruction is never lost over a busy frame. */
 #contactQrPopup{
     position:fixed;
-    left:50%;
-    bottom:max(18px, env(safe-area-inset-bottom, 0px));
+    inset:0;
     z-index:142;
-    width:min(420px, calc(100vw - 28px));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
     opacity:0;
     visibility:hidden;
     pointer-events:none;
-    transform:translate3d(-50%, 18px, 0) scale(.97);
-    transition:opacity .32s ease, transform .32s cubic-bezier(.22, 1, .36, 1), visibility .32s ease;
+    background:rgba(0,0,0,.36);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+    transition:opacity .32s ease, visibility .32s ease;
 }
 
 #contactQrPopup.show{
     opacity:1;
     visibility:visible;
     pointer-events:auto;
-    transform:translate3d(-50%, 0, 0) scale(1);
 }
 
 .contactQrPopupPanel{
+    width:min(420px, calc(100vw - 48px));
     padding:22px 20px 20px;
     border-radius:22px;
-    background:rgba(0,0,0,.62);
+    background:rgba(0,0,0,.68);
     border:1px solid rgba(255,255,255,.18);
     box-shadow:0 24px 70px rgba(0,0,0,.46);
     backdrop-filter:blur(16px);
     -webkit-backdrop-filter:blur(16px);
     text-align:center;
+    transform:translate3d(0, 18px, 0) scale(.97);
+    transition:transform .32s cubic-bezier(.22, 1, .36, 1);
+}
+
+#contactQrPopup.show .contactQrPopupPanel{
+    transform:translate3d(0, 0, 0) scale(1);
 }
 
 .contactQrPopupPanel p{
@@ -2026,11 +2036,6 @@ a,
     transform:none !important;
 }
 
-@media (orientation:portrait) and (max-width:900px){
-    #contactQrPopup{
-        bottom:max(22px, env(safe-area-inset-bottom, 0px));
-    }
-}
 
 /* Keep these buttons clickable while About Us / How It Works overlays are open,
    but let Contact, Chess and product confirmation popups sit above them. */
@@ -2978,12 +2983,9 @@ const productConfirmContinueBtn = document.getElementById('productConfirmContinu
 const productConfirmWatchBtn = document.getElementById('productConfirmWatchBtn');
 const contactQrPopup = document.getElementById('contactQrPopup');
 const contactQrPopupOkBtn = document.getElementById('contactQrPopupOkBtn');
-const CONTACT_QR_POPUP_SESSION_KEY = 'homeViewContactQrPopupShown';
+/* Show the QR guidance once during each Contact visit. Returning to the main
+   hotspot page resets this flag, so a later Contact visit can show it again. */
 let contactQrPopupHasBeenShown = false;
-
-try{
-    contactQrPopupHasBeenShown = window.sessionStorage.getItem(CONTACT_QR_POPUP_SESSION_KEY) === '1';
-}catch(error){}
 const sequenceImages = {};
 const cardSequenceImages = [];
 
@@ -3019,6 +3021,11 @@ function closeContactQrPopup(){
     contactQrPopup.setAttribute('aria-hidden', 'true');
 }
 
+function resetContactQrPopupForNextContactVisit(){
+    closeContactQrPopup();
+    contactQrPopupHasBeenShown = false;
+}
+
 function showContactQrPopupOnce(){
     /* The helper is specifically for the mobile portrait contact-card experience. */
     if(!contactQrPopup || !isMobilePortraitLayout() || contactQrPopupHasBeenShown){
@@ -3026,10 +3033,6 @@ function showContactQrPopupOnce(){
     }
 
     contactQrPopupHasBeenShown = true;
-    try{
-        window.sessionStorage.setItem(CONTACT_QR_POPUP_SESSION_KEY, '1');
-    }catch(error){}
-
     contactQrPopup.classList.add('show');
     contactQrPopup.setAttribute('aria-hidden', 'false');
 }
@@ -3053,6 +3056,8 @@ function isMobilePortraitLayout(){
 }
 
 const MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO = 0.755;
+/* Contact needs a clearly visible portrait lift before its card sequence begins. */
+const MOBILE_PORTRAIT_CONTACT_UP_PAN_PX = 40;
 const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
 
 /* THE PRODUCT temporarily scales the complete portrait scene down by 15%.
@@ -4498,6 +4503,11 @@ async function playForwardSequence(featureId){
         return;
     }
 
+    if(featureToPlay === features.contact){
+        /* A new Contact journey gets one fresh QR instruction after the card flips. */
+        resetContactQrPopupForNextContactVisit();
+    }
+
     setMobilePortraitHotspotActive(true);
 
     isPreparingSequence = true;
@@ -4593,6 +4603,10 @@ function goBackToDefaultFrame(){
             showAllHotspots();
             positionAllHotspots();
             updateTopContactButtonVisibility();
+            if(featureToReverse === features.contact){
+                /* Back at the main hotspot page: allow the QR guidance to appear on the next Contact entry. */
+                resetContactQrPopupForNextContactVisit();
+            }
             setMobilePortraitHotspotActive(false);
         });
     });
@@ -5782,15 +5796,15 @@ function getFeatureCenteredMobilePanY(feature){
         return clamp(-62, bounds.minY, bounds.maxY);
     }
     if(feature === features.contact){
-        /* Match the Product transition: lift the Contact scene 12px before its sequence begins. */
-        return clamp(-12, bounds.minY, bounds.maxY);
+        /* Lift Contact by a clearly visible 40px before its sequence begins. */
+        return clamp(-MOBILE_PORTRAIT_CONTACT_UP_PAN_PX, bounds.minY, bounds.maxY);
     }
     return clamp(0, bounds.minY, bounds.maxY);
 }
 
 /*
    THE PRODUCT and CONTACT begin their portrait sequences with a deliberate
-   upward pan. Before their JPG sequences reverse, settle that vertical
+   upward pan. Contact lifts 40px; THE PRODUCT retains its established lift. Before their JPG sequences reverse, settle that vertical
    difference back to zero so the reverse frame and default still share the
    exact same Y. Keeping the portrait pan locked prevents the normal mobile
    parallax loop from overriding this return animation.
@@ -5834,15 +5848,14 @@ function resetMobilePortraitFeatureHeightBeforeReverse(feature, duration = 820){
                its top value never changes; only its shared width/height scale does.
             */
             mobilePortraitSequenceZoomMultiplier = startZoom + (endZoom - startZoom) * eased;
-            positionMobilePortraitZoomedScene();
-
             mobilePortraitLockedPanX = x;
             mobilePortraitLockedPanY = y;
             mobilePanTargetX = x;
             mobilePanCurrentX = x;
             mobilePanTargetY = y;
             mobilePanCurrentY = y;
-            updateMobileBottomFadePosition();
+            /* Lay out the 1920×1080 scene and black fade after this frame's pan is applied. */
+            positionMobilePortraitZoomedScene();
 
             if(t < 1){
                 requestAnimationFrame(animate);
@@ -5879,7 +5892,7 @@ function panMobilePortraitToFeature(feature, duration = 1050){
     mobilePortraitPanMinYOverride = feature === features.finishes
         ? -62
         : feature === features.contact
-            ? -12
+            ? -MOBILE_PORTRAIT_CONTACT_UP_PAN_PX
             : 0;
 
     const token = ++mobilePanTweenToken;
@@ -5912,13 +5925,12 @@ function panMobilePortraitToFeature(feature, duration = 1050){
                around the viewport centre.
             */
             mobilePortraitSequenceZoomMultiplier = startZoom + (endZoom - startZoom) * eased;
-            positionMobilePortraitZoomedScene();
-
             mobilePanTargetX = x;
             mobilePanCurrentX = x;
             mobilePanTargetY = y;
             mobilePanCurrentY = y;
-            updateMobileBottomFadePosition();
+            /* Keep the image sequence, overlays, and black fade in the same pan frame. */
+            positionMobilePortraitZoomedScene();
 
             if(t < 1){
                 requestAnimationFrame(animate);
