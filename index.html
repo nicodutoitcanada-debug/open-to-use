@@ -2382,6 +2382,27 @@ a,
 
 
 
+/* =========================
+   FEATURE HOTSPOT INTERACTION LOCK
+   Any opened main hotspot freezes the floating Contact and Back controls so
+   their magnetic attraction never shifts them. On touch landscape, the virtual
+   cursor and joystick are hidden until the main hotspot page is restored.
+========================= */
+body.featureHotspotActive .topContactBtn,
+body.featureHotspotActive .backBtn{
+    --magnetX:0px !important;
+    --magnetY:0px !important;
+    --magnetScale:1 !important;
+}
+
+@media (pointer:coarse) and (orientation:landscape){
+    body.mobileLandscapeHotspotActive #mobileJoystick,
+    body.mobileLandscapeHotspotActive #customCursor,
+    body.mobileLandscapeHotspotActive #customCursorPulse{
+        display:none !important;
+    }
+}
+
 /* Mobile touch polish: prevent blue text/image selection while using the joystick. */
 @media (pointer:coarse){
     html, body, #mainSite, #intro, #mainPlane, #mobileJoystick, #mobileJoystick *{
@@ -4998,6 +5019,7 @@ function resetAfterVideoReverse(){
     hideProductPlayHotspot();
     hideMovieControls();
     setMobilePortraitHotspotActive(false);
+    setFeatureHotspotActive(false);
     unlockMobileLandscapeFeaturePan();
 }
 
@@ -5019,6 +5041,7 @@ async function playForwardSequence(featureId){
 
     /* All pre-sequence positioning stays portrait-only. In landscape the
        scene begins at its default left/right framing and remains there. */
+    setFeatureHotspotActive(true);
     lockMobileLandscapeFeaturePan();
     setMobilePortraitHotspotActive(true);
 
@@ -5120,6 +5143,7 @@ function goBackToDefaultFrame(){
                 resetContactQrPopupForNextContactVisit();
             }
             setMobilePortraitHotspotActive(false);
+            setFeatureHotspotActive(false);
             unlockMobileLandscapeFeaturePan();
         });
     });
@@ -5445,11 +5469,9 @@ function refreshSceneForViewportChange(){
     positionDownloadHotspot();
     positionProductPlayHotspot();
     positionMovieControls();
-    if(sequenceStarted){
-        setMobilePortraitHotspotActive(true);
-    }else{
-        setMobilePortraitHotspotActive(false);
-    }
+    const featureJourneyActive = sequenceStarted || isPreparingSequence;
+    setMobilePortraitHotspotActive(featureJourneyActive);
+    setFeatureHotspotActive(featureJourneyActive);
     refreshMagneticTargets();
 }
 
@@ -6326,6 +6348,56 @@ function positionMobilePortraitZoomedScene(){
     updateMobileBottomFadePosition();
 }
 
+function resetFeatureFloatingControlMagnetism(){
+    [backBtn, document.querySelector('.topContactBtn')].forEach(element=>{
+        if(!element){ return; }
+        element.style.setProperty('--magnetX', '0px');
+        element.style.setProperty('--magnetY', '0px');
+        element.style.setProperty('--magnetScale', '1');
+    });
+}
+
+function restoreMobileVirtualCursorToCenter(){
+    if(!mobileTouchMode || !customCursor){ return; }
+
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight * 0.46;
+    cursorTargetX = centerX;
+    cursorTargetY = centerY;
+    cursorX = centerX;
+    cursorY = centerY;
+    customCursor.style.left = `${centerX}px`;
+    customCursor.style.top = `${centerY}px`;
+    customCursor.classList.add('show');
+}
+
+function isMobileVirtualCursorSuppressed(){
+    return (
+        (document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout())
+        || (document.body.classList.contains('mobileLandscapeHotspotActive') && isMobileLandscapeTouchLayout())
+    );
+}
+
+function setFeatureHotspotActive(isActive){
+    const featureIsActive = !!isActive;
+    const landscapeTouchFeatureIsActive = featureIsActive && isMobileLandscapeTouchLayout();
+
+    document.body.classList.toggle('featureHotspotActive', featureIsActive);
+    document.body.classList.toggle('mobileLandscapeHotspotActive', landscapeTouchFeatureIsActive);
+    resetFeatureFloatingControlMagnetism();
+
+    if(landscapeTouchFeatureIsActive){
+        resetMobileJoystick();
+        if(customCursor){ customCursor.classList.remove('show', 'hovering'); }
+        if(customCursorPulse){ customCursorPulse.classList.remove('hovering'); }
+        return;
+    }
+
+    if(!featureIsActive && mobileTouchMode && isMobileLandscapeTouchLayout()){
+        restoreMobileVirtualCursorToCenter();
+    }
+}
+
 function setMobilePortraitHotspotActive(isActive){
     document.body.classList.toggle('mobilePortraitHotspotActive', !!isActive && isMobilePortraitLayout());
     if(!isActive){
@@ -6339,16 +6411,8 @@ function setMobilePortraitHotspotActive(isActive){
         resetMobileJoystick();
         if(customCursor){ customCursor.classList.remove('show', 'hovering'); }
         if(customCursorPulse){ customCursorPulse.classList.remove('hovering'); }
-    }else if(mobileTouchMode && customCursor){
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
-        cursorTargetX = centerX;
-        cursorTargetY = centerY;
-        cursorX = centerX;
-        cursorY = centerY;
-        customCursor.style.left = `${centerX}px`;
-        customCursor.style.top = `${centerY}px`;
-        customCursor.classList.add('show');
+    }else if(mobileTouchMode){
+        restoreMobileVirtualCursorToCenter();
     }
 }
 
@@ -6888,7 +6952,7 @@ if(mobileTouchMode){
         if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
         /* Keep the compact landscape panel's copy natively scrollable. */
         if(event.target.closest('.panelScrollableText, .adaptiveScrollControl')){ return; }
-        if(document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout()){ return; }
+        if(isMobileVirtualCursorSuppressed()){ return; }
 
         mobilePanPointerId = event.pointerId;
         mobilePanStartX = event.clientX;
@@ -6944,7 +7008,7 @@ if(mobileTouchMode){
         const touchPageActive = (mainSite && mainSite.classList.contains('show')) || (intro && !intro.classList.contains('fadeOut'));
         if(!touchPageActive){ return; }
         if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
-        if(document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout()){ return; }
+        if(isMobileVirtualCursorSuppressed()){ return; }
         event.preventDefault();
         event.stopPropagation();
     }, {capture:true});
@@ -7001,11 +7065,13 @@ document.addEventListener('mouseleave', ()=>{
 });
 
 function animateCursorAndParallax(){
-    if(mobileTouchMode && (Math.abs(mobileJoystickX) > 0.015 || Math.abs(mobileJoystickY) > 0.015)){
+    const mobileVirtualCursorIsSuppressed = mobileTouchMode && isMobileVirtualCursorSuppressed();
+
+    if(!mobileVirtualCursorIsSuppressed && mobileTouchMode && (Math.abs(mobileJoystickX) > 0.015 || Math.abs(mobileJoystickY) > 0.015)){
         const speed = Math.max(2.0, Math.min(5.8, Math.min(window.innerWidth, window.innerHeight) * 0.0078));
         setMobileCursorPosition(cursorTargetX + mobileJoystickX * speed, cursorTargetY + mobileJoystickY * speed);
         updateMobileHotspotSnap();
-    }else if(mobileTouchMode){
+    }else if(!mobileVirtualCursorIsSuppressed && mobileTouchMode){
         updateMobileParallaxFromCursor();
         updateMobileHoverFromCursor();
     }
@@ -7166,16 +7232,14 @@ function animateCursorAndParallax(){
         }
 
         /*
-           On portrait phones, opening any hotspot removes the joystick and cursor.
-           At that point the floating Contact and Back controls must stay perfectly
-           still as well. This covers THE PRODUCT, CONTACT, ABOUT US and HOW IT
-           WORKS from the instant its hotspot is tapped through its return path.
+           A main hotspot locks the floating Contact and Back controls across every
+           layout: portrait, landscape, tablets, touch devices and desktop.
+           Their magnetic pull remains disabled until the hotspot page is restored.
         */
-        const mobilePortraitFloatingControl = isMobilePortraitLayout()
-            && document.body.classList.contains('mobilePortraitHotspotActive')
+        const featureFloatingControl = document.body.classList.contains('featureHotspotActive')
             && (element === backBtn || element.classList.contains('topContactBtn'));
 
-        if(mobilePortraitFloatingControl){
+        if(featureFloatingControl){
             target.x = 0;
             target.y = 0;
             target.scale = 1;
@@ -7347,7 +7411,7 @@ function closeChessOverlay(){
     chessOverlay.classList.remove('show');
     chessOverlay.setAttribute('aria-hidden','true');
     document.body.classList.remove('mobileChessActive');
-    if(mobileTouchMode && !document.body.classList.contains('mobilePortraitHotspotActive') && customCursor){
+    if(mobileTouchMode && !isMobileVirtualCursorSuppressed() && customCursor){
         const centerX = window.innerWidth / 2;
         const centerY = window.innerHeight / 2;
         cursorTargetX = centerX;
