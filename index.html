@@ -2849,6 +2849,89 @@ a,
     }
 }
 
+
+
+/* =========================
+   MOBILE LANDSCAPE FEATURE VIEW
+   Phones in landscape keep the full-width scene stationary when a hotspot is
+   opened. The right-hand product panel uses a compact scrolling copy area so
+   the monitor remains visible. Desktop and tablet/PC layouts are untouched.
+========================= */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:600px){
+    #infoPanel.infoPanel{
+        right:max(12px, env(safe-area-inset-right, 0px)) !important;
+        top:50% !important;
+        bottom:auto !important;
+        width:clamp(282px, 42vw, 360px) !important;
+        max-width:calc(100vw - 24px) !important;
+        max-height:calc(100dvh - 20px) !important;
+        padding:16px 17px 15px !important;
+        border-radius:22px !important;
+        display:flex !important;
+        flex-direction:column !important;
+        overflow:hidden !important;
+    }
+
+    #infoPanel.infoPanel.show{
+        /* Parallax is intentionally zero on touch, so keep this panel anchored
+           to the right rather than inheriting the old centred-phone transform. */
+        transform:translateY(-50%) !important;
+    }
+
+    #infoPanel.infoPanel h2{
+        flex:0 0 auto;
+        margin:0 0 10px !important;
+        font-size:clamp(17px, 2.75vw, 22px) !important;
+        line-height:1.14 !important;
+    }
+
+    #infoPanel.infoPanel .panelScrollableText{
+        flex:1 1 auto;
+        min-height:0;
+        max-height:clamp(82px, 31dvh, 142px);
+        overflow-y:auto !important;
+        overscroll-behavior:contain;
+        -webkit-overflow-scrolling:touch;
+        padding:0 25px 2px 0 !important;
+        margin:0 !important;
+    }
+
+    #infoPanel.infoPanel .panelScrollableText p{
+        margin:0 !important;
+        font-size:clamp(13px, 1.95vw, 15px) !important;
+        line-height:1.46 !important;
+    }
+
+    #infoPanel.infoPanel .monitorActionText{
+        flex:0 0 auto;
+        margin:10px 0 0 !important;
+        font-size:clamp(11px, 1.62vw, 13px) !important;
+        line-height:1.35 !important;
+    }
+
+    #infoPanel.infoPanel .infoPanelActions{
+        flex:0 0 auto;
+        gap:8px !important;
+        margin-top:11px !important;
+    }
+
+    #infoPanel.infoPanel .nextBtn,
+    #infoPanel.infoPanel .productPanelBackBtn{
+        padding:9px 13px !important;
+        font-size:12px !important;
+        letter-spacing:.65px !important;
+    }
+
+    /* The custom text slider stays comfortably inside the narrower panel. */
+    .adaptiveScrollControl{
+        width:42px;
+    }
+
+    .adaptiveScrollTrack{
+        left:18px;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -4924,6 +5007,7 @@ function resetAfterVideoReverse(){
     hideProductPlayHotspot();
     hideMovieControls();
     setMobilePortraitHotspotActive(false);
+    unlockMobileLandscapeFeaturePan();
 }
 
 async function playForwardSequence(featureId){
@@ -4942,6 +5026,9 @@ async function playForwardSequence(featureId){
         resetContactQrPopupForNextContactVisit();
     }
 
+    /* Portrait retains its deliberate hotspot pan. Landscape phones do not:
+       settle the shared plane before any sequence or UI is revealed. */
+    lockMobileLandscapeFeaturePan();
     setMobilePortraitHotspotActive(true);
 
     isPreparingSequence = true;
@@ -5020,6 +5107,10 @@ function goBackToDefaultFrame(){
 
     const featureToReverse = activeFeature;
 
+    /* Contact's card/sequence cleanup happens before the reverse JPG frames.
+       Keep a landscape phone locked at its neutral frame throughout that phase. */
+    lockMobileLandscapeFeaturePan();
+
     hideFeatureOverlays(async ()=>{
         /*
            On mobile portrait, THE PRODUCT intentionally finishes 62px higher.
@@ -5042,6 +5133,7 @@ function goBackToDefaultFrame(){
                 resetContactQrPopupForNextContactVisit();
             }
             setMobilePortraitHotspotActive(false);
+            unlockMobileLandscapeFeaturePan();
         });
     });
 }
@@ -5370,6 +5462,16 @@ function refreshSceneForViewportChange(){
         setMobilePortraitHotspotActive(true);
     }else{
         setMobilePortraitHotspotActive(false);
+    }
+
+    /* A mid-sequence rotation into landscape must not preserve a portrait pan
+       offset. Conversely, clear the landscape-only lock once portrait returns. */
+    if(typeof mobileTouchMode !== 'undefined' && mobileTouchMode){
+        if(isMobileLandscapeTouchLayout() && (sequenceStarted || isPreparingSequence)){
+            lockMobileLandscapeFeaturePan();
+        }else if(!isMobileLandscapeTouchLayout()){
+            mobileLandscapeFeaturePanLocked = false;
+        }
     }
     refreshMagneticTargets();
 }
@@ -6145,11 +6247,56 @@ let mobilePortraitLockedPanX = 0;
 let mobilePortraitLockedPanY = 0;
 /* Allows a prepared portrait hotspot pan to hold a deliberate upward offset. */
 let mobilePortraitPanMinYOverride = 0;
+/* A landscape phone must never inherit portrait-only hotspot pan transitions. */
+let mobileLandscapeFeaturePanLocked = false;
 let mobileSnapHotspotElement = null;
 let mobileSnapReleaseCooldownUntil = 0;
 
 function isMobilePortraitTouchLayout(){
     return mobileTouchMode && isMobilePortraitLayout();
+}
+
+function isMobileLandscapeTouchLayout(){
+    const viewport = getLayoutViewport();
+    return mobileTouchMode && isLandscapeViewport(viewport.width, viewport.height);
+}
+
+/*
+   The joystick may still pan the main hotspot scene in landscape. Once a hotspot
+   has been opened, however, hold the shared 1920x1080 plane exactly at zero:
+   sequence frames, Contact exit/reverse frames, overlays and hit areas therefore
+   cannot drift or animate downward before returning to the default frame.
+*/
+function lockMobileLandscapeFeaturePan(){
+    if(!isMobileLandscapeTouchLayout()){
+        return;
+    }
+
+    mobileLandscapeFeaturePanLocked = true;
+    ++mobilePanTweenToken;
+    mobilePanTargetX = 0;
+    mobilePanTargetY = 0;
+    mobilePanCurrentX = 0;
+    mobilePanCurrentY = 0;
+
+    if(mainPlane){
+        mainPlane.style.transformOrigin = '50% 50%';
+        mainPlane.style.transform = 'translate3d(0px, 0px, 0px)';
+    }
+}
+
+function unlockMobileLandscapeFeaturePan(){
+    mobileLandscapeFeaturePanLocked = false;
+    ++mobilePanTweenToken;
+    mobilePanTargetX = 0;
+    mobilePanTargetY = 0;
+    mobilePanCurrentX = 0;
+    mobilePanCurrentY = 0;
+
+    if(isMobileLandscapeTouchLayout() && mainPlane){
+        mainPlane.style.transformOrigin = '50% 50%';
+        mainPlane.style.transform = 'translate3d(0px, 0px, 0px)';
+    }
 }
 
 /* Product-only portrait fade alignment.
@@ -6517,6 +6664,10 @@ function updateMobileHoverFromCursor(){
 }
 
 function getMobilePanBounds(){
+    if(mobileLandscapeFeaturePanLocked && isMobileLandscapeTouchLayout()){
+        return {minX:0, maxX:0, minY:0, maxY:0};
+    }
+
     const rect = getDisplayedImageRect();
     const viewport = getLayoutViewport();
     const safePadding = 10;
@@ -6545,6 +6696,16 @@ function clampMobilePanTargets(){
 
 function updateMobileParallaxFromCursor(){
     if(!mobileTouchMode){ return; }
+
+    if(mobileLandscapeFeaturePanLocked && isMobileLandscapeTouchLayout()){
+        targetParallaxX = 0;
+        targetParallaxY = 0;
+        mobilePanTargetX = 0;
+        mobilePanTargetY = 0;
+        mobilePanCurrentX = 0;
+        mobilePanCurrentY = 0;
+        return;
+    }
 
     if(mobilePortraitPanLocked && isMobilePortraitLayout()){
         mobilePanTargetX = mobilePortraitLockedPanX;
@@ -6750,6 +6911,7 @@ if(mobileTouchMode){
         const touchPageActive = (mainSite && mainSite.classList.contains('show')) || (intro && !intro.classList.contains('fadeOut'));
         if(!touchPageActive){ return; }
         if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
+        if(event.target.closest('.panelScrollableText, .adaptiveScrollControl')){ return; }
         if(document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout()){ return; }
 
         mobilePanPointerId = event.pointerId;
@@ -6806,6 +6968,7 @@ if(mobileTouchMode){
         const touchPageActive = (mainSite && mainSite.classList.contains('show')) || (intro && !intro.classList.contains('fadeOut'));
         if(!touchPageActive){ return; }
         if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
+        if(event.target.closest('.panelScrollableText, .adaptiveScrollControl')){ return; }
         if(document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout()){ return; }
         event.preventDefault();
         event.stopPropagation();
