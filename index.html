@@ -2469,6 +2469,109 @@ a,
     }
 }
 
+
+
+/* =========================
+   MOBILE OVERLAY REFINEMENTS
+   Keep the Home View logo visible in portrait mode; only the body copy scrolls.
+========================= */
+.mobileTouchGuideLogo{
+    width:142px;
+    max-width:62%;
+    height:auto;
+    display:block;
+    margin:0 auto 18px;
+    filter:drop-shadow(0 8px 20px rgba(0,0,0,.42));
+}
+
+/* The About Us glass now lets the blurred colour of the scene show through,
+   matching the other translucent panels instead of reading as a solid black box. */
+#aboutOverlay .howBackdrop{
+    background:rgba(0,0,0,.30);
+    backdrop-filter:blur(16px) saturate(120%);
+    -webkit-backdrop-filter:blur(16px) saturate(120%);
+}
+
+#aboutOverlay .contactPanel{
+    background:rgba(11,11,11,.30);
+    backdrop-filter:blur(22px) saturate(125%);
+    -webkit-backdrop-filter:blur(22px) saturate(125%);
+}
+
+/* Defensive no-magnet rule for the chess close control. */
+.closeChessBtn.noMagnet{
+    --magnetX:0px !important;
+    --magnetY:0px !important;
+    --magnetScale:1 !important;
+}
+
+@media (orientation:portrait) and (max-width:900px){
+    /* Override the earlier compact-mobile rule that hid overlay logos. */
+    #howOverlay .contactLogo,
+    #aboutOverlay .contactLogo{
+        display:block !important;
+        flex:0 0 auto;
+        width:clamp(78px, 13vh, 116px);
+        max-width:46%;
+        max-height:clamp(54px, 10vh, 96px);
+        margin:0 auto clamp(7px, 1.2vh, 12px);
+        object-fit:contain;
+    }
+
+    #howOverlay .contactPanel,
+    #aboutOverlay .contactPanel{
+        width:calc(100vw - 18px);
+        max-width:calc(100vw - 18px);
+        height:min(720px, calc(100dvh - 18px));
+        max-height:calc(100dvh - 18px);
+        padding:12px 14px 14px;
+        justify-content:flex-start;
+        overflow:hidden;
+    }
+
+    #howOverlay .contactPanel h2,
+    #aboutOverlay .contactPanel h2{
+        flex:0 0 auto;
+        padding-right:38px;
+        margin-bottom:clamp(7px, 1.2vh, 12px);
+    }
+
+    /* This is intentionally the only flexible/scrolled region, so the Home View
+       logo, title, client-logo row and Back button remain reliably visible. */
+    #howOverlay .howText,
+    #aboutOverlay .howText{
+        flex:1 1 auto;
+        min-height:0;
+        overflow-y:auto;
+        overscroll-behavior:contain;
+        -webkit-overflow-scrolling:touch;
+        padding:0 5px 5px 0;
+        scrollbar-width:thin;
+    }
+
+    #howOverlay .howText p,
+    #aboutOverlay .howText p{
+        margin:0 0 clamp(10px, 1.7vh, 16px);
+    }
+
+    #aboutOverlay .aboutLogoRow{
+        flex:0 0 auto;
+        margin:clamp(6px, 1.2vh, 10px) 0 0;
+        padding-top:0;
+    }
+
+    #howOverlay .overlayActionRow,
+    #aboutOverlay .overlayActionRow{
+        flex:0 0 auto;
+        margin-top:clamp(8px, 1.4vh, 12px);
+    }
+
+    .mobileTouchGuideLogo{
+        width:clamp(112px, 34vw, 148px);
+        margin-bottom:16px;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -2632,7 +2735,8 @@ a,
 
 <div id="mobileTouchGuide" aria-hidden="true">
     <div class="mobileTouchGuidePanel" role="dialog" aria-modal="true">
-        <p>Use the joystick to move.<br>Tap to click.</p>
+        <img src="logo.png" class="mobileTouchGuideLogo" alt="Home View Solutions">
+        <p>You can use the joystick to move the curser and click buttons.</p>
         <button id="mobileTouchGuideGotIt" type="button">GOT IT</button>
     </div>
 </div>
@@ -2644,7 +2748,7 @@ a,
     <div class="chessBackdrop chessCloseArea"></div>
     <div class="chessPanel" role="dialog" aria-modal="true" aria-labelledby="chessTitle">
         <img src="logo.png" class="chessLogo" alt="Home View Solutions">
-        <button class="closeChessBtn" id="closeChessBtn" aria-label="Close chess puzzle">×</button>
+        <button class="closeChessBtn noMagnet" id="closeChessBtn" aria-label="Close chess puzzle">×</button>
         <h2 id="chessTitle">Find the Best Move for White</h2>
         <p id="chessMessage" class="chessMessage">Move 1 of 3. Find White's best move.</p>
         <div class="chessLayout">
@@ -5594,7 +5698,7 @@ function refreshMagneticTargets(){
     document.querySelectorAll(hoverTargetsSelector).forEach(element=>{
         /* Phone/email links and chess control buttons still trigger the custom cursor hover pulse,
            but they should not physically pull toward the mouse. */
-        if(element.closest('.contactCard') || element.closest('.chessControls') || element.closest('#movieControls') || element.closest('.contactFramePanel') || element.classList.contains('movieControlBtn') || element.classList.contains('noMagnet') || element.closest('#contactOverlay') || element.closest('#howOverlay') || element.closest('#aboutOverlay') || element.id === 'productPanelBackBtn' || element.id === 'contactEmailHotspot'){
+        if(element.closest('.contactCard') || element.closest('.chessControls') || element.closest('#movieControls') || element.closest('.contactFramePanel') || element.classList.contains('movieControlBtn') || element.classList.contains('noMagnet') || element.closest('#contactOverlay') || element.closest('#howOverlay') || element.closest('#aboutOverlay') || element.closest('#chessOverlay') || element.id === 'productPanelBackBtn' || element.id === 'contactEmailHotspot'){
             element.style.setProperty('--magnetX', '0px');
             element.style.setProperty('--magnetY', '0px');
             element.style.setProperty('--magnetScale', '1');
@@ -6119,8 +6223,9 @@ function updateMobileParallaxFromCursor(){
     clampMobilePanTargets();
 }
 function showMobileTouchGuideWhenReady(){
+    /* Show once for each fresh touch-device page launch, even when a visitor
+       acknowledged the guide during an earlier visit. */
     if(!mobileTouchMode || !mobileTouchGuide || mobileGuideWasShown){ return; }
-    if(localStorage.getItem('homeViewMobileTouchGuideSeen') === '1'){ return; }
 
     mobileGuideWasShown = true;
     mobileTouchGuide.classList.add('show');
@@ -6131,7 +6236,6 @@ function hideMobileTouchGuide(){
     if(!mobileTouchGuide){ return; }
     mobileTouchGuide.classList.remove('show');
     mobileTouchGuide.setAttribute('aria-hidden', 'true');
-    localStorage.setItem('homeViewMobileTouchGuideSeen', '1');
 }
 
 function mobileClickAtCursor(x = cursorTargetX, y = cursorTargetY, options = {}){
@@ -6211,7 +6315,7 @@ if(mobileTouchMode){
     cursorHasMoved = true;
     setMobileCursorPosition(window.innerWidth / 2, window.innerHeight * 0.46);
 
-    setTimeout(showMobileTouchGuideWhenReady, 450);
+    setTimeout(showMobileTouchGuideWhenReady, 250);
 
     if(mobileTouchGuideGotIt){
         mobileTouchGuideGotIt.addEventListener('click', hideMobileTouchGuide);
