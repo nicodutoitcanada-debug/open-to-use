@@ -6459,10 +6459,17 @@ function getFeatureCenteredMobilePanY(feature){
    parallax loop from overriding this return animation.
 */
 function resetMobilePortraitFeatureHeightBeforeReverse(feature, duration = 820){
-    if(
-        !isMobilePortraitTouchLayout()
-        || (feature !== features.finishes && feature !== features.contact)
-    ){
+    /*
+       Every portrait hotspot begins its JPG reverse from the main hotspot-page
+       camera position. Previously only THE PRODUCT and CONTACT were reset here.
+       HOW IT WORKS happened to look correct because its portrait X target is
+       already zero, while ABOUT US (and any other horizontally panned feature)
+       could reverse from its feature pan instead of the default-frame pan.
+
+       This is intentionally portrait-only. Mobile landscape keeps the separate
+       stationary-plane lock added for its layout.
+    */
+    if(!isMobilePortraitTouchLayout()){
         return Promise.resolve();
     }
 
@@ -6470,16 +6477,38 @@ function resetMobilePortraitFeatureHeightBeforeReverse(feature, duration = 820){
     const startX = mobilePanCurrentX;
     const startY = mobilePanCurrentY;
     const startZoom = mobilePortraitSequenceZoomMultiplier;
-    const endX = mobilePortraitLockedPanX;
+    const endX = 0;
     const endY = 0;
     const endZoom = 1;
     const startTime = performance.now();
 
     mobilePortraitPanLocked = true;
-    /* Keep the current negative start value legal until the animation reaches 0. */
+    /* Keep a deliberate upward feature offset legal until it eases back to zero. */
     mobilePortraitPanMinYOverride = Math.min(0, startY);
 
     return new Promise(resolve=>{
+        function applyPortraitReturnState(x, y, zoom){
+            mobilePortraitSequenceZoomMultiplier = zoom;
+            mobilePortraitLockedPanX = x;
+            mobilePortraitLockedPanY = y;
+            mobilePanTargetX = x;
+            mobilePanCurrentX = x;
+            mobilePanTargetY = y;
+            mobilePanCurrentY = y;
+
+            /*
+               Apply the parent-plane translation in this same animation frame,
+               then reflow all shared 1920×1080 elements. That guarantees the
+               reverse JPG sequence and default still use identical geometry.
+            */
+            if(mainPlane){
+                mainPlane.style.transformOrigin = '50% 0%';
+                mainPlane.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`;
+            }
+
+            positionMobilePortraitZoomedScene();
+        }
+
         function animate(now){
             if(token !== mobilePanTweenToken){
                 resolve();
@@ -6490,21 +6519,9 @@ function resetMobilePortraitFeatureHeightBeforeReverse(feature, duration = 820){
             const eased = easeInOutCubic(t);
             const x = startX + (endX - startX) * eased;
             const y = startY + (endY - startY) * eased;
+            const zoom = startZoom + (endZoom - startZoom) * eased;
 
-            /*
-               Reverse the 15% product zoom at exactly the same eased rate as
-               the downward pan. The image rectangle remains top-aligned because
-               its top value never changes; only its shared width/height scale does.
-            */
-            mobilePortraitSequenceZoomMultiplier = startZoom + (endZoom - startZoom) * eased;
-            mobilePortraitLockedPanX = x;
-            mobilePortraitLockedPanY = y;
-            mobilePanTargetX = x;
-            mobilePanCurrentX = x;
-            mobilePanTargetY = y;
-            mobilePanCurrentY = y;
-            /* Lay out the 1920×1080 scene and black fade after this frame's pan is applied. */
-            positionMobilePortraitZoomedScene();
+            applyPortraitReturnState(x, y, zoom);
 
             if(t < 1){
                 requestAnimationFrame(animate);
@@ -6512,14 +6529,7 @@ function resetMobilePortraitFeatureHeightBeforeReverse(feature, duration = 820){
             }
 
             mobilePortraitPanMinYOverride = 0;
-            mobilePortraitSequenceZoomMultiplier = endZoom;
-            positionMobilePortraitZoomedScene();
-            mobilePortraitLockedPanX = endX;
-            mobilePortraitLockedPanY = endY;
-            mobilePanTargetX = endX;
-            mobilePanCurrentX = endX;
-            mobilePanTargetY = endY;
-            mobilePanCurrentY = endY;
+            applyPortraitReturnState(endX, endY, endZoom);
             updateMobileBottomFadePosition();
             resolve();
         }
