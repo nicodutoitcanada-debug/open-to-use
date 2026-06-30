@@ -2858,6 +2858,101 @@ body.featureHotspotActive .backBtn{
 
 
 /* =========================
+   DEFERRED SEQUENCE PRELOAD TUMBLER
+   Appears only when a selected image sequence is still decoding after a short
+   delay. It is deliberately independent of the scene plane, so it never
+   shifts, crops, or interferes with portrait/landscape positioning.
+========================= */
+#sequencePreloadTumbler{
+    position:fixed;
+    left:50%;
+    top:50%;
+    z-index:220;
+    width:86px;
+    height:86px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    pointer-events:none;
+    opacity:0;
+    visibility:hidden;
+    transform:translate3d(-50%, -50%, 0) scale(.86);
+    transition:opacity .22s ease, transform .28s cubic-bezier(.22, 1, .36, 1), visibility .22s ease;
+}
+
+#sequencePreloadTumbler.show{
+    opacity:1;
+    visibility:visible;
+    transform:translate3d(-50%, -50%, 0) scale(1);
+}
+
+.sequenceTumblerGlass{
+    position:relative;
+    width:58px;
+    height:58px;
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.42);
+    background:rgba(8,12,18,.40);
+    box-shadow:0 16px 46px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.18);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    overflow:hidden;
+}
+
+.sequenceTumblerGlass::before,
+.sequenceTumblerGlass::after{
+    content:"";
+    position:absolute;
+    left:9px;
+    right:9px;
+    height:8px;
+    border-radius:999px;
+    background:rgba(255,255,255,.82);
+    box-shadow:0 0 18px rgba(255,255,255,.48);
+}
+
+.sequenceTumblerGlass::before{
+    top:10px;
+    animation:sequenceTumblerTop 1.05s cubic-bezier(.65, 0, .35, 1) infinite;
+}
+
+.sequenceTumblerGlass::after{
+    bottom:10px;
+    animation:sequenceTumblerBottom 1.05s cubic-bezier(.65, 0, .35, 1) infinite;
+}
+
+.sequenceTumblerCore{
+    position:absolute;
+    inset:16px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.22);
+    background:linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.035));
+    animation:sequenceTumblerTurn 1.05s linear infinite;
+}
+
+@keyframes sequenceTumblerTop{
+    0%, 100%{ transform:translateY(0) scaleX(1); opacity:.92; }
+    50%{ transform:translateY(30px) scaleX(.44); opacity:.36; }
+}
+
+@keyframes sequenceTumblerBottom{
+    0%, 100%{ transform:translateY(0) scaleX(.44); opacity:.36; }
+    50%{ transform:translateY(-30px) scaleX(1); opacity:.92; }
+}
+
+@keyframes sequenceTumblerTurn{
+    to{ transform:rotate(180deg); }
+}
+
+@media (prefers-reduced-motion: reduce){
+    .sequenceTumblerGlass::before,
+    .sequenceTumblerGlass::after,
+    .sequenceTumblerCore{
+        animation:none !important;
+    }
+}
+
+/* =========================
    TOUCH ZOOM LOCK
    Keeps one-finger interaction, scrolling, and the joystick intact while
    disabling pinch gestures and the browser's double-tap zoom on touch devices.
@@ -2951,6 +3046,13 @@ body.featureHotspotActive .backBtn{
 
 <div id="customCursor" aria-hidden="true"></div>
 <div id="customCursorPulse" aria-hidden="true"></div>
+
+<!-- Shown only when a chosen image sequence needs noticeable time to finish decoding. -->
+<div id="sequencePreloadTumbler" aria-hidden="true">
+    <div class="sequenceTumblerGlass">
+        <div class="sequenceTumblerCore"></div>
+    </div>
+</div>
 
 <!-- INTRO -->
 
@@ -3465,6 +3567,9 @@ const contactQrPopupOkBtn = document.getElementById('contactQrPopupOkBtn');
 let contactQrPopupHasBeenShown = false;
 const sequenceImages = {};
 const cardSequenceImages = [];
+const sequencePreloadTumbler = document.getElementById('sequencePreloadTumbler');
+const SEQUENCE_PRELOAD_TUMBLER_DELAY_MS = 900;
+let sequencePreloadTumblerTimer = null;
 
 let activeFeature = null;
 let sequenceStarted = false;
@@ -4562,6 +4667,32 @@ function waitForFeatureFrames(featureId, feature){
     return Promise.all(promises);
 }
 
+/*
+   Full-frame decoding is intentionally completed before a sequence begins.
+   The tumbler is delayed so a normal fast cache/network path never flashes an
+   unnecessary loader; it only appears when the wait is long enough to be felt.
+*/
+function beginSequencePreloadTumbler(){
+    if(!sequencePreloadTumbler){
+        return ()=>{};
+    }
+
+    window.clearTimeout(sequencePreloadTumblerTimer);
+    sequencePreloadTumbler.classList.remove('show');
+
+    sequencePreloadTumblerTimer = window.setTimeout(()=>{
+        if(isPreparingSequence){
+            sequencePreloadTumbler.classList.add('show');
+        }
+    }, SEQUENCE_PRELOAD_TUMBLER_DELAY_MS);
+
+    return ()=>{
+        window.clearTimeout(sequencePreloadTumblerTimer);
+        sequencePreloadTumblerTimer = null;
+        sequencePreloadTumbler.classList.remove('show');
+    };
+}
+
 function showInfoPanel(){
     if(infoPanelShownDuringSequence){
         return;
@@ -4709,6 +4840,118 @@ function playSequence(feature, start, end, onComplete, onFrame){
             if(typeof onComplete === 'function'){
                 onComplete();
             }
+        }
+    }
+
+    requestAnimationFrame(animate);
+}
+
+/*
+   MOBILE PORTRAIT: one requestAnimationFrame timeline drives both the JPG frame
+   index and the shared scene transform. The forward journey begins at the exact
+   main-hotspot geometry and ends at the feature composition; reverse does the
+   inverse. This prevents a separate pan from arriving before or after the
+   image sequence.
+*/
+function playMobilePortraitSequenceWithPan(feature, start, end, onComplete, onFrame){
+    if(!isMobilePortraitTouchLayout()){
+        playSequence(feature, start, end, onComplete, onFrame);
+        return;
+    }
+
+    if(isAnimatingSequence){
+        return;
+    }
+
+    isAnimatingSequence = true;
+
+    const direction = start <= end ? 1 : -1;
+    const frameCount = Math.abs(end - start) + 1;
+    const duration = frameCount * frameHold;
+    const startX = mobilePanCurrentX;
+    const startY = mobilePanCurrentY;
+    const startZoom = mobilePortraitSequenceZoomMultiplier;
+    const isForward = direction === 1;
+    const targetX = isForward ? getFeatureCenteredMobilePanX(feature) : 0;
+    const targetY = isForward ? getFeatureCenteredMobilePanY(feature) : 0;
+    const targetZoom = isForward && feature === features.finishes
+        ? MOBILE_PORTRAIT_PRODUCT_ZOOM_MULTIPLIER
+        : 1;
+    const token = ++mobilePanTweenToken;
+    const startTime = performance.now();
+    let lastFrame = null;
+
+    /* Permit the intended upward feature composition while the shared motion runs. */
+    mobilePortraitPanMinYOverride = Math.min(0, startY, targetY);
+    mobilePortraitPanLocked = true;
+
+    function applyState(x, y, zoom){
+        mobilePortraitSequenceZoomMultiplier = zoom;
+        mobilePortraitLockedPanX = x;
+        mobilePortraitLockedPanY = y;
+        mobilePanTargetX = x;
+        mobilePanCurrentX = x;
+        mobilePanTargetY = y;
+        mobilePanCurrentY = y;
+
+        if(mainPlane){
+            mainPlane.style.transformOrigin = '50% 0%';
+            mainPlane.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`;
+        }
+
+        positionMobilePortraitZoomedScene();
+    }
+
+    function presentFrame(frame){
+        if(frame === lastFrame){
+            return;
+        }
+
+        lastFrame = frame;
+        const preloadedFrame = getPreloadedFrame(feature, frame);
+        sequenceImage.src = preloadedFrame ? preloadedFrame.src : frameName(feature, frame);
+
+        if(typeof onFrame === 'function'){
+            onFrame(frame);
+        }
+    }
+
+    function animate(now){
+        if(token !== mobilePanTweenToken){
+            isAnimatingSequence = false;
+            return;
+        }
+
+        const progress = clamp((now - startTime) / duration, 0, 1);
+        const eased = easeInOutCubic(progress);
+        const x = startX + (targetX - startX) * eased;
+        const y = startY + (targetY - startY) * eased;
+        const zoom = startZoom + (targetZoom - startZoom) * eased;
+        const frameOffset = Math.min(frameCount - 1, Math.floor(progress * frameCount));
+        const frame = start + (direction * frameOffset);
+
+        applyState(x, y, zoom);
+        presentFrame(frame);
+
+        if(progress < 1){
+            requestAnimationFrame(animate);
+            return;
+        }
+
+        applyState(targetX, targetY, targetZoom);
+        presentFrame(end);
+
+        if(!isForward){
+            /* Reverse ends on the exact default-frame geometry. */
+            mobilePortraitPanMinYOverride = 0;
+            applyState(0, 0, 1);
+        }
+
+        updateMobileBottomFadePosition();
+        isAnimatingSequence = false;
+
+        if(typeof onComplete === 'function'){
+            onComplete();
         }
     }
 
@@ -5046,15 +5289,37 @@ async function playForwardSequence(featureId){
     lockMobileLandscapeFeaturePan();
     setMobilePortraitHotspotActive(true);
 
+    /*
+       Decode the full selected path first. On normal connections this resolves
+       before the delayed tumbler appears; on slow connections the animation
+       makes the intentional wait clear instead of looking like an unresponsive
+       hotspot.
+    */
+    const synchronizePortraitPan = isMobilePortraitTouchLayout();
+
     isPreparingSequence = true;
-    await Promise.all([
-        waitForFeatureFrames(featureId, featureToPlay),
-        panMobilePortraitToFeature(featureToPlay)
-    ]);
-    isPreparingSequence = false;
+    const stopPreloadTumbler = synchronizePortraitPan
+        ? beginSequencePreloadTumbler()
+        : ()=>{};
+
+    try{
+        await waitForFeatureFrames(featureId, featureToPlay);
+    }finally{
+        isPreparingSequence = false;
+        stopPreloadTumbler();
+    }
 
     if(sequenceStarted || isAnimatingSequence){
         return;
+    }
+
+    /*
+       Portrait uses one unified clock for both the scene transform and JPG
+       frame index. All other layouts retain their established sequence-only
+       behavior, including the locked, non-panning mobile landscape view.
+    */
+    if(!synchronizePortraitPan){
+        await panMobilePortraitToFeature(featureToPlay);
     }
 
     /*
@@ -5078,8 +5343,7 @@ async function playForwardSequence(featureId){
     sequenceImage.src = firstFrame ? firstFrame.src : frameName(activeFeature, activeFeature.firstFrame);
     showSequenceImage();
 
-    setTimeout(()=>{
-        playSequence(activeFeature, activeFeature.firstFrame, activeFeature.lastFrame, ()=>{
+    const finishForwardSequence = ()=>{
         backBtn.classList.add('show');
 
         if(activeFeature.showInfoPanel){
@@ -5107,11 +5371,32 @@ async function playForwardSequence(featureId){
         if(activeFeature.showAboutOverlay){
             openAboutOverlay();
         }
-    }, (frame)=>{
+    };
+
+    const handleSequenceFrame = (frame)=>{
         if(activeFeature.showInfoPanel && frame >= activeFeature.infoPanelTriggerFrame){
             showInfoPanel();
         }
-    });
+    };
+
+    window.setTimeout(()=>{
+        if(synchronizePortraitPan){
+            playMobilePortraitSequenceWithPan(
+                activeFeature,
+                activeFeature.firstFrame,
+                activeFeature.lastFrame,
+                finishForwardSequence,
+                handleSequenceFrame
+            );
+        }else{
+            playSequence(
+                activeFeature,
+                activeFeature.firstFrame,
+                activeFeature.lastFrame,
+                finishForwardSequence,
+                handleSequenceFrame
+            );
+        }
     }, SEQUENCE_FADE_MS);
 }
 
@@ -5123,15 +5408,7 @@ function goBackToDefaultFrame(){
     const featureToReverse = activeFeature;
 
     hideFeatureOverlays(async ()=>{
-        /*
-           On mobile portrait, THE PRODUCT intentionally finishes 62px higher.
-           Restore that Y offset with a smooth ease-in/ease-out transition before
-           the reverse JPG frames begin, so the final reverse frame aligns cleanly
-           with default frame.jpg.
-        */
-        await resetMobilePortraitFeatureHeightBeforeReverse(featureToReverse);
-
-        playSequence(featureToReverse, featureToReverse.lastFrame, featureToReverse.firstFrame, ()=>{
+        const finishReverseSequence = ()=>{
             activeFeature = null;
             sequenceStarted = false;
             positionExpandedDefaultImage();
@@ -5146,7 +5423,26 @@ function goBackToDefaultFrame(){
             setMobilePortraitHotspotActive(false);
             setFeatureHotspotActive(false);
             unlockMobileLandscapeFeaturePan();
-        });
+        };
+
+        if(isMobilePortraitTouchLayout()){
+            /* Reverse JPG frames and the feature-to-main camera move now finish together. */
+            playMobilePortraitSequenceWithPan(
+                featureToReverse,
+                featureToReverse.lastFrame,
+                featureToReverse.firstFrame,
+                finishReverseSequence
+            );
+        }else{
+            /* Preserve all non-portrait behavior, including the mobile-landscape lock. */
+            await resetMobilePortraitFeatureHeightBeforeReverse(featureToReverse);
+            playSequence(
+                featureToReverse,
+                featureToReverse.lastFrame,
+                featureToReverse.firstFrame,
+                finishReverseSequence
+            );
+        }
     });
 }
 
