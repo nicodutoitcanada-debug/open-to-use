@@ -2369,6 +2369,101 @@ a,
     }
 }
 
+
+/* =========================
+   FINAL MOBILE PORTRAIT PANEL / HOTSPOT REFINEMENTS
+========================= */
+#productPlayHotspot{
+    width:50px;
+    height:50px;
+}
+
+#productPlayHotspot::before{
+    display:none;
+}
+
+#productPlayHotspot .productPlayIcon{
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:21px;
+    height:21px;
+    fill:#fff;
+    transform:translate(-44%, -50%);
+    filter:drop-shadow(0 1px 4px rgba(0,0,0,.22));
+    pointer-events:none;
+}
+
+#productPlayHotspot.label-active .hotspotLabel{
+    transform:translate(-50%,-50%) translateY(-52px) scale(1);
+}
+
+/*
+   The descriptive white copy becomes the only scrolling part of the panel.
+   The title, orange instruction and action buttons remain in view, even when
+   Safari reports a shorter visual viewport or the device uses larger text.
+*/
+@media (orientation:portrait) and (max-width:900px){
+    body.mobilePortraitHotspotActive .infoPanel,
+    body.mobilePortraitHotspotActive .contactFramePanel{
+        display:flex !important;
+        flex-direction:column !important;
+        min-height:0 !important;
+        max-height:none !important;
+        overflow:hidden !important;
+    }
+
+    body.mobilePortraitHotspotActive .infoPanel{
+        top:50dvh !important;
+        bottom:max(14px, env(safe-area-inset-bottom, 0px)) !important;
+        height:auto !important;
+    }
+
+    body.mobilePortraitHotspotActive .contactFramePanel{
+        top:52dvh !important;
+        bottom:max(14px, env(safe-area-inset-bottom, 0px)) !important;
+        height:auto !important;
+    }
+
+    body.mobilePortraitHotspotActive .infoPanel .panelScrollableText,
+    body.mobilePortraitHotspotActive .contactFramePanel .panelScrollableText{
+        flex:1 1 auto;
+        min-height:0;
+        overflow-y:auto;
+        overscroll-behavior:contain;
+        -webkit-overflow-scrolling:touch;
+        padding-right:7px;
+        margin-right:-7px;
+        scrollbar-width:thin;
+    }
+
+    body.mobilePortraitHotspotActive .infoPanel .panelScrollableText p,
+    body.mobilePortraitHotspotActive .contactFramePanel .panelScrollableText p{
+        margin-top:0;
+    }
+
+    body.mobilePortraitHotspotActive .infoPanel h2,
+    body.mobilePortraitHotspotActive .contactFramePanel h2,
+    body.mobilePortraitHotspotActive .infoPanel .monitorActionText,
+    body.mobilePortraitHotspotActive .contactFramePanel .contactCardActionText,
+    body.mobilePortraitHotspotActive .infoPanel .infoPanelActions,
+    body.mobilePortraitHotspotActive .contactFramePanel .contactFrameActions{
+        flex:0 0 auto;
+    }
+
+    /* Cursor/joystick have been removed in these two views, so keep their
+       remaining hotspot names permanently visible instead of hover-only. */
+    body.mobilePortraitHotspotActive #productPlayHotspot .hotspotLabel,
+    body.mobilePortraitHotspotActive #downloadHotspot .hotspotLabel{
+        opacity:1 !important;
+        transform:translate(-50%,-50%) translateY(-50px) scale(1) !important;
+    }
+
+    body.mobilePortraitHotspotActive #productPlayHotspot .hotspotLabel{
+        transform:translate(-50%,-50%) translateY(-54px) scale(1) !important;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -2419,12 +2514,14 @@ a,
 
     <div id="contactFramePanel" class="contactFramePanel" aria-hidden="true">
         <h2>Request a Real-Time Demo</h2>
-        <p>
-            Contact Home View Solutions to request a live demo or learn more about the interactive home visualization experience.
-        </p>
-        <p>
-            We can walk you through the interactive features, show how buyers can explore options in real time, and explain how the experience can be customized for your homes or developments.
-        </p>
+        <div class="panelScrollableText" tabindex="0" aria-label="Demo information">
+            <p>
+                Contact Home View Solutions to request a live demo or learn more about the interactive home visualization experience.
+            </p>
+            <p>
+                We can walk you through the interactive features, show how buyers can explore options in real time, and explain how the experience can be customized for your homes or developments.
+            </p>
+        </div>
         <p class="contactCardActionText"><strong>Click the hotspot on the business card to download contact info.</strong></p>
         <div class="contactFrameActions" aria-label="Contact page actions">
             <button id="contactFrameBackBtn" class="contactFrameBtn" type="button">◀ Back</button>
@@ -2438,6 +2535,9 @@ a,
     </button>
 
     <button id="productPlayHotspot" class="hotspot" type="button" aria-label="Play product demo video">
+        <svg class="productPlayIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M7.15 3.9c-.95-.58-2.15.1-2.15 1.22v13.76c0 1.12 1.2 1.8 2.15 1.22l11.2-6.88c.92-.57.92-1.89 0-2.46L7.15 3.9Z"/>
+        </svg>
         <span class="hotspotLabel" aria-hidden="true">PLAY</span>
     </button>
 
@@ -2493,11 +2593,13 @@ a,
 
     <div id="infoPanel" class="infoPanel">
         <h2>Customize Finishes in Real Time</h2>
-        <p>
-            Explore a digital show home and instantly personalize finishes, colours, fixtures and materials.
-            Every selection updates pricing in real time, helping buyers understand the impact of their choices immediately.
-            No software installation is required — everything runs directly in a web browser on desktop, tablet or mobile.
-        </p>
+        <div class="panelScrollableText" tabindex="0" aria-label="Product information">
+            <p>
+                Explore a digital show home and instantly personalize finishes, colours, fixtures and materials.
+                Every selection updates pricing in real time, helping buyers understand the impact of their choices immediately.
+                No software installation is required — everything runs directly in a web browser on desktop, tablet or mobile.
+            </p>
+        </div>
         <p class="monitorActionText"><strong>Click the hotspot on the monitor to see it in action.</strong></p>
         <div class="infoPanelActions">
             <button id="productPanelBackBtn" class="productPanelBackBtn" type="button">◀ Back</button>
@@ -4481,7 +4583,7 @@ function goBackToDefaultFrame(){
            the reverse JPG frames begin, so the final reverse frame aligns cleanly
            with default frame.jpg.
         */
-        await resetMobilePortraitProductHeightBeforeReverse(featureToReverse);
+        await resetMobilePortraitFeatureHeightBeforeReverse(featureToReverse);
 
         playSequence(featureToReverse, featureToReverse.lastFrame, featureToReverse.firstFrame, ()=>{
             activeFeature = null;
@@ -5583,16 +5685,28 @@ function updateMobileBottomFadePosition(){
     if(!mobileBottomFade){ return; }
 
     let offsetY = 0;
-    const productPortraitPanIsActive = isMobilePortraitLayout()
+    const portraitFeaturePanIsActive = isMobilePortraitLayout()
+        && mobilePortraitPanMinYOverride < 0;
+    const productPortraitPanIsActive = portraitFeaturePanIsActive
         && mobilePortraitPanMinYOverride <= -60;
 
-    if(productPortraitPanIsActive){
-        const baseSceneHeight = window.innerHeight * MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO;
-        const scaleEdgeLift = baseSceneHeight * (1 - mobilePortraitSequenceZoomMultiplier);
-        offsetY = Math.min(
-            0,
-            mobilePanCurrentY - scaleEdgeLift - MOBILE_PORTRAIT_PRODUCT_FADE_OVERLAP_PX
-        );
+    if(portraitFeaturePanIsActive){
+        /*
+           Both THE PRODUCT and CONTACT move the whole scene upward before
+           their sequences play, so move the black blend by the same amount.
+           THE PRODUCT additionally zooms out by 15%, therefore its fade also
+           compensates for the raised lower image edge and keeps the seam hidden.
+        */
+        offsetY = Math.min(0, mobilePanCurrentY);
+
+        if(productPortraitPanIsActive){
+            const baseSceneHeight = window.innerHeight * MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO;
+            const scaleEdgeLift = baseSceneHeight * (1 - mobilePortraitSequenceZoomMultiplier);
+            offsetY = Math.min(
+                0,
+                mobilePanCurrentY - scaleEdgeLift - MOBILE_PORTRAIT_PRODUCT_FADE_OVERLAP_PX
+            );
+        }
     }
 
     mobileBottomFade.style.transform = `translate3d(0, ${offsetY.toFixed(2)}px, 0)`;
@@ -5668,21 +5782,24 @@ function getFeatureCenteredMobilePanY(feature){
         return clamp(-62, bounds.minY, bounds.maxY);
     }
     if(feature === features.contact){
-        /* End the contact pre-sequence pan 15px higher than its current position. */
-        return clamp(-15, bounds.minY, bounds.maxY);
+        /* Match the Product transition: lift the Contact scene 12px before its sequence begins. */
+        return clamp(-12, bounds.minY, bounds.maxY);
     }
     return clamp(0, bounds.minY, bounds.maxY);
 }
 
 /*
-   THE PRODUCT begins its portrait sequence with a deliberate upward pan.
-   Before its JPG sequence reverses, settle that vertical difference back to
-   zero so screen63 / screen00 and the default frame share the exact same Y.
-   Keeping the portrait pan locked during this tween prevents the normal mobile
-   parallax loop from overriding the animation mid-return.
+   THE PRODUCT and CONTACT begin their portrait sequences with a deliberate
+   upward pan. Before their JPG sequences reverse, settle that vertical
+   difference back to zero so the reverse frame and default still share the
+   exact same Y. Keeping the portrait pan locked prevents the normal mobile
+   parallax loop from overriding this return animation.
 */
-function resetMobilePortraitProductHeightBeforeReverse(feature, duration = 820){
-    if(!isMobilePortraitTouchLayout() || feature !== features.finishes){
+function resetMobilePortraitFeatureHeightBeforeReverse(feature, duration = 820){
+    if(
+        !isMobilePortraitTouchLayout()
+        || (feature !== features.finishes && feature !== features.contact)
+    ){
         return Promise.resolve();
     }
 
@@ -5762,7 +5879,7 @@ function panMobilePortraitToFeature(feature, duration = 1050){
     mobilePortraitPanMinYOverride = feature === features.finishes
         ? -62
         : feature === features.contact
-            ? -15
+            ? -12
             : 0;
 
     const token = ++mobilePanTweenToken;
