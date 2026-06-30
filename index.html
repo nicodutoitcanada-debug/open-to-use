@@ -3429,11 +3429,33 @@ function setMainImageToDefaultFrame(){
     hideScreenDefaultImage(true);
 }
 
+function getLayoutViewport(){
+    /*
+       Use the document layout viewport rather than relying only on window.innerWidth/
+       innerHeight. On iOS and some Android browsers those values can briefly describe
+       the old orientation while the device is rotating.
+    */
+    const root = document.documentElement;
+    return {
+        width: Math.max(1, Math.round((root && root.clientWidth) || window.innerWidth || 1)),
+        height: Math.max(1, Math.round((root && root.clientHeight) || window.innerHeight || 1))
+    };
+}
+
+function isLandscapeViewport(width, height){
+    const mediaSaysLandscape = !!(
+        window.matchMedia && window.matchMedia('(orientation: landscape)').matches
+    );
+    return mediaSaysLandscape || width >= height;
+}
+
 function isMobilePortraitLayout(){
     /* Portrait layout must not depend only on pointer:coarse.
        Some mobile browsers / preview tools report pointer differently, which made
-       the old portrait zoom-out code never run. */
-    return window.innerHeight > window.innerWidth && window.innerWidth <= 900;
+       the old portrait zoom-out code never run. The orientation media query also
+       prevents a rotating phone from temporarily retaining its portrait layout. */
+    const viewport = getLayoutViewport();
+    return !isLandscapeViewport(viewport.width, viewport.height) && viewport.width <= 900;
 }
 
 const MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO = 0.755;
@@ -3460,13 +3482,14 @@ function getMobilePortraitVisualHeight(){
        Because every image, sequence, mask, card overlay and hotspot is
        positioned from getDisplayedImageRect(), they all shrink together.
     */
-    return window.innerHeight
+    const viewport = getLayoutViewport();
+    return viewport.height
         * MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO
         * mobilePortraitSequenceZoomMultiplier;
 }
 
 function getMobilePortraitVisualTop(){
-    return window.innerHeight * MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO;
+    return getLayoutViewport().height * MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO;
 }
 
 function getDisplayedImageRect(){
@@ -3476,8 +3499,9 @@ function getDisplayedImageRect(){
        so default frame, hotspot anchors, JPG sequences, logo videos and
        contact overlays all share one parallax plane.
     */
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+    const viewport = getLayoutViewport();
+    const viewportWidth = viewport.width;
+    const viewportHeight = viewport.height;
     const imageAspect = imageNaturalWidth / imageNaturalHeight;
 
     if(isMobilePortraitLayout()){
@@ -3509,7 +3533,12 @@ function getDisplayedImageRect(){
        rectangle by positionExpandedDefaultImage(), preserving its larger
        parallax-safe overscan exactly as intended.
     */
-    if(viewportWidth >= viewportHeight){
+    if(isLandscapeViewport(viewportWidth, viewportHeight)){
+        /*
+           MOBILE LANDSCAPE INCLUDED: size the 1920px scene from the real layout
+           viewport width, so its left and right image edges always meet the phone,
+           tablet, or desktop viewport exactly. No 16:9 side crop is introduced.
+        */
         const displayedWidth = viewportWidth;
         const displayedHeight = displayedWidth / imageAspect;
         return {
@@ -5325,7 +5354,9 @@ logoVideo.addEventListener('ended', ()=>{
     }
 });
 
-window.addEventListener('resize', ()=>{
+function refreshSceneForViewportChange(){
+    /* One shared reflow keeps the default image, every JPG sequence, video mask,
+       hotspots, overlays and their hit areas attached to the same 1920 x 1080 plane. */
     positionMainImageForCurrentState();
     positionFeatureVideo();
     positionAllHotspots();
@@ -5341,7 +5372,32 @@ window.addEventListener('resize', ()=>{
         setMobilePortraitHotspotActive(false);
     }
     refreshMagneticTargets();
-});
+}
+
+window.addEventListener('resize', refreshSceneForViewportChange);
+
+/*
+   Mobile Safari and Chrome can finish changing their viewport several frames after
+   orientationchange. Re-run the exact same width-fit layout after that settling
+   period, rather than leaving the sequence positioned with portrait dimensions.
+*/
+let landscapeReflowTimers = [];
+function queueLandscapeViewportReflow(){
+    landscapeReflowTimers.forEach(timer=>window.clearTimeout(timer));
+    landscapeReflowTimers = [0, 100, 260, 520].map(delay=>window.setTimeout(()=>{
+        refreshSceneForViewportChange();
+        if(typeof mobileTouchMode !== 'undefined' && mobileTouchMode){
+            const viewport = getLayoutViewport();
+            setMobileCursorPosition(cursorTargetX || viewport.width / 2, cursorTargetY || viewport.height * 0.46);
+            clampMobilePanTargets();
+        }
+    }, delay));
+}
+
+window.addEventListener('orientationchange', queueLandscapeViewportReflow, {passive:true});
+if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', queueLandscapeViewportReflow, {passive:true});
+}
 
 mainImage.addEventListener('load', ()=>{
     positionMainImageForCurrentState();
@@ -6462,14 +6518,17 @@ function updateMobileHoverFromCursor(){
 
 function getMobilePanBounds(){
     const rect = getDisplayedImageRect();
+    const viewport = getLayoutViewport();
     const safePadding = 10;
-    const naturalMinY = Math.min(0, window.innerHeight - (rect.top + rect.height) + safePadding);
+    const naturalMinY = Math.min(0, viewport.height - (rect.top + rect.height) + safePadding);
     const requestedPortraitMinY = isMobilePortraitLayout()
         ? Math.min(0, mobilePortraitPanMinYOverride)
         : 0;
 
     return {
-        minX: Math.min(0, window.innerWidth - (rect.left + rect.width) + safePadding),
+        /* A width-fit landscape scene has no spare horizontal pixels to pan into,
+           so lock X at zero instead of allowing a rotated phone to reveal black. */
+        minX: Math.min(0, viewport.width - (rect.left + rect.width) + safePadding),
         maxX: Math.max(0, -rect.left - safePadding),
         minY: Math.min(naturalMinY, requestedPortraitMinY),
         maxY: Math.max(0, -rect.top - safePadding)
