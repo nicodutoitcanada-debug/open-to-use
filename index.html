@@ -2826,8 +2826,9 @@ body.featureHotspotActive .backBtn{
 }
 
 /* For landscape screens that are squarer than 16:9, the 1920-wide sequence
-   canvas fits edge-to-edge horizontally. These generous fades softly merge
-   the resulting black top/bottom letterbox space into the scene. */
+   canvas fits edge-to-edge horizontally. These compact fades cover only the
+   outer ~21% of the image (about 30% less than before), preserving more of
+   the scene while still blending the top/bottom letterbox space into black. */
 #mainSite::after{
     content:"";
     position:absolute;
@@ -2838,12 +2839,12 @@ body.featureHotspotActive .backBtn{
     background:linear-gradient(
         to bottom,
         rgba(0,0,0,.98) 0%,
-        rgba(0,0,0,.82) 8.4%,
-        rgba(0,0,0,.42) 18.9%,
-        rgba(0,0,0,0) 30.1%,
-        rgba(0,0,0,0) 69.9%,
-        rgba(0,0,0,.42) 81.1%,
-        rgba(0,0,0,.82) 91.6%,
+        rgba(0,0,0,.82) 5.9%,
+        rgba(0,0,0,.42) 13.2%,
+        rgba(0,0,0,0) 21.1%,
+        rgba(0,0,0,0) 78.9%,
+        rgba(0,0,0,.42) 86.8%,
+        rgba(0,0,0,.82) 94.1%,
         rgba(0,0,0,.98) 100%
     );
     transition:opacity .35s ease;
