@@ -2850,7 +2850,6 @@ a,
 }
 
 
-
 /* =========================
    MOBILE LANDSCAPE FEATURE VIEW
    Phones in landscape keep the full-width scene stationary when a hotspot is
@@ -2862,73 +2861,65 @@ a,
         right:max(12px, env(safe-area-inset-right, 0px)) !important;
         top:50% !important;
         bottom:auto !important;
-        width:clamp(282px, 42vw, 360px) !important;
+        width:clamp(270px, 34vw, 330px) !important;
         max-width:calc(100vw - 24px) !important;
-        max-height:calc(100dvh - 20px) !important;
-        padding:16px 17px 15px !important;
-        border-radius:22px !important;
+        max-height:calc(100dvh - 18px) !important;
+        padding:14px 15px 14px !important;
+        border-radius:20px !important;
         display:flex !important;
         flex-direction:column !important;
         overflow:hidden !important;
     }
 
     #infoPanel.infoPanel.show{
-        /* Parallax is intentionally zero on touch, so keep this panel anchored
-           to the right rather than inheriting the old centred-phone transform. */
+        /* Keep the glass menu anchored to the right; do not inherit the
+           old centred-phone transform in landscape. */
         transform:translateY(-50%) !important;
     }
 
     #infoPanel.infoPanel h2{
         flex:0 0 auto;
-        margin:0 0 10px !important;
-        font-size:clamp(17px, 2.75vw, 22px) !important;
-        line-height:1.14 !important;
+        margin:0 0 9px !important;
+        font-size:clamp(16px, 2.45vw, 21px) !important;
+        line-height:1.13 !important;
     }
 
     #infoPanel.infoPanel .panelScrollableText{
         flex:1 1 auto;
         min-height:0;
-        max-height:clamp(82px, 31dvh, 142px);
+        max-height:clamp(76px, 31dvh, 132px);
         overflow-y:auto !important;
         overscroll-behavior:contain;
         -webkit-overflow-scrolling:touch;
-        padding:0 25px 2px 0 !important;
+        touch-action:pan-y;
+        padding:0 28px 2px 0 !important;
         margin:0 !important;
     }
 
     #infoPanel.infoPanel .panelScrollableText p{
         margin:0 !important;
-        font-size:clamp(13px, 1.95vw, 15px) !important;
-        line-height:1.46 !important;
+        font-size:clamp(12px, 1.8vw, 14px) !important;
+        line-height:1.43 !important;
     }
 
     #infoPanel.infoPanel .monitorActionText{
         flex:0 0 auto;
-        margin:10px 0 0 !important;
-        font-size:clamp(11px, 1.62vw, 13px) !important;
-        line-height:1.35 !important;
+        margin:9px 0 0 !important;
+        font-size:clamp(10px, 1.45vw, 12px) !important;
+        line-height:1.33 !important;
     }
 
     #infoPanel.infoPanel .infoPanelActions{
         flex:0 0 auto;
         gap:8px !important;
-        margin-top:11px !important;
+        margin-top:10px !important;
     }
 
     #infoPanel.infoPanel .nextBtn,
     #infoPanel.infoPanel .productPanelBackBtn{
-        padding:9px 13px !important;
+        padding:9px 12px !important;
         font-size:12px !important;
-        letter-spacing:.65px !important;
-    }
-
-    /* The custom text slider stays comfortably inside the narrower panel. */
-    .adaptiveScrollControl{
-        width:42px;
-    }
-
-    .adaptiveScrollTrack{
-        left:18px;
+        letter-spacing:.55px !important;
     }
 }
 
@@ -5026,8 +5017,8 @@ async function playForwardSequence(featureId){
         resetContactQrPopupForNextContactVisit();
     }
 
-    /* Portrait retains its deliberate hotspot pan. Landscape phones do not:
-       settle the shared plane before any sequence or UI is revealed. */
+    /* All pre-sequence positioning stays portrait-only. In landscape the
+       scene begins at its default left/right framing and remains there. */
     lockMobileLandscapeFeaturePan();
     setMobilePortraitHotspotActive(true);
 
@@ -5106,10 +5097,6 @@ function goBackToDefaultFrame(){
     }
 
     const featureToReverse = activeFeature;
-
-    /* Contact's card/sequence cleanup happens before the reverse JPG frames.
-       Keep a landscape phone locked at its neutral frame throughout that phase. */
-    lockMobileLandscapeFeaturePan();
 
     hideFeatureOverlays(async ()=>{
         /*
@@ -5462,16 +5449,6 @@ function refreshSceneForViewportChange(){
         setMobilePortraitHotspotActive(true);
     }else{
         setMobilePortraitHotspotActive(false);
-    }
-
-    /* A mid-sequence rotation into landscape must not preserve a portrait pan
-       offset. Conversely, clear the landscape-only lock once portrait returns. */
-    if(typeof mobileTouchMode !== 'undefined' && mobileTouchMode){
-        if(isMobileLandscapeTouchLayout() && (sequenceStarted || isPreparingSequence)){
-            lockMobileLandscapeFeaturePan();
-        }else if(!isMobileLandscapeTouchLayout()){
-            mobileLandscapeFeaturePanLocked = false;
-        }
     }
     refreshMagneticTargets();
 }
@@ -6247,7 +6224,7 @@ let mobilePortraitLockedPanX = 0;
 let mobilePortraitLockedPanY = 0;
 /* Allows a prepared portrait hotspot pan to hold a deliberate upward offset. */
 let mobilePortraitPanMinYOverride = 0;
-/* A landscape phone must never inherit portrait-only hotspot pan transitions. */
+/* Landscape phones must never inherit portrait-only feature camera pans. */
 let mobileLandscapeFeaturePanLocked = false;
 let mobileSnapHotspotElement = null;
 let mobileSnapReleaseCooldownUntil = 0;
@@ -6262,10 +6239,9 @@ function isMobileLandscapeTouchLayout(){
 }
 
 /*
-   The joystick may still pan the main hotspot scene in landscape. Once a hotspot
-   has been opened, however, hold the shared 1920x1080 plane exactly at zero:
-   sequence frames, Contact exit/reverse frames, overlays and hit areas therefore
-   cannot drift or animate downward before returning to the default frame.
+   Portrait-only feature pans must not leak into a rotated phone. Hold the
+   shared 1920×1080 plane at its default origin while any landscape feature is
+   open, including Contact's card exit and the reverse JPG sequence.
 */
 function lockMobileLandscapeFeaturePan(){
     if(!isMobileLandscapeTouchLayout()){
@@ -6664,8 +6640,9 @@ function updateMobileHoverFromCursor(){
 }
 
 function getMobilePanBounds(){
+    /* A feature view in touch landscape is intentionally stationary. */
     if(mobileLandscapeFeaturePanLocked && isMobileLandscapeTouchLayout()){
-        return {minX:0, maxX:0, minY:0, maxY:0};
+        return { minX:0, maxX:0, minY:0, maxY:0 };
     }
 
     const rect = getDisplayedImageRect();
@@ -6698,8 +6675,6 @@ function updateMobileParallaxFromCursor(){
     if(!mobileTouchMode){ return; }
 
     if(mobileLandscapeFeaturePanLocked && isMobileLandscapeTouchLayout()){
-        targetParallaxX = 0;
-        targetParallaxY = 0;
         mobilePanTargetX = 0;
         mobilePanTargetY = 0;
         mobilePanCurrentX = 0;
@@ -6911,6 +6886,7 @@ if(mobileTouchMode){
         const touchPageActive = (mainSite && mainSite.classList.contains('show')) || (intro && !intro.classList.contains('fadeOut'));
         if(!touchPageActive){ return; }
         if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
+        /* Keep the compact landscape panel's copy natively scrollable. */
         if(event.target.closest('.panelScrollableText, .adaptiveScrollControl')){ return; }
         if(document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout()){ return; }
 
@@ -6968,13 +6944,19 @@ if(mobileTouchMode){
         const touchPageActive = (mainSite && mainSite.classList.contains('show')) || (intro && !intro.classList.contains('fadeOut'));
         if(!touchPageActive){ return; }
         if(event.target.closest('#mobileJoystick') || event.target.closest('#mobileTouchGuide')){ return; }
-        if(event.target.closest('.panelScrollableText, .adaptiveScrollControl')){ return; }
         if(document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout()){ return; }
         event.preventDefault();
         event.stopPropagation();
     }, {capture:true});
 
     window.addEventListener('resize', ()=>{
+        /* Rotation cannot carry a landscape feature lock into portrait mode. */
+        if(!isMobileLandscapeTouchLayout()){
+            mobileLandscapeFeaturePanLocked = false;
+        }else if(sequenceStarted){
+            lockMobileLandscapeFeaturePan();
+        }
+
         setMobileCursorPosition(cursorTargetX, cursorTargetY);
         clampMobilePanTargets();
         resetMobileJoystick();
@@ -7058,21 +7040,31 @@ function animateCursorAndParallax(){
 
     if(mainSite.classList.contains('show')){
         if(mobileTouchMode){
-            if(mobilePortraitPanLocked && isMobilePortraitLayout()){
-                mobilePanTargetX = mobilePortraitLockedPanX;
-                mobilePanTargetY = mobilePortraitLockedPanY;
-            }
-            clampMobilePanTargets();
-            mobilePanCurrentX += (mobilePanTargetX - mobilePanCurrentX) * 0.145;
-            mobilePanCurrentY += (mobilePanTargetY - mobilePanCurrentY) * 0.145;
-            if(isMobilePortraitLayout()){
-                mainPlane.style.transformOrigin = '50% 0%';
-                /* IMPORTANT: no extra scale here. The portrait zoom-out is controlled only
-                   by getDisplayedImageRect(), so no transform can accidentally undo it. */
-                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0)`;
-            }else{
+            if(mobileLandscapeFeaturePanLocked && isMobileLandscapeTouchLayout()){
+                /* Never ease toward an old portrait/joystick target in landscape. */
+                mobilePanTargetX = 0;
+                mobilePanTargetY = 0;
+                mobilePanCurrentX = 0;
+                mobilePanCurrentY = 0;
                 mainPlane.style.transformOrigin = '50% 50%';
-                mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0)`;
+                mainPlane.style.transform = 'translate3d(0px, 0px, 0px)';
+            }else{
+                if(mobilePortraitPanLocked && isMobilePortraitLayout()){
+                    mobilePanTargetX = mobilePortraitLockedPanX;
+                    mobilePanTargetY = mobilePortraitLockedPanY;
+                }
+                clampMobilePanTargets();
+                mobilePanCurrentX += (mobilePanTargetX - mobilePanCurrentX) * 0.145;
+                mobilePanCurrentY += (mobilePanTargetY - mobilePanCurrentY) * 0.145;
+                if(isMobilePortraitLayout()){
+                    mainPlane.style.transformOrigin = '50% 0%';
+                    /* IMPORTANT: no extra scale here. The portrait zoom-out is controlled only
+                       by getDisplayedImageRect(), so no transform can accidentally undo it. */
+                    mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0)`;
+                }else{
+                    mainPlane.style.transformOrigin = '50% 50%';
+                    mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0)`;
+                }
             }
             updateMobileBottomFadePosition();
         }else if(isMobilePortraitLayout()){
