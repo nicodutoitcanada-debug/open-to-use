@@ -3701,8 +3701,8 @@ const MOBILE_PORTRAIT_PRODUCT_RIGHT_NUDGE_PX = 46;  // established +38px, then +
 /* These are the actual final translated Y positions used by the shared
    portrait frame-and-pan timeline. They are deliberately direct values so the
    feature camera cannot inherit an older upward amount from a secondary path. */
-const MOBILE_PORTRAIT_PRODUCT_FINAL_PAN_Y = -82;    // 10px lower than the previously working -92px framing
-const MOBILE_PORTRAIT_CONTACT_FINAL_PAN_Y = -100;   // 20px lower than the previously working -120px framing
+const MOBILE_PORTRAIT_PRODUCT_FINAL_PAN_Y = -72;    // 10px lower than the previous -82px final portrait framing
+const MOBILE_PORTRAIT_CONTACT_FINAL_PAN_Y = -85;    // 15px lower than the previous -100px final portrait framing
 const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
 
 /* THE PRODUCT temporarily scales the complete portrait scene down by 15%.
@@ -4255,22 +4255,47 @@ function positionFeatureVideo(){
 function positionContactFrameOverlays(){
     const rect = getDisplayedImageRect();
     const scale = rect.width / imageNaturalWidth;
+    const viewport = getLayoutViewport();
+    const isLandscapeContactLayout = isLandscapeViewport(viewport.width, viewport.height);
 
     if(contactFramePanel){
-        /* TWEAK THESE THREE NUMBERS if the left contact window needs nudging. */
-        const panelX = 430;      // horizontal position is already correct
-        const panelY = 330;      // vertically centered higher on the card area
-        const panelWidth = 600;
+        /*
+           Landscape desktop and touch:
+           Keep the contact window as a screen UI element, centered in the left
+           half of the viewport. Its design width is 15% larger than the original
+           600px panel. This deliberately does not apply to mobile portrait, which
+           retains the business-card-anchored placement below.
+        */
+        const panelWidth = isLandscapeContactLayout ? 690 : 600;
 
-        const panelPoint = getTransformedMainPlanePoint({
-            x: rect.left + (panelX * scale),
-            y: rect.top + (panelY * scale)
-        });
-
-        contactFramePanel.style.left = `${panelPoint.x}px`;
-        contactFramePanel.style.top = `${panelPoint.y}px`;
         contactFramePanel.style.width = `${panelWidth}px`;
         contactFramePanel.style.transform = `scale(${scale.toFixed(4)})`;
+
+        if(isLandscapeContactLayout){
+            /*
+               The CSS transform is anchored at the panel's top-left corner, so
+               calculate in final screen pixels after the shared image scale is
+               applied. Measuring after width is set gives the correct vertical
+               center even when the panel text wraps on a small landscape screen.
+            */
+            const renderedWidth = panelWidth * scale;
+            const renderedHeight = contactFramePanel.offsetHeight * scale;
+
+            contactFramePanel.style.left = `${(viewport.width * 0.25 - renderedWidth / 2).toFixed(2)}px`;
+            contactFramePanel.style.top = `${(viewport.height * 0.5 - renderedHeight / 2).toFixed(2)}px`;
+        }else{
+            /* Mobile portrait remains anchored to its original business-card area. */
+            const panelX = 430;
+            const panelY = 330;
+
+            const panelPoint = getTransformedMainPlanePoint({
+                x: rect.left + (panelX * scale),
+                y: rect.top + (panelY * scale)
+            });
+
+            contactFramePanel.style.left = `${panelPoint.x}px`;
+            contactFramePanel.style.top = `${panelPoint.y}px`;
+        }
     }
 
     if(contactEmailHotspot){
