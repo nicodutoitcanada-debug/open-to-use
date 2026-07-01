@@ -4259,6 +4259,11 @@ const MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX = 30;
 const MOBILE_PORTRAIT_CONTACT_FINAL_PAN_Y =
     MOBILE_PORTRAIT_CONTACT_BASE_PAN_Y + MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX; // -70px
 
+/* Compact phone landscape Contact view: move the whole shared 1920×1080 scene
+   right during the Contact sequence so the business card and its hotspot clear
+   the left-side Contact panel. This deliberately excludes iPad/tablet and desktop. */
+const MOBILE_LANDSCAPE_CONTACT_RIGHT_PAN_PX = 40;
+
 const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
 
 /* THE PRODUCT temporarily scales the complete portrait scene down by 15%.
@@ -5631,6 +5636,81 @@ function playMobilePortraitSequenceWithPan(feature, start, end, onComplete, onFr
     requestAnimationFrame(animate);
 }
 
+
+/*
+   COMPACT MOBILE LANDSCAPE CONTACT
+   -------------------------------
+   The left-side Contact panel intentionally stays fixed as screen UI. On phone
+   landscape only, this timeline moves the complete scene 40px right while the
+   Contact JPG sequence advances, then brings it back to the exact default
+   origin while the reverse JPG sequence plays. That keeps the business card
+   and its fixed hotspot clear of the panel without changing iPad, desktop, or
+   mobile portrait geometry.
+*/
+function playMobileLandscapeContactSequenceWithPan(feature, start, end, onComplete, onFrame){
+    if(!isMobileLandscapeContactPanFeature(feature)){
+        playSequence(feature, start, end, onComplete, onFrame);
+        return;
+    }
+
+    if(isAnimatingSequence){
+        return;
+    }
+
+    isAnimatingSequence = true;
+
+    const direction = start <= end ? 1 : -1;
+    const frameCount = Math.abs(end - start) + 1;
+    const duration = frameCount * frameHold;
+    const isForward = direction === 1;
+    const startX = mobileLandscapeLockedPanX;
+    const targetX = isForward ? MOBILE_LANDSCAPE_CONTACT_RIGHT_PAN_PX : 0;
+    const token = ++mobilePanTweenToken;
+    const startTime = performance.now();
+    let lastFrame = null;
+
+    function presentFrame(frame){
+        if(frame === lastFrame){ return; }
+        lastFrame = frame;
+        const preloadedFrame = getPreloadedFrame(feature, frame);
+        sequenceImage.src = preloadedFrame ? preloadedFrame.src : frameName(feature, frame);
+        if(typeof onFrame === 'function'){
+            onFrame(frame);
+        }
+    }
+
+    function animate(now){
+        if(token !== mobilePanTweenToken){
+            isAnimatingSequence = false;
+            return;
+        }
+
+        const progress = clamp((now - startTime) / duration, 0, 1);
+        const eased = easeInOutCubic(progress);
+        const x = startX + (targetX - startX) * eased;
+        const frameOffset = Math.min(frameCount - 1, Math.floor(progress * frameCount));
+        const frame = start + (direction * frameOffset);
+
+        applyMobileLandscapeFeaturePan(x, 0);
+        presentFrame(frame);
+
+        if(progress < 1){
+            requestAnimationFrame(animate);
+            return;
+        }
+
+        applyMobileLandscapeFeaturePan(targetX, 0);
+        presentFrame(end);
+        isAnimatingSequence = false;
+
+        if(typeof onComplete === 'function'){
+            onComplete();
+        }
+    }
+
+    requestAnimationFrame(animate);
+}
+
 let reverseVideoAnimationFrame = null;
 
 function showDefaultFeatureVideoFirstFrame(){
@@ -5969,6 +6049,8 @@ async function playForwardSequence(featureId){
        hotspot.
     */
     const synchronizePortraitPan = isMobilePortraitTouchLayout();
+    const synchronizeLandscapeContactPan = !synchronizePortraitPan
+        && isMobileLandscapeContactPanFeature(featureToPlay);
 
     isPreparingSequence = true;
     const stopPreloadTumbler = synchronizePortraitPan
@@ -6061,6 +6143,14 @@ async function playForwardSequence(featureId){
                 finishForwardSequence,
                 handleSequenceFrame
             );
+        }else if(synchronizeLandscapeContactPan){
+            playMobileLandscapeContactSequenceWithPan(
+                activeFeature,
+                activeFeature.firstFrame,
+                activeFeature.lastFrame,
+                finishForwardSequence,
+                handleSequenceFrame
+            );
         }else{
             playSequence(
                 activeFeature,
@@ -6106,8 +6196,17 @@ function goBackToDefaultFrame(){
                 featureToReverse.firstFrame,
                 finishReverseSequence
             );
+        }else if(isMobileLandscapeContactPanFeature(featureToReverse)){
+            /* Compact phone landscape Contact returns to the exact default scene
+               origin on the same clock as its reverse JPG sequence. */
+            playMobileLandscapeContactSequenceWithPan(
+                featureToReverse,
+                featureToReverse.lastFrame,
+                featureToReverse.firstFrame,
+                finishReverseSequence
+            );
         }else{
-            /* Preserve all non-portrait behavior, including the mobile-landscape lock. */
+            /* Preserve all other non-portrait behavior. */
             await resetMobilePortraitFeatureHeightBeforeReverse(featureToReverse);
             playSequence(
                 featureToReverse,
@@ -7246,8 +7345,12 @@ let mobilePortraitLockedPanX = 0;
 let mobilePortraitLockedPanY = 0;
 /* Allows a prepared portrait hotspot pan to hold a deliberate upward offset. */
 let mobilePortraitPanMinYOverride = 0;
-/* Landscape phones must never inherit portrait-only feature camera pans. */
+/* Landscape phones must never inherit portrait-only feature camera pans.
+   A compact-phone Contact journey may still use its own dedicated horizontal
+   scene offset, kept in these locked values so the animation loop cannot erase it. */
 let mobileLandscapeFeaturePanLocked = false;
+let mobileLandscapeLockedPanX = 0;
+let mobileLandscapeLockedPanY = 0;
 let mobileSnapHotspotElement = null;
 let mobileSnapReleaseCooldownUntil = 0;
 
@@ -7266,31 +7369,70 @@ function isMobileLandscapeTouchLayout(){
     return mobileTouchMode && isLandscapeViewport(viewport.width, viewport.height);
 }
 
+/* Keep this Contact-only pan on compact phones. It intentionally does not
+   apply on iPad/tablet landscape or desktop, where the left-half panel already
+   has enough room without moving the artwork. */
+function isCompactMobileLandscapeLayout(){
+    const viewport = getLayoutViewport();
+    return isMobileLandscapeTouchLayout() && viewport.height <= 600;
+}
+
+function isMobileLandscapeContactPanFeature(feature){
+    return !!feature
+        && feature === features.contact
+        && isCompactMobileLandscapeLayout();
+}
+
 /*
-   Portrait-only feature pans must not leak into a rotated phone. Hold the
-   shared 1920×1080 plane at its default origin while any landscape feature is
-   open, including Contact's card exit and the reverse JPG sequence.
+   Apply a locked phone-landscape scene offset. Every scene layer inside
+   #mainPlane moves together, while the Contact panel remains screen UI. The
+   fixed card hotspot is recalculated through the existing transformed-point
+   helper so it stays exactly over the card during the movement.
 */
-function lockMobileLandscapeFeaturePan(){
+function applyMobileLandscapeFeaturePan(x = 0, y = 0){
     if(!isMobileLandscapeTouchLayout()){
         return;
     }
 
     mobileLandscapeFeaturePanLocked = true;
-    ++mobilePanTweenToken;
-    mobilePanTargetX = 0;
-    mobilePanTargetY = 0;
-    mobilePanCurrentX = 0;
-    mobilePanCurrentY = 0;
+    mobileLandscapeLockedPanX = x;
+    mobileLandscapeLockedPanY = y;
+    mobilePanTargetX = x;
+    mobilePanTargetY = y;
+    mobilePanCurrentX = x;
+    mobilePanCurrentY = y;
 
     if(mainPlane){
         mainPlane.style.transformOrigin = '50% 50%';
-        mainPlane.style.transform = 'translate3d(0px, 0px, 0px)';
+        mainPlane.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`;
     }
+
+    /* Fixed hit areas live outside #mainPlane, so refresh the ones that may be
+       visible on the Contact page while the parent plane is offset. */
+    positionContactFrameOverlays();
+    positionDownloadHotspot();
+    positionProductPlayHotspot();
+    positionMovieControls();
+}
+
+/*
+   Portrait-only feature pans must not leak into a rotated phone. Landscape
+   begins at the exact default origin, then the Contact-specific unified
+   sequence timeline may animate the locked X value to the approved endpoint.
+*/
+function lockMobileLandscapeFeaturePan(preservedX = 0, preservedY = 0){
+    if(!isMobileLandscapeTouchLayout()){
+        return;
+    }
+
+    ++mobilePanTweenToken;
+    applyMobileLandscapeFeaturePan(preservedX, preservedY);
 }
 
 function unlockMobileLandscapeFeaturePan(){
     mobileLandscapeFeaturePanLocked = false;
+    mobileLandscapeLockedPanX = 0;
+    mobileLandscapeLockedPanY = 0;
     ++mobilePanTweenToken;
     mobilePanTargetX = 0;
     mobilePanTargetY = 0;
@@ -7720,7 +7862,12 @@ function updateMobileHoverFromCursor(){
 function getMobilePanBounds(){
     /* A feature view in touch landscape is intentionally stationary. */
     if(mobileLandscapeFeaturePanLocked && isMobileLandscapeTouchLayout()){
-        return { minX:0, maxX:0, minY:0, maxY:0 };
+        return {
+            minX:mobileLandscapeLockedPanX,
+            maxX:mobileLandscapeLockedPanX,
+            minY:mobileLandscapeLockedPanY,
+            maxY:mobileLandscapeLockedPanY
+        };
     }
 
     const rect = getDisplayedImageRect();
@@ -7753,10 +7900,10 @@ function updateMobileParallaxFromCursor(){
     if(!mobileTouchMode){ return; }
 
     if(mobileLandscapeFeaturePanLocked && isMobileLandscapeTouchLayout()){
-        mobilePanTargetX = 0;
-        mobilePanTargetY = 0;
-        mobilePanCurrentX = 0;
-        mobilePanCurrentY = 0;
+        mobilePanTargetX = mobileLandscapeLockedPanX;
+        mobilePanTargetY = mobileLandscapeLockedPanY;
+        mobilePanCurrentX = mobileLandscapeLockedPanX;
+        mobilePanCurrentY = mobileLandscapeLockedPanY;
         return;
     }
 
@@ -8031,8 +8178,13 @@ if(mobileTouchMode){
         /* Rotation cannot carry a landscape feature lock into portrait mode. */
         if(!isMobileLandscapeTouchLayout()){
             mobileLandscapeFeaturePanLocked = false;
+            mobileLandscapeLockedPanX = 0;
+            mobileLandscapeLockedPanY = 0;
         }else if(sequenceStarted){
-            lockMobileLandscapeFeaturePan();
+            const keepLandscapeContactX = isMobileLandscapeContactPanFeature(activeFeature)
+                ? mobileLandscapeLockedPanX
+                : 0;
+            lockMobileLandscapeFeaturePan(keepLandscapeContactX, 0);
         }
 
         setMobileCursorPosition(cursorTargetX, cursorTargetY);
@@ -8121,13 +8273,15 @@ function animateCursorAndParallax(){
     if(mainSite.classList.contains('show')){
         if(mobileTouchMode){
             if(mobileLandscapeFeaturePanLocked && isMobileLandscapeTouchLayout()){
-                /* Never ease toward an old portrait/joystick target in landscape. */
-                mobilePanTargetX = 0;
-                mobilePanTargetY = 0;
-                mobilePanCurrentX = 0;
-                mobilePanCurrentY = 0;
+                /* Never ease toward an old portrait/joystick target in landscape.
+                   The dedicated compact-phone Contact sequence may hold a safe
+                   horizontal endpoint here; preserve it instead of resetting it. */
+                mobilePanTargetX = mobileLandscapeLockedPanX;
+                mobilePanTargetY = mobileLandscapeLockedPanY;
+                mobilePanCurrentX = mobileLandscapeLockedPanX;
+                mobilePanCurrentY = mobileLandscapeLockedPanY;
                 mainPlane.style.transformOrigin = '50% 50%';
-                mainPlane.style.transform = 'translate3d(0px, 0px, 0px)';
+                mainPlane.style.transform = `translate3d(${mobileLandscapeLockedPanX.toFixed(2)}px, ${mobileLandscapeLockedPanY.toFixed(2)}px, 0)`;
             }else{
                 if(mobilePortraitPanLocked && isMobilePortraitLayout()){
                     mobilePanTargetX = mobilePortraitLockedPanX;
