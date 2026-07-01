@@ -3380,6 +3380,116 @@ html.touch-input .adaptiveScrollControl:focus-visible .adaptiveScrollThumb{
     }
 }
 
+
+
+/* =========================
+   SCROLL CLEARANCE + QR POPUP FINISHING
+   The orange rail has a wide 48px touch target. Reserve a larger inner gutter
+   so no scrolling copy can pass behind either the rail or its thumb.
+========================= */
+.panelScrollableText,
+#howOverlay .howText,
+#aboutOverlay .howText{
+    padding-inline-end:56px !important;
+}
+
+/* The HOW PIXEL STREAMING WORKS Back action gets twice the clear space above
+   and below it. The copy remains the flexible scrolling region, so the panel
+   continues to fit on short portrait screens. */
+#howOverlay .overlayActionRow{
+    margin-top:clamp(16px, 2.8vh, 24px) !important;
+    padding-bottom:clamp(16px, 2.8vh, 24px) !important;
+}
+
+/* Keep every custom rail below the QR explanation rather than floating over
+   its full-screen blur. The class is added only while the QR dialog is open. */
+html.contact-qr-popup-open .adaptiveScrollControl{
+    opacity:0 !important;
+    visibility:hidden !important;
+    pointer-events:none !important;
+}
+
+/* The QR guidance stays in the topmost UI layer even while the page itself is
+   transitioning from an image sequence. */
+#contactQrPopup{
+    z-index:9997 !important;
+    isolation:isolate;
+}
+
+/* Brand the QR dialog with the Home View logo and give the logo generous
+   breathing room above and below. */
+.contactQrPopupPanel{
+    padding:clamp(30px, 5vh, 46px) 22px clamp(30px, 4.6vh, 42px) !important;
+}
+
+.contactQrPopupLogo{
+    display:block;
+    width:clamp(102px, 29vw, 142px);
+    max-width:58%;
+    height:auto;
+    margin:clamp(8px, 1.4vh, 16px) auto clamp(24px, 4.2vh, 38px);
+    filter:drop-shadow(0 8px 20px rgba(0,0,0,.42));
+}
+
+/* Extra breathing room above and below the QR popup's OK action. */
+#contactQrPopupOkBtn{
+    margin-top:clamp(30px, 4.8vh, 40px) !important;
+    margin-bottom:clamp(8px, 1.4vh, 16px) !important;
+}
+
+@media (orientation:portrait) and (max-width:900px){
+    /* Portrait uses the widest scroll-rail touch target, so reserve the full
+       text gutter rather than relying on the older 34px allowance. */
+    #howOverlay .howText,
+    #aboutOverlay .howText,
+    body.mobilePortraitHotspotActive .infoPanel .panelScrollableText,
+    body.mobilePortraitHotspotActive .contactFramePanel .panelScrollableText{
+        padding-inline-end:56px !important;
+    }
+
+    #howOverlay .overlayActionRow{
+        margin-top:clamp(16px, 2.6vh, 22px) !important;
+        padding-bottom:clamp(14px, 2.4vh, 22px) !important;
+    }
+
+    .contactQrPopupPanel{
+        padding:clamp(28px, 5vh, 40px) 20px clamp(28px, 4.5vh, 38px) !important;
+    }
+
+    .contactQrPopupLogo{
+        width:clamp(96px, 28vw, 128px);
+        margin:clamp(8px, 1.5vh, 14px) auto clamp(22px, 3.9vh, 30px);
+    }
+
+    #contactQrPopupOkBtn{
+        margin-top:clamp(28px, 4.4vh, 36px) !important;
+        margin-bottom:clamp(8px, 1.4vh, 14px) !important;
+    }
+}
+
+@media (max-height:560px){
+    /* Preserve a reliable fit on especially short landscape/portrait screens
+       while retaining visibly larger space than the original QR layout. */
+    #howOverlay .overlayActionRow{
+        margin-top:14px !important;
+        padding-bottom:14px !important;
+    }
+
+    .contactQrPopupPanel{
+        padding:24px 18px 24px !important;
+    }
+
+    .contactQrPopupLogo{
+        width:88px;
+        margin:4px auto 18px;
+    }
+
+    #contactQrPopupOkBtn{
+        margin-top:22px !important;
+        margin-bottom:6px !important;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -3491,6 +3601,7 @@ html.touch-input .adaptiveScrollControl:focus-visible .adaptiveScrollThumb{
     <!-- This is intentionally a bottom-half glass panel rather than a full-screen overlay. -->
     <div id="contactQrPopup" aria-hidden="true">
         <div class="contactQrPopupPanel" role="dialog" aria-labelledby="contactQrPopupTitle">
+            <img src="logo.png" class="contactQrPopupLogo" alt="Home View Solutions">
             <p id="contactQrPopupTitle">Tap on the QR code to download contact.</p>
             <p class="contactQrPopupSubtext">Or scan the QR code</p>
             <button id="contactQrPopupOkBtn" type="button">OK</button>
@@ -3975,6 +4086,8 @@ function closeContactQrPopup(){
     if(!contactQrPopup){ return; }
     contactQrPopup.classList.remove('show');
     contactQrPopup.setAttribute('aria-hidden', 'true');
+    document.documentElement.classList.remove('contact-qr-popup-open');
+    requestAdaptiveScrollControlRefresh();
 }
 
 function resetContactQrPopupForNextContactVisit(){
@@ -3991,6 +4104,8 @@ function showContactQrPopupOnce(){
     contactQrPopupHasBeenShown = true;
     contactQrPopup.classList.add('show');
     contactQrPopup.setAttribute('aria-hidden', 'false');
+    document.documentElement.classList.add('contact-qr-popup-open');
+    requestAdaptiveScrollControlRefresh();
 }
 
 function frameName(feature, index){
