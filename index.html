@@ -3490,6 +3490,76 @@ html.contact-qr-popup-open .adaptiveScrollControl{
     }
 }
 
+
+/* =========================
+   CONTACT LANDSCAPE UI SIZE FIX
+   Keep the Contact hotspot panel as true screen UI in landscape. It must not
+   inherit the image-sequence scale, which previously shrank every label and
+   button on iPad and mobile landscape.
+========================= */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:600px){
+    #contactFramePanel{
+        max-height:calc(100dvh - 18px) !important;
+        padding:18px 18px 16px !important;
+        border-radius:20px !important;
+    }
+
+    #contactFramePanel h2{
+        flex:0 0 auto;
+        margin:0 0 11px !important;
+        font-size:clamp(17px, 2.65vw, 21px) !important;
+        line-height:1.14 !important;
+        letter-spacing:1.1px !important;
+    }
+
+    #contactFramePanel .panelScrollableText{
+        flex:1 1 auto;
+        min-height:0;
+        max-height:clamp(74px, 30dvh, 132px) !important;
+        padding:10px 56px 10px 18px !important;
+        margin:0 !important;
+    }
+
+    #contactFramePanel .panelScrollableText p{
+        font-size:clamp(12px, 1.8vw, 14px) !important;
+        line-height:1.43 !important;
+    }
+
+    #contactFramePanel .panelScrollableText p + p{
+        margin-top:12px !important;
+    }
+
+    #contactFramePanel .contactCardActionText{
+        flex:0 0 auto;
+        margin:8px 0 0 !important;
+        font-size:clamp(10px, 1.4vw, 12px) !important;
+        line-height:1.32 !important;
+    }
+
+    #contactFramePanel .contactFrameActions{
+        flex:0 0 auto;
+        gap:8px !important;
+        padding-top:10px !important;
+    }
+
+    #contactFramePanel .contactFrameBtn{
+        padding:9px 12px !important;
+        font-size:12px !important;
+        line-height:1.1 !important;
+        letter-spacing:.55px !important;
+    }
+}
+
+/* iPad and desktop landscape retain the same direct, unscaled visual scale as
+   the other site windows. The mobile-landscape rule above only compacts layout
+   density for short phone screens; it never reduces the real type/button size
+   through an image-plane transform. */
+@media (pointer:coarse) and (orientation:landscape) and (min-height:601px){
+    #contactFramePanel{
+        max-height:calc(100dvh - 32px) !important;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -4737,24 +4807,37 @@ function positionContactFrameOverlays(){
            600px panel. This deliberately does not apply to mobile portrait, which
            retains the business-card-anchored placement below.
         */
-        const panelWidth = isLandscapeContactLayout ? 690 : 600;
+        /*
+           LANDSCAPE CONTACT PANEL SIZE LOCK
+           ---------------------------------
+           The Contact panel is screen UI in landscape, not artwork that should
+           inherit the 1920px scene scale. The old transform:scale(rect.width /
+           1920) made all text and buttons tiny on iPad and especially on phones
+           in landscape. Keep its 15%-larger design intent, but size it directly
+           in viewport pixels and center that physical UI in the left half.
+
+           At 48vw the panel always leaves a small margin inside the left half,
+           while the min/max values preserve a usable phone size and the intended
+           690px desktop design size.
+        */
+        const panelWidth = isLandscapeContactLayout
+            ? Math.min(690, Math.max(280, viewport.width * 0.48))
+            : 600;
 
         contactFramePanel.style.width = `${panelWidth}px`;
-        contactFramePanel.style.transform = `scale(${scale.toFixed(4)})`;
 
         if(isLandscapeContactLayout){
-            /*
-               The CSS transform is anchored at the panel's top-left corner, so
-               calculate in final screen pixels after the shared image scale is
-               applied. Measuring after width is set gives the correct vertical
-               center even when the panel text wraps on a small landscape screen.
-            */
-            const renderedWidth = panelWidth * scale;
-            const renderedHeight = contactFramePanel.offsetHeight * scale;
+            contactFramePanel.style.transform = 'none';
+
+            /* No scene transform is applied here, so offsetWidth/offsetHeight
+               are already the actual on-screen dimensions. */
+            const renderedWidth = contactFramePanel.offsetWidth;
+            const renderedHeight = contactFramePanel.offsetHeight;
 
             contactFramePanel.style.left = `${(viewport.width * 0.25 - renderedWidth / 2).toFixed(2)}px`;
             contactFramePanel.style.top = `${(viewport.height * 0.5 - renderedHeight / 2).toFixed(2)}px`;
         }else{
+            contactFramePanel.style.transform = `scale(${scale.toFixed(4)})`;
             /* Mobile portrait remains anchored to its original business-card area. */
             const panelX = 430;
             const panelY = 330;
