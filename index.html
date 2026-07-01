@@ -3560,6 +3560,21 @@ html.contact-qr-popup-open .adaptiveScrollControl{
     }
 }
 
+/* iPhone landscape camera / notch clearance
+   -----------------------------------------
+   The panel is normally centred in the viewport's left half. On short touch
+   landscape screens, keep its left edge outside the physical left safe area,
+   with a small visible breathing margin. The preferred centre position remains
+   in effect on phones without a notch and on every tablet/desktop layout. */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:600px){
+    #contactFramePanel{
+        left:max(
+            var(--contact-landscape-preferred-left, 12px),
+            calc(env(safe-area-inset-left, 0px) + 12px)
+        ) !important;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -4834,7 +4849,18 @@ function positionContactFrameOverlays(){
             const renderedWidth = contactFramePanel.offsetWidth;
             const renderedHeight = contactFramePanel.offsetHeight;
 
-            contactFramePanel.style.left = `${(viewport.width * 0.25 - renderedWidth / 2).toFixed(2)}px`;
+            /*
+               Store the centred-left-half position as a custom property. On compact
+               touch landscape layouts, CSS compares it with the iPhone left safe
+               area and moves the whole panel right only when a notch / camera island
+               would otherwise cover the left edge.
+            */
+            const preferredLandscapeLeft = viewport.width * 0.25 - renderedWidth / 2;
+            contactFramePanel.style.setProperty(
+                '--contact-landscape-preferred-left',
+                `${preferredLandscapeLeft.toFixed(2)}px`
+            );
+            contactFramePanel.style.left = `${preferredLandscapeLeft.toFixed(2)}px`;
             contactFramePanel.style.top = `${(viewport.height * 0.5 - renderedHeight / 2).toFixed(2)}px`;
         }else{
             contactFramePanel.style.transform = `scale(${scale.toFixed(4)})`;
