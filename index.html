@@ -3698,11 +3698,25 @@ const MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO = 0.755;
    the requested additional offsets. The shared forward/reverse timeline reads
    these exact same values, so every path returns to the default-frame geometry. */
 const MOBILE_PORTRAIT_PRODUCT_RIGHT_NUDGE_PX = 46;  // established +38px, then +8px right
-/* These are the actual final translated Y positions used by the shared
-   portrait frame-and-pan timeline. They are deliberately direct values so the
-   feature camera cannot inherit an older upward amount from a secondary path. */
-const MOBILE_PORTRAIT_PRODUCT_FINAL_PAN_Y = -72;    // 10px lower than the previous -82px final portrait framing
-const MOBILE_PORTRAIT_CONTACT_FINAL_PAN_Y = -85;    // 15px lower than the previous -100px final portrait framing
+/*
+   PORTRAIT FEATURE ENDPOINTS
+   The base values preserve the previously approved feature framing. A positive
+   lower offset moves the entire 1920×1080 scene down the screen because the
+   parent #mainPlane translation is negative when it is panned upward.
+
+   These values are deliberately calculated here, then consumed by the shared
+   forward/reverse sequence timeline. No second portrait path may replace them.
+*/
+const MOBILE_PORTRAIT_PRODUCT_BASE_PAN_Y = -82;
+const MOBILE_PORTRAIT_PRODUCT_LOWER_OFFSET_PX = 10;
+const MOBILE_PORTRAIT_PRODUCT_FINAL_PAN_Y =
+    MOBILE_PORTRAIT_PRODUCT_BASE_PAN_Y + MOBILE_PORTRAIT_PRODUCT_LOWER_OFFSET_PX;
+
+const MOBILE_PORTRAIT_CONTACT_BASE_PAN_Y = -100;
+const MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX = 15;
+const MOBILE_PORTRAIT_CONTACT_FINAL_PAN_Y =
+    MOBILE_PORTRAIT_CONTACT_BASE_PAN_Y + MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX;
+
 const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
 
 /* THE PRODUCT temporarily scales the complete portrait scene down by 15%.
@@ -6643,8 +6657,14 @@ let mobileLandscapeFeaturePanLocked = false;
 let mobileSnapHotspotElement = null;
 let mobileSnapReleaseCooldownUntil = 0;
 
+/*
+   The portrait feature camera is a layout rule, not an input-device rule.
+   A phone browser, remote device preview, or responsive test can report a fine
+   pointer even while using the narrow portrait layout. Gating this sequence
+   behind mobileTouchMode made its Y endpoint disappear in those cases.
+*/
 function isMobilePortraitTouchLayout(){
-    return mobileTouchMode && isMobilePortraitLayout();
+    return isMobilePortraitLayout();
 }
 
 function isMobileLandscapeTouchLayout(){
@@ -7534,10 +7554,28 @@ function animateCursorAndParallax(){
             }
             updateMobileBottomFadePosition();
         }else if(isMobilePortraitLayout()){
-            /* Also protect browser/device emulation portrait mode where pointer is fine.
-               This prevents the desktop parallax scale(1.13) from overriding the mobile portrait scale. */
+            /*
+               A narrow portrait viewport can be reported as a fine-pointer device
+               by a browser or preview tool. The old code forced the plane back to
+               0,0 here on every animation frame, which erased the Product and
+               Contact endpoint set by playMobilePortraitSequenceWithPan().
+
+               Keep the shared sequence endpoint locked exactly as touch portrait
+               does. When no feature is active, retain the ordinary default origin.
+            */
+            if(mobilePortraitPanLocked){
+                mobilePanTargetX = mobilePortraitLockedPanX;
+                mobilePanTargetY = mobilePortraitLockedPanY;
+                mobilePanCurrentX = mobilePortraitLockedPanX;
+                mobilePanCurrentY = mobilePortraitLockedPanY;
+            }else{
+                mobilePanTargetX = 0;
+                mobilePanTargetY = 0;
+                mobilePanCurrentX = 0;
+                mobilePanCurrentY = 0;
+            }
             mainPlane.style.transformOrigin = '50% 0%';
-            mainPlane.style.transform = 'translate3d(0px, 0px, 0px)';
+            mainPlane.style.transform = `translate3d(${mobilePanCurrentX}px, ${mobilePanCurrentY}px, 0)`;
         }else{
             const mainRotateY = bgRotateY * 1.45;
             const mainRotateX = bgRotateX * 1.45;
