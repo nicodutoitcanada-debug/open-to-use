@@ -3051,6 +3051,29 @@ body.featureHotspotActive .backBtn{
     }
 }
 
+
+
+/* =========================
+   SCROLL RAIL RECOVERY
+   Keep the custom rail active and the white copy independently scrollable in
+   portrait feature panels. This is deliberately limited to text regions; it
+   does not alter canvas panning, hotspots, or the landscape panel layout.
+========================= */
+@media (orientation:portrait) and (max-width:900px){
+    body.mobilePortraitHotspotActive .infoPanel .panelScrollableText,
+    body.mobilePortraitHotspotActive .contactFramePanel .panelScrollableText,
+    #howOverlay .howText,
+    #aboutOverlay .howText{
+        display:block !important;
+        flex:1 1 0 !important;
+        min-height:0 !important;
+        max-height:none !important;
+        overflow-y:auto !important;
+        overscroll-behavior:contain;
+        -webkit-overflow-scrolling:touch;
+        touch-action:pan-y !important;
+    }
+}
 </style>
 </head>
 <body>
@@ -7941,6 +7964,28 @@ const adaptiveScrollControls = [];
 let adaptiveScrollRefreshQueued = false;
 let adaptiveScrollMotionFrame = null;
 let adaptiveScrollMotionUntil = 0;
+
+
+/* Restored scroll-rail helpers. These intentionally identify only panels that
+   are genuinely open, so hidden panels never leave a fixed rail on screen. */
+function adaptiveScrollPanelIsOpen(scroller){
+    const overlay = scroller.closest('#howOverlay, #aboutOverlay, #contactOverlay');
+    if(overlay){
+        return overlay.classList.contains('show');
+    }
+
+    const featurePanel = scroller.closest('.infoPanel, .contactFramePanel');
+    if(!featurePanel || !featurePanel.classList.contains('show')){
+        return false;
+    }
+
+    const isPortraitPhone = window.matchMedia('(orientation: portrait) and (max-width: 900px)').matches;
+    return !isPortraitPhone || document.body.classList.contains('mobilePortraitHotspotActive');
+}
+
+function clampAdaptiveScroll(value, minimum, maximum){
+    return Math.min(maximum, Math.max(minimum, value));
+}
 
 /* A fixed scroll rail cannot rely on ResizeObserver alone: CSS transforms used
    while menus open do not change layout dimensions, so no resize fires. Follow
