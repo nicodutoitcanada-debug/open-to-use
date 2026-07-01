@@ -3325,6 +3325,61 @@ body.featureHotspotActive .backBtn{
     }
 }
 
+
+/* =========================
+   TOUCH FOCUS + GUIDE SPACING + HOW CTA
+   Touching a rail or button on iPad must not leave Safari's blue selection /
+   focus ring behind. Keyboard navigation keeps normal visible focus because
+   the no-outline state is applied only after a touch pointer interaction.
+========================= */
+button,
+a,
+[role="button"],
+.adaptiveScrollControl,
+.adaptiveScrollTrack,
+.adaptiveScrollThumb{
+    -webkit-tap-highlight-color:transparent;
+    -webkit-touch-callout:none;
+}
+
+html.touch-input button:focus,
+html.touch-input a:focus,
+html.touch-input [role="button"]:focus,
+html.touch-input .adaptiveScrollControl:focus{
+    outline:none !important;
+}
+
+html.touch-input .adaptiveScrollControl:focus-visible .adaptiveScrollThumb{
+    outline:none !important;
+}
+
+/* The guide's existing text-to-button gap and bottom panel padding were 18px
+   and 24px respectively. Double both so GOT IT has clear breathing room. */
+.mobileTouchGuidePanel{
+    padding-bottom:48px !important;
+}
+
+.mobileTouchGuidePanel p{
+    margin-bottom:36px !important;
+}
+
+/* HOW PIXEL STREAMING WORKS mirrors the separate, non-scrolling orange CTA
+   already used by ABOUT US. */
+#howOverlay .howContactPrompt{
+    flex:0 0 auto;
+    margin:clamp(8px, 1.4vh, 14px) 0 0;
+    color:#ff9d2e;
+    font-size:13px;
+    line-height:1.45;
+    font-weight:800;
+}
+
+@media (orientation:portrait) and (max-width:900px){
+    #howOverlay .howContactPrompt{
+        margin-top:clamp(7px, 1.2vh, 12px);
+    }
+}
+
 </style>
 </head>
 <body>
@@ -3576,7 +3631,21 @@ body.featureHotspotActive .backBtn{
                 This means customers can explore a high-end visualizer on a phone, tablet, laptop, or showroom screen without installing software or needing expensive hardware.
                 They simply open a link and interact with the home.
             </p>
+
+            <p>
+                Because the demanding 3D rendering stays in the cloud, the visualizer can be updated centrally as a home model, finish, floor plan, or feature changes. Buyers and sales teams always open the current experience from the same simple link.
+            </p>
+
+            <p>
+                Unlike a pre-rendered video, Pixel Streaming remains fully interactive. Every choice is calculated and shown live, so a customer can test ideas, compare options, and immediately understand how their selections affect the home.
+            </p>
+
+            <p>
+                It also makes the experience practical for showhomes, sales centres, remote appointments, and early marketing—giving people a polished, high-end walkthrough without asking them to download or maintain specialist software.
+            </p>
         </div>
+
+        <p class="howContactPrompt">Contact us to find out more.</p>
 
         <div class="overlayActionRow">
             <button id="howPanelBackBtn" class="overlayBackBtn noMagnet" type="button">◀ Back</button>
@@ -8570,6 +8639,22 @@ if(typeof ResizeObserver !== 'undefined'){
 window.addEventListener('resize', requestAdaptiveScrollControlRefresh, { passive:true });
 window.addEventListener('orientationchange', ()=>setTimeout(requestAdaptiveScrollControlRefresh, 120), { passive:true });
 requestAdaptiveScrollControlRefresh();
+
+
+/* Remember whether the current interaction is touch or keyboard. This avoids
+   Safari/iPad leaving a blue focus outline after a finger tap, while preserving
+   visible focus for keyboard users. */
+document.addEventListener('pointerdown', (event)=>{
+    if(event.pointerType === 'touch' || event.pointerType === 'pen'){
+        document.documentElement.classList.add('touch-input');
+    }else if(event.pointerType === 'mouse'){
+        document.documentElement.classList.remove('touch-input');
+    }
+}, { capture:true, passive:true });
+
+document.addEventListener('keydown', ()=>{
+    document.documentElement.classList.remove('touch-input');
+}, { capture:true });
 
 </script>
 </body>
