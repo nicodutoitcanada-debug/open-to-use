@@ -2466,6 +2466,21 @@ body.featureHotspotActive .backBtn{
 }
 
 /*
+   PRODUCT PANEL COPY SPACING
+   The Product pages now have two paragraphs. Keep the "why it is unique"
+   paragraph visibly separate and add balanced left/right inner breathing room
+   inside the independently scrollable text region.
+*/
+#infoPanel.infoPanel .panelScrollableText{
+    padding-left:18px;
+    padding-right:18px;
+}
+
+#infoPanel.infoPanel .panelScrollableText .productUniqueText{
+    margin-top:18px;
+}
+
+/*
    The descriptive white copy becomes the only scrolling part of the panel.
    The title, orange instruction and action buttons remain in view, even when
    Safari reports a shorter visual viewport or the device uses larger text.
@@ -2780,6 +2795,7 @@ body.featureHotspotActive .backBtn{
     body.mobilePortraitHotspotActive .contactFramePanel .panelScrollableText,
     #howOverlay .howText,
     #aboutOverlay .howText{
+        padding-left:18px !important;
         padding-right:34px !important;
         margin-right:0 !important;
     }
@@ -3020,7 +3036,7 @@ body.featureHotspotActive .backBtn{
         overscroll-behavior:contain;
         -webkit-overflow-scrolling:touch;
         touch-action:pan-y;
-        padding:0 28px 2px 0 !important;
+        padding:0 34px 2px 18px !important;
         margin:0 !important;
     }
 
@@ -3215,6 +3231,9 @@ body.featureHotspotActive .backBtn{
                 Explore a digital show home and instantly personalize finishes, colours, fixtures and materials.
                 Every selection updates pricing in real time, helping buyers understand the impact of their choices immediately.
                 No software installation is required — everything runs directly in a web browser on desktop, tablet or mobile.
+            </p>
+            <p class="productUniqueText">
+                What makes this unique is that buyers are not looking at a static render or a pre-selected show home: every change is visualized instantly in their own browser, with its price impact shown at the same moment.
             </p>
         </div>
         <p class="monitorActionText"><strong>Click the hotspot on the monitor to see it in action.</strong></p>
@@ -3566,18 +3585,21 @@ const productSteps = [
     {
         title: 'Customize Finishes in Real Time',
         text: 'Explore a digital show home and instantly personalize finishes, colours, fixtures and materials. Every selection updates pricing in real time, helping buyers understand the impact of their choices immediately. No software installation is required — everything runs directly in a web browser on desktop, tablet or mobile.',
+        uniqueText: 'What makes this unique is that buyers are not looking at a static render or a pre-selected show home: every change is visualized instantly in their own browser, with its price impact shown at the same moment.',
         videos: ['HV_Logo.mp4', 'HV_Logo_02.mp4'],
         nextLabel: 'Next ▶'
     },
     {
         title: 'Interactive Floor Plans & Layout Options',
         text: 'Switch between available floor plan layouts and immediately see the changes reflected in both the live 3D model and floor plan view. Structural options, room configurations and upgrade choices can be visualized instantly while associated costs are tracked automatically.',
+        uniqueText: 'What makes this unique is that the floor plan, live 3D home and pricing stay connected as one decision tool, so buyers can understand layout trade-offs before construction locks them in.',
         videos: ['HV_video-02_01.mp4', 'HV_video-02_02.mp4'],
         nextLabel: 'Next ▶'
     },
     {
         title: 'Experience the Finished Home',
         text: 'Once selections are complete, buyers can freely explore their personalized home and launch a real-time cinematic walkthrough featuring their exact choices. This creates a memorable experience that helps clients feel confident in their decisions before construction begins.',
+        uniqueText: 'What makes this unique is that the walkthrough is generated from the buyer’s own selections rather than a generic marketing video, making the finished home feel personal, accurate and ready to share.',
         videos: ['HV_video-03.mp4'],
         nextLabel: 'REQUEST DEMO'
     }
@@ -3708,14 +3730,16 @@ const MOBILE_PORTRAIT_PRODUCT_RIGHT_NUDGE_PX = 46;  // established +38px, then +
    forward/reverse sequence timeline. No second portrait path may replace them.
 */
 const MOBILE_PORTRAIT_PRODUCT_BASE_PAN_Y = -82;
-const MOBILE_PORTRAIT_PRODUCT_LOWER_OFFSET_PX = 10;
+/* The previously approved +10px lower target is increased by a further 10px. */
+const MOBILE_PORTRAIT_PRODUCT_LOWER_OFFSET_PX = 20;
 const MOBILE_PORTRAIT_PRODUCT_FINAL_PAN_Y =
-    MOBILE_PORTRAIT_PRODUCT_BASE_PAN_Y + MOBILE_PORTRAIT_PRODUCT_LOWER_OFFSET_PX;
+    MOBILE_PORTRAIT_PRODUCT_BASE_PAN_Y + MOBILE_PORTRAIT_PRODUCT_LOWER_OFFSET_PX; // -62px
 
 const MOBILE_PORTRAIT_CONTACT_BASE_PAN_Y = -100;
-const MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX = 15;
+/* The previously approved +15px lower target is increased by a further 10px. */
+const MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX = 25;
 const MOBILE_PORTRAIT_CONTACT_FINAL_PAN_Y =
-    MOBILE_PORTRAIT_CONTACT_BASE_PAN_Y + MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX;
+    MOBILE_PORTRAIT_CONTACT_BASE_PAN_Y + MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX; // -75px
 
 const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
 
@@ -5573,10 +5597,21 @@ function applyProductStepText(step){
     if(!infoPanel){ return; }
 
     const title = infoPanel.querySelector('h2');
-    const body = infoPanel.querySelector('p:not(.monitorActionText)');
+    const scrollableText = infoPanel.querySelector('.panelScrollableText');
 
     if(title){ title.textContent = step.title; }
-    if(body){ body.textContent = step.text; }
+
+    if(scrollableText){
+        const primaryParagraph = document.createElement('p');
+        primaryParagraph.textContent = step.text;
+
+        const uniqueParagraph = document.createElement('p');
+        uniqueParagraph.className = 'productUniqueText';
+        uniqueParagraph.textContent = step.uniqueText || '';
+
+        scrollableText.replaceChildren(primaryParagraph, uniqueParagraph);
+        scrollableText.scrollTop = 0;
+    }
 }
 
 function animateProductStepText(step){
