@@ -2691,6 +2691,15 @@ body.featureHotspotActive .backBtn{
     pointer-events:auto;
 }
 
+/* Keep the rail hidden until a real, post-layout measurement exists. This
+   prevents the orange control flashing at a stale panel rectangle while the
+   panel and its text are still entering or reflowing. */
+.adaptiveScrollControl.is-positioning{
+    opacity:0 !important;
+    visibility:hidden !important;
+    pointer-events:none !important;
+}
+
 .adaptiveScrollTrack{
     position:absolute;
     left:21px;
@@ -3660,8 +3669,12 @@ function isMobilePortraitLayout(){
 }
 
 const MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO = 0.755;
-/* Contact needs a clearly visible portrait lift before its card sequence begins. */
-const MOBILE_PORTRAIT_CONTACT_UP_PAN_PX = 40;
+/* Portrait camera target refinements: retain the established framing, then apply
+   the requested additional offsets. The shared forward/reverse timeline reads
+   these exact same values, so every path returns to the default-frame geometry. */
+const MOBILE_PORTRAIT_PRODUCT_RIGHT_NUDGE_PX = 46;  // established +38px, then +8px right
+const MOBILE_PORTRAIT_PRODUCT_UP_PAN_PX = 77;       // established 62px, then 15px higher
+const MOBILE_PORTRAIT_CONTACT_UP_PAN_PX = 80;       // established 40px, then 40px higher
 const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
 
 /* THE PRODUCT temporarily scales the complete portrait scene down by 15%.
@@ -4283,6 +4296,8 @@ function showContactFrameOverlays(){
         contactEmailHotspot.classList.add('show');
     }
     refreshMagneticTargets();
+    requestAdaptiveScrollControlRefresh();
+    trackAdaptiveScrollDuringPanelMotion(700);
 }
 
 function hideContactFrameOverlays(){
@@ -4700,6 +4715,9 @@ function showInfoPanel(){
 
     infoPanelShownDuringSequence = true;
     infoPanel.classList.add('show');
+    requestAdaptiveScrollControlRefresh();
+    /* Product uses the longest entrance animation, so keep its rail synchronized. */
+    trackAdaptiveScrollDuringPanelMotion(1650);
 }
 
 function playLogoVideo(index){
@@ -5487,6 +5505,8 @@ function animateProductStepText(step){
 
     infoPanel.classList.remove('productTextAnimatingIn');
     infoPanel.classList.add('productTextAnimatingOut');
+    requestAdaptiveScrollControlRefresh();
+    trackAdaptiveScrollDuringPanelMotion(820);
 
     productTextAnimationTimer = setTimeout(()=>{
         if(token !== productTextAnimationToken){ return; }
@@ -6725,8 +6745,8 @@ function getFeatureCenteredMobilePanX(feature){
     if(feature === features.howWeDoIt){
         target = 0;
     }else if(feature === features.finishes){
-        /* Keep the established product framing, then finish 8px farther right. */
-        target += 38;
+        /* Keep the established product framing, then finish a further 8px right. */
+        target += MOBILE_PORTRAIT_PRODUCT_RIGHT_NUDGE_PX;
     }else if(feature === features.contact){
         /* Keep the existing contact framing, then move it an additional 12px left. */
         target -= 30;
@@ -6738,21 +6758,20 @@ function getFeatureCenteredMobilePanX(feature){
 function getFeatureCenteredMobilePanY(feature){
     const bounds = getMobilePanBounds();
     if(feature === features.finishes){
-        return clamp(-62, bounds.minY, bounds.maxY);
+        return clamp(-MOBILE_PORTRAIT_PRODUCT_UP_PAN_PX, bounds.minY, bounds.maxY);
     }
     if(feature === features.contact){
-        /* Lift Contact by a clearly visible 40px before its sequence begins. */
+        /* Keep the prior 40px lift, then finish a further 40px higher. */
         return clamp(-MOBILE_PORTRAIT_CONTACT_UP_PAN_PX, bounds.minY, bounds.maxY);
     }
     return clamp(0, bounds.minY, bounds.maxY);
 }
 
 /*
-   THE PRODUCT and CONTACT begin their portrait sequences with a deliberate
-   upward pan. Contact lifts 40px; THE PRODUCT retains its established lift. Before their JPG sequences reverse, settle that vertical
-   difference back to zero so the reverse frame and default still share the
-   exact same Y. Keeping the portrait pan locked prevents the normal mobile
-   parallax loop from overriding this return animation.
+   THE PRODUCT and CONTACT begin their portrait sequences with deliberate
+   upward pans. Their shared forward/reverse timeline always returns the scene
+   to the exact default-frame geometry, preventing any offset at the first
+   reverse JPG frame.
 */
 function resetMobilePortraitFeatureHeightBeforeReverse(feature, duration = 820){
     /*
@@ -6845,7 +6864,7 @@ function panMobilePortraitToFeature(feature, duration = 1050){
        pre-sequence pan is active, so its value is not clamped back to zero.
     */
     mobilePortraitPanMinYOverride = feature === features.finishes
-        ? -62
+        ? -MOBILE_PORTRAIT_PRODUCT_UP_PAN_PX
         : feature === features.contact
             ? -MOBILE_PORTRAIT_CONTACT_UP_PAN_PX
             : 0;
@@ -7751,6 +7770,8 @@ function openHowOverlay(){
     howOverlay.classList.add('show');
     howOverlay.setAttribute('aria-hidden','false');
     refreshMagneticTargets();
+    requestAdaptiveScrollControlRefresh();
+    trackAdaptiveScrollDuringPanelMotion(700);
 }
 
 function closeHowOverlay(reverseAfterClose = false){
@@ -7793,6 +7814,8 @@ function openAboutOverlay(){
     aboutOverlay.classList.add('show');
     aboutOverlay.setAttribute('aria-hidden','false');
     refreshMagneticTargets();
+    requestAdaptiveScrollControlRefresh();
+    trackAdaptiveScrollDuringPanelMotion(700);
 }
 
 function closeAboutOverlay(reverseAfterClose = false){
@@ -7890,26 +7913,35 @@ const adaptiveScrollSelectors = [
 
 const adaptiveScrollControls = [];
 let adaptiveScrollRefreshQueued = false;
+let adaptiveScrollMotionFrame = null;
+let adaptiveScrollMotionUntil = 0;
 
-function adaptiveScrollPanelIsOpen(scroller){
-    const overlay = scroller.closest('#howOverlay, #aboutOverlay, #contactOverlay');
-    if(overlay){
-        return overlay.classList.contains('show');
+/* A fixed scroll rail cannot rely on ResizeObserver alone: CSS transforms used
+   while menus open do not change layout dimensions, so no resize fires. Follow
+   the panel while it enters and while product text changes reflow. */
+function trackAdaptiveScrollDuringPanelMotion(duration = 760){
+    adaptiveScrollMotionUntil = Math.max(
+        adaptiveScrollMotionUntil,
+        performance.now() + Math.max(0, duration)
+    );
+
+    if(adaptiveScrollMotionFrame){
+        return;
     }
 
-    const featurePanel = scroller.closest('.infoPanel, .contactFramePanel');
-    if(featurePanel){
-        return featurePanel.classList.contains('show')
-            && (!featurePanel.closest('.infoPanel, .contactFramePanel')
-                || !window.matchMedia('(orientation: portrait) and (max-width: 900px)').matches
-                || document.body.classList.contains('mobilePortraitHotspotActive'));
+    function follow(now){
+        refreshAdaptiveScrollControls();
+
+        if(now < adaptiveScrollMotionUntil){
+            adaptiveScrollMotionFrame = requestAnimationFrame(follow);
+            return;
+        }
+
+        adaptiveScrollMotionFrame = null;
+        refreshAdaptiveScrollControls();
     }
 
-    return false;
-}
-
-function clampAdaptiveScroll(value, minimum, maximum){
-    return Math.min(maximum, Math.max(minimum, value));
+    adaptiveScrollMotionFrame = requestAnimationFrame(follow);
 }
 
 function updateAdaptiveScrollControl(binding){
@@ -7919,9 +7951,10 @@ function updateAdaptiveScrollControl(binding){
     const isOpen = adaptiveScrollPanelIsOpen(scroller);
     const canScroll = isOpen && maxScroll > 2 && rect.width > 0 && rect.height > 42;
 
-    control.classList.toggle('is-visible', canScroll);
-
     if(!canScroll){
+        binding.hasStableOpeningMeasurement = false;
+        binding.revealToken = (binding.revealToken || 0) + 1;
+        control.classList.remove('is-visible', 'is-positioning');
         control.setAttribute('aria-hidden', 'true');
         return;
     }
@@ -7934,6 +7967,7 @@ function updateAdaptiveScrollControl(binding){
     const progress = maxScroll ? scroller.scrollTop / maxScroll : 0;
     const thumbTop = 9 + (progress * travel);
 
+    /* Apply geometry before the rail is ever allowed to fade in. */
     control.style.left = `${viewportLeft}px`;
     control.style.top = `${Math.max(0, rect.top)}px`;
     control.style.height = `${Math.max(48, rect.height)}px`;
@@ -7942,6 +7976,29 @@ function updateAdaptiveScrollControl(binding){
     control.setAttribute('aria-valuemin', '0');
     control.setAttribute('aria-valuemax', '100');
     control.setAttribute('aria-valuenow', String(Math.round(progress * 100)));
+    control.classList.add('is-visible');
+
+    /* Hold first appearance for two rAFs, allowing flex text and the panel's
+       transform to produce one accurate first rectangle instead of a flash + snap. */
+    if(!binding.hasStableOpeningMeasurement){
+        binding.hasStableOpeningMeasurement = true;
+        const revealToken = (binding.revealToken || 0) + 1;
+        binding.revealToken = revealToken;
+        control.classList.add('is-positioning');
+
+        requestAnimationFrame(()=>{
+            requestAnimationFrame(()=>{
+                if(binding.revealToken !== revealToken || !control.classList.contains('is-visible')){
+                    return;
+                }
+
+                updateAdaptiveScrollControl(binding);
+                if(binding.revealToken === revealToken){
+                    control.classList.remove('is-positioning');
+                }
+            });
+        });
+    }
 }
 
 function refreshAdaptiveScrollControls(){
@@ -7985,7 +8042,14 @@ function createAdaptiveScrollControl(scroller, index){
     control.innerHTML = '<span class="adaptiveScrollTrack" aria-hidden="true"></span><span class="adaptiveScrollThumb" aria-hidden="true"></span>';
 
     const thumb = control.querySelector('.adaptiveScrollThumb');
-    const binding = { scroller, control, thumb, pointerId:null };
+    const binding = {
+        scroller,
+        control,
+        thumb,
+        pointerId:null,
+        hasStableOpeningMeasurement:false,
+        revealToken:0
+    };
     adaptiveScrollControls.push(binding);
     document.body.appendChild(control);
 
@@ -8061,7 +8125,10 @@ if(typeof ResizeObserver !== 'undefined'){
 [document.body, document.getElementById('infoPanel'), document.getElementById('contactFramePanel'), howOverlay, aboutOverlay]
     .filter(Boolean)
     .forEach(element=>{
-        new MutationObserver(requestAdaptiveScrollControlRefresh)
+        new MutationObserver(()=>{
+            requestAdaptiveScrollControlRefresh();
+            trackAdaptiveScrollDuringPanelMotion(760);
+        })
             .observe(element, { attributes:true, attributeFilter:['class'] });
     });
 
