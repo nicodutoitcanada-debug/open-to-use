@@ -2439,8 +2439,10 @@ body.featureHotspotActive .backBtn{
    FINAL MOBILE PORTRAIT PANEL / HOTSPOT REFINEMENTS
 ========================= */
 #productPlayHotspot{
-    width:50px;
-    height:50px;
+    /* 25% larger click target and visual control; remains centred by its
+       existing translate(-50%, -50%) hotspot transform. */
+    width:62.5px;
+    height:62.5px;
 }
 
 #productPlayHotspot::before{
@@ -2451,8 +2453,8 @@ body.featureHotspotActive .backBtn{
     position:absolute;
     left:50%;
     top:50%;
-    width:21px;
-    height:21px;
+    width:26.25px;
+    height:26.25px;
     fill:#fff;
     transform:translate(-44%, -50%);
     filter:drop-shadow(0 1px 4px rgba(0,0,0,.22));
@@ -2460,7 +2462,7 @@ body.featureHotspotActive .backBtn{
 }
 
 #productPlayHotspot.label-active .hotspotLabel{
-    transform:translate(-50%,-50%) translateY(-52px) scale(1);
+    transform:translate(-50%,-50%) translateY(-62px) scale(1);
 }
 
 /*
@@ -3673,8 +3675,11 @@ const MOBILE_PORTRAIT_SEQUENCE_HEIGHT_RATIO = 0.755;
    the requested additional offsets. The shared forward/reverse timeline reads
    these exact same values, so every path returns to the default-frame geometry. */
 const MOBILE_PORTRAIT_PRODUCT_RIGHT_NUDGE_PX = 46;  // established +38px, then +8px right
-const MOBILE_PORTRAIT_PRODUCT_UP_PAN_PX = 82;       // reduced 10px from the prior target to refine final portrait framing
-const MOBILE_PORTRAIT_CONTACT_UP_PAN_PX = 100;      // reduced 20px from the prior target to refine final portrait framing
+/* These are the actual final translated Y positions used by the shared
+   portrait frame-and-pan timeline. They are deliberately direct values so the
+   feature camera cannot inherit an older upward amount from a secondary path. */
+const MOBILE_PORTRAIT_PRODUCT_FINAL_PAN_Y = -82;    // 10px lower than the previously working -92px framing
+const MOBILE_PORTRAIT_CONTACT_FINAL_PAN_Y = -100;   // 20px lower than the previously working -120px framing
 const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
 
 /* THE PRODUCT temporarily scales the complete portrait scene down by 15%.
@@ -4902,11 +4907,9 @@ function playMobilePortraitSequenceWithPan(feature, start, end, onComplete, onFr
        Keeping this allowance active through the reverse path lets the same
        single timeline bring the scene cleanly back to y:0 at the final frame.
     */
-    const requestedFeatureUpPan = isForward && feature === features.finishes
-        ? -MOBILE_PORTRAIT_PRODUCT_UP_PAN_PX
-        : isForward && feature === features.contact
-            ? -MOBILE_PORTRAIT_CONTACT_UP_PAN_PX
-            : 0;
+    const requestedFeatureUpPan = isForward
+        ? getUnclampedMobilePortraitFeaturePanY(feature)
+        : 0;
 
     mobilePortraitPanMinYOverride = Math.min(
         0,
@@ -6779,16 +6782,19 @@ function getFeatureCenteredMobilePanX(feature){
     return clamp(target, bounds.minX, bounds.maxX);
 }
 
-function getFeatureCenteredMobilePanY(feature){
-    const bounds = getMobilePanBounds();
+function getUnclampedMobilePortraitFeaturePanY(feature){
     if(feature === features.finishes){
-        return clamp(-MOBILE_PORTRAIT_PRODUCT_UP_PAN_PX, bounds.minY, bounds.maxY);
+        return MOBILE_PORTRAIT_PRODUCT_FINAL_PAN_Y;
     }
     if(feature === features.contact){
-        /* Keep the prior 40px lift, then finish a further 40px higher. */
-        return clamp(-MOBILE_PORTRAIT_CONTACT_UP_PAN_PX, bounds.minY, bounds.maxY);
+        return MOBILE_PORTRAIT_CONTACT_FINAL_PAN_Y;
     }
-    return clamp(0, bounds.minY, bounds.maxY);
+    return 0;
+}
+
+function getFeatureCenteredMobilePanY(feature){
+    const bounds = getMobilePanBounds();
+    return clamp(getUnclampedMobilePortraitFeaturePanY(feature), bounds.minY, bounds.maxY);
 }
 
 /*
@@ -6887,11 +6893,7 @@ function panMobilePortraitToFeature(feature, duration = 1050){
        Permit only the requested feature's deliberate upward target while this
        pre-sequence pan is active, so its value is not clamped back to zero.
     */
-    mobilePortraitPanMinYOverride = feature === features.finishes
-        ? -MOBILE_PORTRAIT_PRODUCT_UP_PAN_PX
-        : feature === features.contact
-            ? -MOBILE_PORTRAIT_CONTACT_UP_PAN_PX
-            : 0;
+    mobilePortraitPanMinYOverride = getUnclampedMobilePortraitFeaturePanY(feature);
 
     const token = ++mobilePanTweenToken;
     const startX = mobilePanCurrentX;
