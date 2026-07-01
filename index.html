@@ -3090,6 +3090,100 @@ body.featureHotspotActive .backBtn{
         touch-action:pan-y !important;
     }
 }
+
+
+/* =========================
+   FINAL PRODUCT PANEL CUES
+   - Copy gets more clearance from the fixed custom rail.
+   - A small edge mask fades copy toward the panel's black glass at the top and
+     bottom, signalling that the region can scroll without covering the text.
+========================= */
+#infoPanel.infoPanel .panelScrollableText{
+    padding-top:12px !important;
+    padding-bottom:12px !important;
+    padding-right:38px !important;
+    scroll-padding-top:12px;
+    scroll-padding-bottom:12px;
+    -webkit-mask-image:linear-gradient(
+        to bottom,
+        transparent 0,
+        #000 14px,
+        #000 calc(100% - 14px),
+        transparent 100%
+    );
+    mask-image:linear-gradient(
+        to bottom,
+        transparent 0,
+        #000 14px,
+        #000 calc(100% - 14px),
+        transparent 100%
+    );
+}
+
+@media (orientation:portrait) and (max-width:900px){
+    body.mobilePortraitHotspotActive .infoPanel .panelScrollableText{
+        padding-right:46px !important;
+    }
+}
+
+@media (pointer:coarse) and (orientation:landscape) and (max-height:600px){
+    #infoPanel.infoPanel .panelScrollableText{
+        padding:12px 46px !important;
+    }
+}
+
+/* Small three-step Product page indicator. Inactive dots remain at 25%; the
+   current page is lifted to 55% by updateProductStepIndicator(). */
+.productStepIndicator{
+    position:absolute;
+    right:24px;
+    bottom:23px;
+    z-index:3;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    pointer-events:none;
+}
+
+.productStepDot{
+    width:5px;
+    height:5px;
+    border-radius:999px;
+    background:#fff;
+    opacity:.25;
+    transition:opacity .26s ease;
+}
+
+.productStepDot.is-active{
+    opacity:.55;
+}
+
+@media (orientation:portrait) and (max-width:900px){
+    .productStepIndicator{
+        right:20px;
+        bottom:21px;
+    }
+}
+
+/* The first mobile joystick guide keeps the logo visually quieter and gives it
+   twice the original breathing room above and below. */
+.mobileTouchGuidePanel{
+    padding-top:48px !important;
+}
+
+.mobileTouchGuideLogo{
+    width:121px !important;
+    max-width:53% !important;
+    margin:0 auto 36px !important;
+}
+
+@media (orientation:portrait) and (max-width:900px){
+    .mobileTouchGuideLogo{
+        width:clamp(95px, 29vw, 126px) !important;
+        margin:0 auto 32px !important;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -3240,6 +3334,11 @@ body.featureHotspotActive .backBtn{
         <div class="infoPanelActions">
             <button id="productPanelBackBtn" class="productPanelBackBtn" type="button">◀ Back</button>
             <button class="nextBtn" type="button">Next ▶</button>
+        </div>
+        <div id="productStepIndicator" class="productStepIndicator" aria-label="Product page 1 of 3">
+            <span class="productStepDot is-active" aria-hidden="true"></span>
+            <span class="productStepDot" aria-hidden="true"></span>
+            <span class="productStepDot" aria-hidden="true"></span>
         </div>
     </div>
 
@@ -3613,6 +3712,7 @@ const backBtn = document.getElementById('backBtn');
 const infoPanel = document.getElementById('infoPanel');
 const productPanelBackBtn = document.getElementById('productPanelBackBtn');
 const productPanelNextBtn = infoPanel ? infoPanel.querySelector('.nextBtn') : null;
+const productStepIndicator = document.getElementById('productStepIndicator');
 const productConfirmOverlay = document.getElementById('productConfirmOverlay');
 const productConfirmContinueBtn = document.getElementById('productConfirmContinueBtn');
 const productConfirmWatchBtn = document.getElementById('productConfirmWatchBtn');
@@ -3730,16 +3830,16 @@ const MOBILE_PORTRAIT_PRODUCT_RIGHT_NUDGE_PX = 46;  // established +38px, then +
    forward/reverse sequence timeline. No second portrait path may replace them.
 */
 const MOBILE_PORTRAIT_PRODUCT_BASE_PAN_Y = -82;
-/* The previously approved +10px lower target is increased by a further 10px. */
-const MOBILE_PORTRAIT_PRODUCT_LOWER_OFFSET_PX = 20;
+/* The approved Product endpoint is lowered by a further 5px. */
+const MOBILE_PORTRAIT_PRODUCT_LOWER_OFFSET_PX = 25;
 const MOBILE_PORTRAIT_PRODUCT_FINAL_PAN_Y =
-    MOBILE_PORTRAIT_PRODUCT_BASE_PAN_Y + MOBILE_PORTRAIT_PRODUCT_LOWER_OFFSET_PX; // -62px
+    MOBILE_PORTRAIT_PRODUCT_BASE_PAN_Y + MOBILE_PORTRAIT_PRODUCT_LOWER_OFFSET_PX; // -57px
 
 const MOBILE_PORTRAIT_CONTACT_BASE_PAN_Y = -100;
-/* The previously approved +15px lower target is increased by a further 10px. */
-const MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX = 25;
+/* The approved Contact endpoint is lowered by a further 5px. */
+const MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX = 30;
 const MOBILE_PORTRAIT_CONTACT_FINAL_PAN_Y =
-    MOBILE_PORTRAIT_CONTACT_BASE_PAN_Y + MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX; // -75px
+    MOBILE_PORTRAIT_CONTACT_BASE_PAN_Y + MOBILE_PORTRAIT_CONTACT_LOWER_OFFSET_PX; // -70px
 
 const MOBILE_PORTRAIT_SEQUENCE_TOP_RATIO = 0;
 
@@ -5652,10 +5752,27 @@ function animateProductStepText(step){
     }, 260);
 }
 
+function updateProductStepIndicator(){
+    if(!productStepIndicator){ return; }
+
+    const dots = [...productStepIndicator.querySelectorAll('.productStepDot')];
+    dots.forEach((dot, dotIndex)=>{
+        const isActive = dotIndex === productStepIndex;
+        dot.classList.toggle('is-active', isActive);
+        dot.setAttribute('aria-current', isActive ? 'step' : 'false');
+    });
+
+    productStepIndicator.setAttribute(
+        'aria-label',
+        `Product page ${productStepIndex + 1} of ${dots.length}`
+    );
+}
+
 function setProductStep(index, animateText = false){
     productStepIndex = Math.max(0, Math.min(productSteps.length - 1, index));
     const step = productSteps[productStepIndex];
     currentProductVideoFiles = step.videos.slice();
+    updateProductStepIndicator();
 
     if(animateText && infoPanel && infoPanel.classList.contains('show')){
         animateProductStepText(step);
