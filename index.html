@@ -4890,6 +4890,30 @@ function playMobilePortraitSequenceWithPan(feature, start, end, onComplete, onFr
     const startY = mobilePanCurrentY;
     const startZoom = mobilePortraitSequenceZoomMultiplier;
     const isForward = direction === 1;
+
+    /*
+       IMPORTANT — set the portrait upward allowance BEFORE asking the normal
+       pan-bound helper for the target. The image plane is top-aligned in
+       portrait, so its natural vertical bounds are 0..0. Previously this made
+       getFeatureCenteredMobilePanY() clamp every requested upward target back
+       to zero before the shared sequence/pan timeline began. Horizontal nudges
+       still worked because portrait has extra image width, which hid the bug.
+
+       Keeping this allowance active through the reverse path lets the same
+       single timeline bring the scene cleanly back to y:0 at the final frame.
+    */
+    const requestedFeatureUpPan = isForward && feature === features.finishes
+        ? -MOBILE_PORTRAIT_PRODUCT_UP_PAN_PX
+        : isForward && feature === features.contact
+            ? -MOBILE_PORTRAIT_CONTACT_UP_PAN_PX
+            : 0;
+
+    mobilePortraitPanMinYOverride = Math.min(
+        0,
+        startY,
+        requestedFeatureUpPan
+    );
+
     const targetX = isForward ? getFeatureCenteredMobilePanX(feature) : 0;
     const targetY = isForward ? getFeatureCenteredMobilePanY(feature) : 0;
     const targetZoom = isForward && feature === features.finishes
@@ -4899,7 +4923,7 @@ function playMobilePortraitSequenceWithPan(feature, start, end, onComplete, onFr
     const startTime = performance.now();
     let lastFrame = null;
 
-    /* Permit the intended upward feature composition while the shared motion runs. */
+    /* Preserve the forward allowance or the current reverse starting offset. */
     mobilePortraitPanMinYOverride = Math.min(0, startY, targetY);
     mobilePortraitPanLocked = true;
 
