@@ -3383,6 +3383,24 @@ html.touch-input .adaptiveScrollControl:focus-visible .adaptiveScrollThumb{
 
 
 /* =========================
+   TOP CONTACT OVERLAY / SCROLL-RAIL STACKING FIX
+   The top-right Contact button may be opened while a feature panel underneath
+   still owns a fixed custom scroll rail. The Contact dialog and its full-screen
+   backdrop must always sit above that rail, and the rail is hidden until the
+   dialog closes so it cannot show through the background blur.
+========================= */
+#contactOverlay{
+    z-index:9996 !important;
+    isolation:isolate;
+}
+
+html.contact-overlay-open .adaptiveScrollControl{
+    opacity:0 !important;
+    visibility:hidden !important;
+    pointer-events:none !important;
+}
+
+/* =========================
    SCROLL CLEARANCE + QR POPUP FINISHING
    The orange rail has a wide 48px touch target. Reserve a larger inner gutter
    so no scrolling copy can pass behind either the rail or its thumb.
@@ -8729,14 +8747,21 @@ function openContactOverlay(event){
     if(!contactOverlay){ return; }
     closeProductConfirm();
     // Keep any About Us / How It Works window underneath the contact overlay.
+    // A feature panel beneath this dialog can own a fixed custom scroll rail.
+    // Flag the root before showing the dialog so every rail is hidden behind
+    // the Contact backdrop instead of floating over its blur.
+    document.documentElement.classList.add('contact-overlay-open');
     contactOverlay.classList.add('show');
     contactOverlay.setAttribute('aria-hidden','false');
+    requestAdaptiveScrollControlRefresh();
     refreshMagneticTargets();
 }
 
 function closeContactOverlay(){
     contactOverlay.classList.remove('show');
     contactOverlay.setAttribute('aria-hidden','true');
+    document.documentElement.classList.remove('contact-overlay-open');
+    requestAdaptiveScrollControlRefresh();
 }
 
 contactOpenBtns.forEach(button=>{
