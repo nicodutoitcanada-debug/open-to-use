@@ -240,6 +240,26 @@ html,body{
 
 #mainImage{
     z-index:1;
+    /* The default still crossfades behind the exact 16:9 sequence plane.
+       Keeping it paintable while transparent prevents a black flash during
+       the forward and reverse handoffs. */
+    transition:opacity .18s ease;
+}
+
+/*
+   SEQUENCE BLACK STAGE
+   --------------------
+   The default hotspot still intentionally overscans the 16:9 artwork for
+   parallax. Sequence JPGs use the true 16:9 canvas. On square/tall windows
+   the overscan used to remain visible above and below the sequence. While a
+   feature journey is active, hide only that expanded default still so the
+   existing black #mainSite background fills every uncovered band.
+*/
+#mainPlane.sequence-black-stage #mainImage{
+    opacity:0;
+    /* Do not hide visibility here. Opacity can now crossfade cleanly with
+       the sequence image; visibility:hidden would cut to black for a frame. */
+    pointer-events:none;
 }
 
 #sequenceImage{
@@ -2872,34 +2892,35 @@ body.featureHotspotActive .backBtn{
 }
 
 /* For landscape screens that are squarer than 16:9, the 1920-wide sequence
-   canvas fits edge-to-edge horizontally. These compact fades cover only the
-   outer ~21% of the image (about 30% less than before), preserving more of
-   the scene while still blending the top/bottom letterbox space into black. */
+   canvas fits edge-to-edge horizontally and can leave letterbox space above
+   and below it. These fades are now driven from the *actual* top and bottom
+   edges of that 16:9 canvas, so the image always reaches true black before
+   its hard edge becomes visible. */
+#mainSite{
+    --squareFadeOpacity:0;
+    --squareFadeTopBlackEnd:0%;
+    --squareFadeTopClearStart:0%;
+    --squareFadeBottomClearEnd:100%;
+    --squareFadeBottomBlackStart:100%;
+}
+
 #mainSite::after{
     content:"";
     position:absolute;
     inset:0;
     z-index:7;
     pointer-events:none;
-    opacity:0;
+    opacity:var(--squareFadeOpacity);
     background:linear-gradient(
         to bottom,
-        rgba(0,0,0,.98) 0%,
-        rgba(0,0,0,.82) 5.9%,
-        rgba(0,0,0,.42) 13.2%,
-        rgba(0,0,0,0) 21.1%,
-        rgba(0,0,0,0) 78.9%,
-        rgba(0,0,0,.42) 86.8%,
-        rgba(0,0,0,.82) 94.1%,
-        rgba(0,0,0,.98) 100%
+        rgba(0,0,0,1) 0%,
+        rgba(0,0,0,1) var(--squareFadeTopBlackEnd),
+        rgba(0,0,0,0) var(--squareFadeTopClearStart),
+        rgba(0,0,0,0) var(--squareFadeBottomClearEnd),
+        rgba(0,0,0,1) var(--squareFadeBottomBlackStart),
+        rgba(0,0,0,1) 100%
     );
     transition:opacity .35s ease;
-}
-
-@media (orientation:landscape) and (max-aspect-ratio:16/9){
-    #mainSite::after{
-        opacity:1;
-    }
 }
 
 
@@ -4181,6 +4202,8 @@ let sequencePreloadTumblerTimer = null;
 let activeFeature = null;
 let sequenceStarted = false;
 let isAnimatingSequence = false;
+/* Cancels any delayed backdrop handoff when a route reverses, reloads or fails. */
+let sequenceBlackStageToken = 0;
 let preloadStarted = false;
 let isPreparingSequence = false;
 let infoPanelShownDuringSequence = false;
@@ -4247,7 +4270,27 @@ function frameName(feature, index){
     return `${feature.folder}/${feature.prefix}${String(index).padStart(2,'0')}.jpg`;
 }
 
+/*
+   Keep the oversized default hotspot still out of the sequence stage. The
+   sequence layer is deliberately exact 16:9, so the #mainSite black base is
+   the only safe fill for any viewport area outside that canvas.
+   Use a DOM lookup here because this helper is called during the initial intro
+   setup before the later mainPlane const has been declared.
+*/
+function setSequenceBlackStage(active){
+    const plane = document.getElementById('mainPlane');
+    if(!plane){ return; }
+    plane.classList.toggle('sequence-black-stage', !!active);
+}
+
+function isSequenceBlackStageActive(){
+    const plane = document.getElementById('mainPlane');
+    return !!(plane && plane.classList.contains('sequence-black-stage'));
+}
+
 function setMainImageToDefaultFrame(){
+    /* Returning to the hotspot page restores the expanded default still. */
+    setSequenceBlackStage(false);
     mainImage.src = defaultFrameSrc;
     positionExpandedDefaultImage();
     hideSequenceImage(true);
@@ -4429,6 +4472,48 @@ function getDisplayedImageRect(){
     return {left, top, width: displayedWidth, height: displayedHeight};
 }
 
+function updateSquareLetterboxFade(){
+    if(!mainSite){
+        return;
+    }
+
+    const viewport = getLayoutViewport();
+    const width = viewport.width;
+    const height = viewport.height;
+
+    if(!isLandscapeViewport(width, height) || (width / height) > (16 / 9)){
+        mainSite.style.setProperty('--squareFadeOpacity', '0');
+        mainSite.style.setProperty('--squareFadeTopBlackEnd', '0%');
+        mainSite.style.setProperty('--squareFadeTopClearStart', '0%');
+        mainSite.style.setProperty('--squareFadeBottomClearEnd', '100%');
+        mainSite.style.setProperty('--squareFadeBottomBlackStart', '100%');
+        return;
+    }
+
+    const rect = getDisplayedImageRect();
+    const topInsetPx = Math.max(0, rect.top);
+    const bottomInsetPx = Math.max(0, height - (rect.top + rect.height));
+
+    /*
+       The fully black region is pushed slightly *past* the image edge so the
+       hard 16:9 cutoff never shows. After that, the fade clears into the live
+       scene over a fixed feather distance.
+    */
+    const solidOverlapPx = 14;
+    const featherPx = 64;
+
+    const topBlackEnd = Math.min(height, topInsetPx + solidOverlapPx);
+    const topClearStart = Math.min(height, topBlackEnd + featherPx);
+    const bottomBlackStart = Math.max(0, height - (bottomInsetPx + solidOverlapPx));
+    const bottomClearEnd = Math.max(0, bottomBlackStart - featherPx);
+
+    mainSite.style.setProperty('--squareFadeOpacity', '1');
+    mainSite.style.setProperty('--squareFadeTopBlackEnd', `${(topBlackEnd / height) * 100}%`);
+    mainSite.style.setProperty('--squareFadeTopClearStart', `${(topClearStart / height) * 100}%`);
+    mainSite.style.setProperty('--squareFadeBottomClearEnd', `${(bottomClearEnd / height) * 100}%`);
+    mainSite.style.setProperty('--squareFadeBottomBlackStart', `${(bottomBlackStart / height) * 100}%`);
+}
+
 function positionExpandedDefaultImage(){
     if(!mainImage){
         return;
@@ -4478,10 +4563,62 @@ function showSequenceImage(){
         return;
     }
 
+    /*
+       FORWARD HANDOFF ORDER
+       1. Keep the expanded default still visible while the first JPG is decoded
+          and painted above it.
+       2. Fade the JPG in.
+       3. Only after that first JPG is fully visible, fade the expanded default
+          out to the black site background outside the 16:9 sequence canvas.
+
+       This avoids the previous all-black frame on tall/square PC, iPad and
+       phone screens. A previously-active stage is preserved for in-feature
+       swaps such as Contact's final-frame refresh.
+    */
+    const stageWasAlreadyActive = isSequenceBlackStageActive();
+    const stageToken = ++sequenceBlackStageToken;
+
+    if(!stageWasAlreadyActive){
+        setSequenceBlackStage(false);
+    }
+
     positionSequenceImage();
     sequenceImage.style.visibility = 'visible';
+
     requestAnimationFrame(()=>{
+        if(stageToken !== sequenceBlackStageToken || !sequenceImage){
+            return;
+        }
+
         sequenceImage.classList.add('show');
+
+        if(stageWasAlreadyActive){
+            return;
+        }
+
+        const revealBlackBackdropAfterFirstFrame = async ()=>{
+            try{
+                if(typeof sequenceImage.decode === 'function'){
+                    await sequenceImage.decode();
+                }
+            }catch(error){
+                /* Preloaded frame decode failures fall back to the already-set src. */
+            }
+
+            await waitForNextPaint();
+
+            window.setTimeout(()=>{
+                if(
+                    stageToken === sequenceBlackStageToken &&
+                    sequenceImage &&
+                    sequenceImage.classList.contains('show')
+                ){
+                    setSequenceBlackStage(true);
+                }
+            }, SEQUENCE_FADE_MS);
+        };
+
+        revealBlackBackdropAfterFirstFrame();
     });
 }
 
@@ -4490,6 +4627,8 @@ function hideSequenceImage(immediate = false){
         return;
     }
 
+    /* Cancel a queued forward backdrop reveal before this sequence can fade out. */
+    ++sequenceBlackStageToken;
     sequenceImage.classList.remove('show');
 
     if(immediate){
@@ -4930,6 +5069,7 @@ function positionMainImageForCurrentState(){
     positionExpandedDefaultImage();
     positionSequenceImage();
     positionScreenDefaultImage();
+    updateSquareLetterboxFade();
 }
 
 function positionFeatureVideo(){
@@ -6877,6 +7017,7 @@ mainImage.addEventListener('load', ()=>{
 if(sequenceImage){
     sequenceImage.addEventListener('load', ()=>{
         positionSequenceImage();
+        updateSquareLetterboxFade();
     });
 }
 
@@ -7992,7 +8133,30 @@ function completeMainHotspotReturn(featureThatClosed = null){
 
     try{
         positionExpandedDefaultImage();
-        hideSequenceImage(false);
+
+        /*
+           REVERSE HANDOFF ORDER
+           The final reverse JPG is the same visual state as the default frame.
+           Restore the expanded default beneath that JPG first, allow the black
+           stage to clear and fully fade in, then remove the JPG. This guarantees
+           that the page never exposes #000 between the sequence and hotspot view.
+        */
+        const returnStageToken = ++sequenceBlackStageToken;
+        setSequenceBlackStage(false);
+
+        waitForNextPaint().then(()=>{
+            window.setTimeout(()=>{
+                if(
+                    returnStageToken === sequenceBlackStageToken &&
+                    !sequenceStarted &&
+                    !isAnimatingSequence &&
+                    !isPreparingSequence
+                ){
+                    hideSequenceImage(true);
+                }
+            }, SEQUENCE_FADE_MS + 20);
+        });
+
         showAllHotspots();
         positionAllHotspots();
         updateTopContactButtonVisibility();
