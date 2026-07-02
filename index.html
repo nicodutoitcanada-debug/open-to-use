@@ -7756,16 +7756,34 @@ function lockMobileLandscapeFeaturePan(preservedX = 0, preservedY = 0){
 }
 
 function unlockMobileLandscapeFeaturePan(){
+    /*
+       This helper is also called by the main-hotspot recovery immediately
+       before a virtual-cursor tap activates a feature. It must release only
+       the landscape lock; resetting the shared pan values here wipes the
+       current portrait camera position and makes every portrait sequence
+       appear to snap back to centre before its first frame.
+
+       Keep the portrait X/Y values intact. The portrait forward timeline then
+       captures the live view and moves it smoothly to the feature endpoint.
+       Landscape alone is reset to its fixed default origin.
+    */
+    const wasMobileLandscape = isMobileLandscapeTouchLayout();
+
     mobileLandscapeFeaturePanLocked = false;
     mobileLandscapeLockedPanX = 0;
     mobileLandscapeLockedPanY = 0;
+
+    if(!wasMobileLandscape){
+        return;
+    }
+
     ++mobilePanTweenToken;
     mobilePanTargetX = 0;
     mobilePanTargetY = 0;
     mobilePanCurrentX = 0;
     mobilePanCurrentY = 0;
 
-    if(isMobileLandscapeTouchLayout() && mainPlane){
+    if(mainPlane){
         mainPlane.style.transformOrigin = '50% 50%';
         mainPlane.style.transform = 'translate3d(0px, 0px, 0px)';
     }
