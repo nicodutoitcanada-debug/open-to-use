@@ -2230,6 +2230,23 @@ a,
     transform:none !important;
 }
 
+/* iPad/Safari can retain a blue focus/selection ring after a finger tap.
+   This guide button is a touch-only acknowledgement, so keep its glass style
+   clean while keyboard users retain normal focus elsewhere in the experience. */
+#mobileTouchGuideGotIt,
+#mobileTouchGuideGotIt:focus,
+#mobileTouchGuideGotIt:focus-visible,
+#mobileTouchGuideGotIt:active{
+    outline:none !important;
+    -webkit-appearance:none !important;
+    appearance:none !important;
+    -webkit-tap-highlight-color:transparent !important;
+    -webkit-user-select:none !important;
+    user-select:none !important;
+    -webkit-touch-callout:none !important;
+    box-shadow:none !important;
+}
+
 @media (pointer:coarse){
     html,
     body,
@@ -6123,19 +6140,13 @@ function reverseFeatureVideoToFirstFrame(callback, ignorePreloadedReverse = fals
 }
 
 function resetAfterVideoReverse(){
-    activeFeature = null;
-    sequenceStarted = false;
+    const featureToReset = activeFeature;
     showDefaultFeatureVideoFirstFrame();
     setMainImageToDefaultFrame();
-    showAllHotspots();
-    positionAllHotspots();
-    updateTopContactButtonVisibility();
     hideContactCardSequence();
     hideProductPlayHotspot();
     hideMovieControls();
-    setMobilePortraitHotspotActive(false);
-    setFeatureHotspotActive(false);
-    unlockMobileLandscapeFeaturePan();
+    completeMainHotspotReturn(featureToReset);
 }
 
 async function playForwardSequence(featureId){
@@ -6175,11 +6186,23 @@ async function playForwardSequence(featureId){
         ? beginSequencePreloadTumbler()
         : ()=>{};
 
+    let selectedFeatureFramesReady = false;
     try{
         await waitForFeatureFrames(featureId, featureToPlay);
+        selectedFeatureFramesReady = true;
+    }catch(error){
+        /* A slow/interrupted decode must not strand touch users in the hidden-
+           joystick feature state. The default scene stays usable and the next
+           tap can simply try the hotspot again. */
+        console.warn('Feature frames could not be prepared; restoring main hotspot controls.', error);
     }finally{
         isPreparingSequence = false;
         stopPreloadTumbler();
+    }
+
+    if(!selectedFeatureFramesReady){
+        completeMainHotspotReturn();
+        return;
     }
 
     if(sequenceStarted || isAnimatingSequence){
@@ -6317,20 +6340,7 @@ function goBackToDefaultFrame(){
                    once the main hotspot page is visible. */
                 forceRemoveCardSequenceOverlay();
             }
-            activeFeature = null;
-            sequenceStarted = false;
-            positionExpandedDefaultImage();
-            hideSequenceImage(false);
-            showAllHotspots();
-            positionAllHotspots();
-            updateTopContactButtonVisibility();
-            if(featureToReverse === features.contact){
-                /* Back at the main hotspot page: allow the QR guidance to appear on the next Contact entry. */
-                resetContactQrPopupForNextContactVisit();
-            }
-            setMobilePortraitHotspotActive(false);
-            setFeatureHotspotActive(false);
-            unlockMobileLandscapeFeaturePan();
+            completeMainHotspotReturn(featureToReverse);
         };
 
         if(isMobilePortraitTouchLayout()){
@@ -6363,6 +6373,26 @@ function goBackToDefaultFrame(){
     });
 }
 
+function activateFeatureHotspot(featureId){
+    const feature = features[featureId];
+    if(!feature || feature.disabledUntilSequenceIsAdded){
+        return;
+    }
+
+    /* This guard makes duplicate click/pointerup events harmless while still
+       allowing a single recovered touch tap to start the intended sequence. */
+    if(sequenceStarted || isAnimatingSequence || isPreparingSequence){
+        return;
+    }
+
+    playForwardSequence(featureId);
+}
+
+function getFeatureIdForHotspotElement(element){
+    if(!element){ return null; }
+    return Object.entries(features).find(([, feature])=>feature.hotspotElementId === element.id)?.[0] || null;
+}
+
 Object.entries(features).forEach(([featureId, feature])=>{
     const hotspotButton = document.getElementById(feature.hotspotElementId);
 
@@ -6375,7 +6405,7 @@ Object.entries(features).forEach(([featureId, feature])=>{
         return;
     }
 
-    hotspotButton.addEventListener('click', ()=>playForwardSequence(featureId));
+    hotspotButton.addEventListener('click', ()=>activateFeatureHotspot(featureId));
 });
 
 
@@ -7176,6 +7206,7 @@ function completeIntroLaunch(){
     positionAllHotspots();
     positionLogoVideo();
     preloadAssets();
+    scheduleTouchMainHotspotRecovery();
 
     setTimeout(()=>{
         intro.classList.add('fadeOut');
@@ -7770,6 +7801,114 @@ function setMobilePortraitHotspotActive(isActive){
     }
 }
 
+
+/* =========================
+   TOUCH MAIN-HOTSPOT RECOVERY
+   The touch UI deliberately hides its joystick while a feature is open. Any
+   interrupted preload, reverse animation or delayed browser callback must put
+   all of those controls back together before the default hotspot page is used.
+========================= */
+let touchMainHotspotRecoveryTimers = [];
+
+function isMainHotspotPageReady(){
+    const site = document.getElementById('mainSite');
+    return !!(
+        site &&
+        site.classList.contains('show') &&
+        !sequenceStarted &&
+        !activeFeature &&
+        !isAnimatingSequence &&
+        !isPreparingSequence
+    );
+}
+
+function ensureTouchMainHotspotInteraction(force = false){
+    if(!mobileTouchMode || !isMainHotspotPageReady()){
+        return false;
+    }
+
+    const chessIsOpen = document.getElementById('chessOverlay')?.classList.contains('show');
+    if(chessIsOpen && !force){
+        return false;
+    }
+
+    /* Clear every class that can suppress the joystick/cursor. This is safe on
+       the default hotspot page and makes the recovery idempotent. */
+    document.body.classList.remove(
+        'featureHotspotActive',
+        'mobilePortraitHotspotActive',
+        'mobileLandscapeHotspotActive'
+    );
+
+    if(!chessIsOpen){
+        document.body.classList.remove('mobileChessActive');
+    }
+
+    mobilePanPointerId = null;
+    mobileTouchMoved = false;
+    mobileAllowVirtualClick = false;
+    resetMobileJoystick();
+    clearMobileHotspotSnap();
+    unlockMobileLandscapeFeaturePan();
+
+    if(mobileJoystick){
+        /* Remove any temporary hit-test override and let the media-query CSS
+           decide the correct portrait/landscape placement. */
+        mobileJoystick.style.removeProperty('display');
+        mobileJoystick.style.pointerEvents = 'auto';
+        mobileJoystick.removeAttribute('aria-hidden');
+    }
+
+    showAllHotspots();
+    positionAllHotspots();
+    restoreMobileVirtualCursorToCenter();
+    updateMobileHoverFromCursor();
+    return true;
+}
+
+function scheduleTouchMainHotspotRecovery(){
+    if(!mobileTouchMode){ return; }
+
+    touchMainHotspotRecoveryTimers.forEach(timer=>clearTimeout(timer));
+    touchMainHotspotRecoveryTimers = [0, 140, 620].map(delay=>window.setTimeout(()=>{
+        ensureTouchMainHotspotInteraction();
+    }, delay));
+}
+
+function completeMainHotspotReturn(featureThatClosed = null){
+    /* Commit the state flags first. This makes every delayed safeguard able to
+       recognise the default page even if a later layout function throws. */
+    activeFeature = null;
+    sequenceStarted = false;
+    isAnimatingSequence = false;
+    isPreparingSequence = false;
+
+    try{
+        positionExpandedDefaultImage();
+        hideSequenceImage(false);
+        showAllHotspots();
+        positionAllHotspots();
+        updateTopContactButtonVisibility();
+
+        if(featureThatClosed === features.contact){
+            /* Back at the main hotspot page: allow the QR guidance on a later Contact visit. */
+            resetContactQrPopupForNextContactVisit();
+        }
+    }finally{
+        /* These must always run, even if an image/viewport position update was
+           interrupted during rotation or a slow asset decode. */
+        try{ setMobilePortraitHotspotActive(false); }catch(error){
+            document.body.classList.remove('mobilePortraitHotspotActive');
+        }
+        try{ setFeatureHotspotActive(false); }catch(error){
+            document.body.classList.remove('featureHotspotActive', 'mobileLandscapeHotspotActive');
+        }
+        unlockMobileLandscapeFeaturePan();
+        ensureTouchMainHotspotInteraction(true);
+        scheduleTouchMainHotspotRecovery();
+    }
+}
+
 function easeInOutCubic(t){
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
@@ -8163,6 +8302,11 @@ function hideMobileTouchGuide(){
     if(!mobileTouchGuide){ return; }
     mobileTouchGuide.classList.remove('show');
     mobileTouchGuide.setAttribute('aria-hidden', 'true');
+
+    /* Explicitly clear Safari/iPad's retained button focus after a finger tap. */
+    if(mobileTouchGuideGotIt && document.activeElement === mobileTouchGuideGotIt){
+        mobileTouchGuideGotIt.blur();
+    }
 }
 
 function mobileClickAtCursor(x = cursorTargetX, y = cursorTargetY, options = {}){
@@ -8189,8 +8333,23 @@ function mobileClickAtCursor(x = cursorTargetX, y = cursorTargetY, options = {})
         return;
     }
 
+    /* A stale feature class can hide the joystick even though the default
+       hotspots are visible. Repair it before resolving this very same tap. */
+    ensureTouchMainHotspotInteraction();
+
     const clickable = element.closest(hoverTargetsSelector);
     if(clickable){
+        const featureId = getFeatureIdForHotspotElement(clickable);
+        if(featureId){
+            /* Main hotspots do not need to rely on Safari synthesising a click
+               after the virtual cursor's pointer events. Start the route
+               directly, so a tap can never stop at only its hover state. */
+            mobileAllowVirtualClick = true;
+            activateFeatureHotspot(featureId);
+            setTimeout(()=>{ mobileAllowVirtualClick = false; }, 120);
+            return;
+        }
+
         mobileAllowVirtualClick = true;
         clickable.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, cancelable:true, pointerType:'touch', clientX:clickX, clientY:clickY}));
         clickable.dispatchEvent(new PointerEvent('pointerup', {bubbles:true, cancelable:true, pointerType:'touch', clientX:clickX, clientY:clickY}));
@@ -8245,6 +8404,14 @@ if(mobileTouchMode){
     setTimeout(showMobileTouchGuideWhenReady, 250);
 
     if(mobileTouchGuideGotIt){
+        mobileTouchGuideGotIt.addEventListener('pointerdown', (event)=>{
+            /* Prevent iPad from retaining the native focused/selected outline. */
+            if(event.pointerType === 'touch' || event.pointerType === 'pen'){
+                event.preventDefault();
+                document.documentElement.classList.add('touch-input');
+                mobileTouchGuideGotIt.blur();
+            }
+        }, { passive:false });
         mobileTouchGuideGotIt.addEventListener('click', hideMobileTouchGuide);
         mobileTouchGuideGotIt.addEventListener('pointerup', (event)=>{
             event.preventDefault();
@@ -8396,7 +8563,19 @@ if(mobileTouchMode){
         setMobileCursorPosition(cursorTargetX, cursorTargetY);
         clampMobilePanTargets();
         resetMobileJoystick();
+        scheduleTouchMainHotspotRecovery();
     });
+
+    /* Safari can resume a suspended tab after a route transition without
+       replaying every animation callback. Re-check the default touch UI when
+       the page becomes visible again, but only restore it on the true main
+       hotspot page. */
+    window.addEventListener('pageshow', scheduleTouchMainHotspotRecovery, { passive:true });
+    document.addEventListener('visibilitychange', ()=>{
+        if(!document.hidden){
+            scheduleTouchMainHotspotRecovery();
+        }
+    }, { passive:true });
 }
 
 document.addEventListener('mousemove', (event)=>{
