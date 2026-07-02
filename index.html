@@ -130,6 +130,8 @@ html,body{
     color:white;
     font-weight:bold;
     letter-spacing:3px;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
     transition:border-color .35s ease, background .35s ease, opacity .35s ease;
 }
 
@@ -4169,6 +4171,19 @@ let currentLogoVideoIndex = 0;
 let isCardSequenceAnimating = false;
 let cardSequenceOpen = false;
 
+/*
+   Contact-card lifecycle safeguards:
+   - every card animation owns a token and a requestAnimationFrame id;
+   - cleanup invalidates both, so an old queued frame can never repaint over
+     the main hotspot page after the Contact route starts closing;
+   - the lifecycle token also prevents a delayed card preload from opening
+     after the visitor has already pressed Back.
+*/
+let cardSequenceAnimationToken = 0;
+let cardSequenceAnimationFrame = null;
+let contactCardLifecycleToken = 0;
+let isLeavingContact = false;
+
 function setDownloadHotspotLabel(text){
     if(!downloadHotspot){ return; }
     const label = downloadHotspot.querySelector('.hotspotLabel');
@@ -4664,8 +4679,51 @@ function setSequenceImageToScreenDefault(){
     img.onload = applyFadeIn;
     img.onerror = applyFadeIn;
 }
-function showCardSequenceImage(frameIndex = CARD_SEQUENCE_FIRST_FRAME, instant = false){
+function cancelCardSequenceAnimation(){
+    /* Invalidate every queued frame before touching the overlay itself. */
+    cardSequenceAnimationToken += 1;
+    if(cardSequenceAnimationFrame !== null){
+        cancelAnimationFrame(cardSequenceAnimationFrame);
+        cardSequenceAnimationFrame = null;
+    }
+    isCardSequenceAnimating = false;
+}
+
+function forceRemoveCardSequenceOverlay(){
+    /*
+       This is deliberately stronger than the normal fade helper. It is called
+       whenever Contact starts closing and once more after the main reverse
+       sequence completes, so a stale card frame cannot remain visible.
+    */
+    cancelCardSequenceAnimation();
+    hideDownloadHotspot();
+    hideContactEmailClickArea();
+    cardSequenceOpen = false;
+
     if(!cardSequenceImage){ return; }
+
+    cardSequenceImage.style.transition = 'none';
+    cardSequenceImage.classList.remove('show');
+    cardSequenceImage.style.opacity = '0';
+    cardSequenceImage.style.visibility = 'hidden';
+    cardSequenceImage.removeAttribute('src');
+
+    const cleanupToken = cardSequenceAnimationToken;
+    requestAnimationFrame(()=>{
+        /* Do not restore normal styling if a newer card action has begun. */
+        if(cleanupToken !== cardSequenceAnimationToken || cardSequenceImage.classList.contains('show')){
+            return;
+        }
+        cardSequenceImage.style.transition = '';
+        cardSequenceImage.style.opacity = '';
+    });
+}
+
+function showCardSequenceImage(frameIndex = CARD_SEQUENCE_FIRST_FRAME, instant = false){
+    if(!cardSequenceImage || isLeavingContact || !sequenceStarted || activeFeature !== features.contact){
+        return;
+    }
+
     positionCardSequenceOverlay();
     const preloadedFrame = getPreloadedCardFrame(frameIndex);
     cardSequenceImage.src = preloadedFrame ? preloadedFrame.src : cardFrameName(frameIndex);
@@ -4678,37 +4736,58 @@ function showCardSequenceImage(frameIndex = CARD_SEQUENCE_FIRST_FRAME, instant =
         cardSequenceImage.classList.add('show');
         cardSequenceImage.offsetHeight;
         requestAnimationFrame(()=>{
-            cardSequenceImage.style.transition = '';
+            if(!isLeavingContact && activeFeature === features.contact){
+                cardSequenceImage.style.transition = '';
+            }
         });
         return;
     }
 
-    requestAnimationFrame(()=>{ cardSequenceImage.classList.add('show'); });
+    requestAnimationFrame(()=>{
+        if(!isLeavingContact && activeFeature === features.contact){
+            cardSequenceImage.classList.add('show');
+        }
+    });
 }
 
 function hideCardSequenceImage(immediate = false){
     if(!cardSequenceImage){ return; }
+
+    if(immediate){
+        forceRemoveCardSequenceOverlay();
+        return;
+    }
+
     cardSequenceImage.classList.remove('show');
+    const cleanupToken = ++cardSequenceAnimationToken;
     const clearCard = ()=>{
-        if(!cardSequenceImage.classList.contains('show')){
-            cardSequenceImage.style.visibility = 'hidden';
-            cardSequenceImage.removeAttribute('src');
+        if(cleanupToken !== cardSequenceAnimationToken || cardSequenceImage.classList.contains('show')){
+            return;
         }
+        cardSequenceImage.style.visibility = 'hidden';
+        cardSequenceImage.removeAttribute('src');
     };
-    if(immediate){ clearCard(); return; }
     setTimeout(clearCard, SEQUENCE_FADE_MS + 30);
 }
 
 function playCardSequence(start, end, onComplete){
-    if(isCardSequenceAnimating){ return; }
+    if(isCardSequenceAnimating || isLeavingContact || !sequenceStarted || activeFeature !== features.contact){
+        return false;
+    }
+
     isCardSequenceAnimating = true;
     hideDownloadHotspot();
 
+    const animationToken = ++cardSequenceAnimationToken;
     const direction = start <= end ? 1 : -1;
     let frame = start;
     let lastTime = 0;
 
     function animate(time){
+        if(animationToken !== cardSequenceAnimationToken || isLeavingContact || activeFeature !== features.contact){
+            return;
+        }
+
         if(!lastTime){ lastTime = time; }
 
         if(time - lastTime >= frameHold){
@@ -4721,22 +4800,27 @@ function playCardSequence(start, end, onComplete){
 
         const stillInRange = direction === 1 ? frame <= end : frame >= end;
         if(stillInRange){
-            requestAnimationFrame(animate);
+            cardSequenceAnimationFrame = requestAnimationFrame(animate);
         }else{
             positionCardSequenceOverlay();
             const preloadedEndFrame = getPreloadedCardFrame(end);
             cardSequenceImage.src = preloadedEndFrame ? preloadedEndFrame.src : cardFrameName(end);
+            cardSequenceAnimationFrame = null;
             isCardSequenceAnimating = false;
-            if(typeof onComplete === 'function'){ onComplete(); }
+            if(typeof onComplete === 'function' && animationToken === cardSequenceAnimationToken){
+                onComplete();
+            }
         }
     }
 
-    requestAnimationFrame(animate);
+    cardSequenceAnimationFrame = requestAnimationFrame(animate);
+    return true;
 }
 
 function playCardSequenceAsync(start, end){
     return new Promise(resolve=>{
-        playCardSequence(start, end, resolve);
+        const started = playCardSequence(start, end, resolve);
+        if(!started){ resolve(); }
     });
 }
 
@@ -4765,9 +4849,17 @@ async function setSequenceImageToContactLastFrame(){
 }
 
 async function showContactCardSequence(){
+    const lifecycleToken = contactCardLifecycleToken;
     await waitForCardFrame(CARD_SEQUENCE_FIRST_FRAME);
 
-    if(!activeFeature || activeFeature !== features.contact){ return; }
+    if(
+        lifecycleToken !== contactCardLifecycleToken ||
+        isLeavingContact ||
+        !sequenceStarted ||
+        activeFeature !== features.contact
+    ){
+        return;
+    }
 
     /*
        Important order:
@@ -4779,7 +4871,15 @@ async function showContactCardSequence(){
     showCardSequenceImage(CARD_SEQUENCE_FIRST_FRAME, true);
     await waitForNextPaint();
 
-    if(!activeFeature || activeFeature !== features.contact){ return; }
+    if(
+        lifecycleToken !== contactCardLifecycleToken ||
+        isLeavingContact ||
+        !sequenceStarted ||
+        activeFeature !== features.contact
+    ){
+        forceRemoveCardSequenceOverlay();
+        return;
+    }
 
     sequenceImage.src = contactCleanFrameSrc;
 
@@ -4791,6 +4891,8 @@ async function showContactCardSequence(){
 
 async function hideContactCardSequence(restoreContact62First = false){
     hideDownloadHotspot();
+    hideContactEmailClickArea();
+    cancelCardSequenceAnimation();
 
     /*
        When leaving the contact page, contact_clean.jpg must become contact62
@@ -4801,9 +4903,7 @@ async function hideContactCardSequence(restoreContact62First = false){
         await setSequenceImageToContactLastFrame();
     }
 
-    hideCardSequenceImage(true);
-    isCardSequenceAnimating = false;
-    cardSequenceOpen = false;
+    forceRemoveCardSequenceOverlay();
     setDownloadHotspotLabel('DOWNLOAD');
     setContactFrameQrButtonLabel('DOWNLOAD CONTACT');
 }
@@ -6106,6 +6206,13 @@ async function playForwardSequence(featureId){
 
     activeFeature = featureToPlay;
     sequenceStarted = true;
+    if(activeFeature === features.contact){
+        /* A new visit gets a clean card lifecycle; stale work from a previous
+           visit is invalidated before the forward Contact sequence begins. */
+        contactCardLifecycleToken += 1;
+        isLeavingContact = false;
+        forceRemoveCardSequenceOverlay();
+    }
     infoPanelShownDuringSequence = false;
     hideAllHotspots();
     updateTopContactButtonVisibility();
@@ -6182,14 +6289,34 @@ async function playForwardSequence(featureId){
 }
 
 function goBackToDefaultFrame(){
-    if(!sequenceStarted || isAnimatingSequence || isCardSequenceAnimating || !activeFeature){
+    if(!sequenceStarted || isAnimatingSequence || !activeFeature){
         return;
     }
 
     const featureToReverse = activeFeature;
 
+    /* A Contact card may be midway through a flip when Back is pressed. Do not
+       ignore the button; invalidate the card animation and continue the normal
+       route cleanup instead. */
+    if(isCardSequenceAnimating && featureToReverse !== features.contact){
+        return;
+    }
+
+    if(featureToReverse === features.contact){
+        isLeavingContact = true;
+        contactCardLifecycleToken += 1;
+        cancelCardSequenceAnimation();
+        hideDownloadHotspot();
+        hideContactEmailClickArea();
+    }
+
     hideFeatureOverlays(async ()=>{
         const finishReverseSequence = ()=>{
+            if(featureToReverse === features.contact){
+                /* Final belt-and-braces pass: no card PNG is allowed to survive
+                   once the main hotspot page is visible. */
+                forceRemoveCardSequenceOverlay();
+            }
             activeFeature = null;
             sequenceStarted = false;
             positionExpandedDefaultImage();
@@ -7023,13 +7150,21 @@ animation.addEventListener('DOMLoaded', () => {
     animation.goToAndStop(0,true);
 });
 
-document.getElementById('enterBtn').addEventListener('click', ()=>{
-    document.getElementById('enterBtn').classList.add('hide');
-    preloadAssets();
-    animation.play();
-});
+const enterBtn = document.getElementById('enterBtn');
+let introLaunchStarted = false;
+let introLaunchCompleted = false;
+let introLaunchFallbackTimer = null;
 
-animation.addEventListener('complete', ()=>{
+function completeIntroLaunch(){
+    /* Both the Lottie completion and the watchdog can call this safely. */
+    if(introLaunchCompleted){ return; }
+    introLaunchCompleted = true;
+
+    if(introLaunchFallbackTimer !== null){
+        clearTimeout(introLaunchFallbackTimer);
+        introLaunchFallbackTimer = null;
+    }
+
     const intro = document.getElementById('intro');
     const mainSite = document.getElementById('mainSite');
 
@@ -7045,7 +7180,60 @@ animation.addEventListener('complete', ()=>{
     setTimeout(()=>{
         intro.classList.add('fadeOut');
     },250);
-});
+}
+
+function startExploring(event){
+    if(event){
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    /* Touch browsers can dispatch both pointerup and click. The first one wins;
+       every later event simply verifies that the handoff remains on course. */
+    if(introLaunchCompleted){ return; }
+    if(introLaunchStarted){
+        if(!introLaunchFallbackTimer){
+            introLaunchFallbackTimer = setTimeout(completeIntroLaunch, 8000);
+        }
+        return;
+    }
+
+    introLaunchStarted = true;
+    if(enterBtn){
+        enterBtn.classList.add('hide');
+        enterBtn.setAttribute('aria-disabled', 'true');
+    }
+    preloadAssets();
+
+    /* If Safari/WebView loses Lottie's complete event, the visitor still enters
+       the site instead of being left with a hidden, inert START EXPLORING button. */
+    const lottieDurationMs = typeof animation.getDuration === 'function'
+        ? Math.ceil(animation.getDuration(false) * 1000)
+        : 0;
+    const fallbackDelayMs = Math.max(6500, Math.min(12000, lottieDurationMs + 1800));
+    introLaunchFallbackTimer = setTimeout(completeIntroLaunch, fallbackDelayMs);
+
+    try{
+        animation.goToAndPlay(0, true);
+    }catch(error){
+        /* A missing or interrupted animation must never block access to the site. */
+        completeIntroLaunch();
+    }
+}
+
+if(enterBtn){
+    /* pointerup catches touch/pen presses before an unreliable synthetic click;
+       click keeps keyboard and desktop activation intact. */
+    enterBtn.addEventListener('pointerup', (event)=>{
+        if(event.pointerType === 'touch' || event.pointerType === 'pen'){
+            startExploring(event);
+        }
+    }, { passive:false });
+    enterBtn.addEventListener('click', startExploring);
+}
+
+animation.addEventListener('complete', completeIntroLaunch);
+animation.addEventListener('data_failed', completeIntroLaunch);
 
 /* Start preloading as early as possible while the first screen is still open. */
 preloadAssets();
