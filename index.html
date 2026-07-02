@@ -5638,13 +5638,62 @@ function playSequence(feature, start, end, onComplete, onFrame){
 }
 
 /*
+   MOBILE PORTRAIT SEQUENCE LAUNCH STATE
+   --------------------------------------
+   A portrait hotspot can be tapped while the visitor is anywhere inside the
+   draggable scene. Preserve that *rendered* camera position before the async
+   image decode begins, then explicitly hold it until the first sequence frame
+   has been painted. This prevents the animation loop, stale pan target, or the
+   first-frame handoff from snapping the image back to the centred default view.
+*/
+function captureMobilePortraitSequenceLaunchState(){
+    return {
+        x: mobilePanCurrentX,
+        y: mobilePanCurrentY,
+        zoom: mobilePortraitSequenceZoomMultiplier
+    };
+}
+
+function holdMobilePortraitSequenceLaunchState(state){
+    if(!isMobilePortraitTouchLayout() || !state){
+        return;
+    }
+
+    const x = Number.isFinite(state.x) ? state.x : mobilePanCurrentX;
+    const y = Number.isFinite(state.y) ? state.y : mobilePanCurrentY;
+    const zoom = Number.isFinite(state.zoom) ? state.zoom : mobilePortraitSequenceZoomMultiplier;
+
+    /* Invalidate a previous camera tween, then make the captured view the only
+       legal portrait pan until the shared JPG/pan timeline takes ownership. */
+    ++mobilePanTweenToken;
+    mobilePortraitPanMinYOverride = Math.min(0, y);
+    mobilePortraitPanLocked = true;
+    mobilePortraitLockedPanX = x;
+    mobilePortraitLockedPanY = y;
+    mobilePanTargetX = x;
+    mobilePanTargetY = y;
+    mobilePanCurrentX = x;
+    mobilePanCurrentY = y;
+    mobilePortraitSequenceZoomMultiplier = zoom;
+
+    if(mainPlane){
+        mainPlane.style.transformOrigin = '50% 0%';
+        mainPlane.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`;
+    }
+
+    /* Reposition the default still, first JPG frame and all shared overlays in
+       the same paint cycle, so their geometry remains identical at the swap. */
+    positionMobilePortraitZoomedScene();
+}
+
+/*
    MOBILE PORTRAIT: one requestAnimationFrame timeline drives both the JPG frame
    index and the shared scene transform. The forward journey begins at the exact
    main-hotspot geometry and ends at the feature composition; reverse does the
    inverse. This prevents a separate pan from arriving before or after the
    image sequence.
 */
-function playMobilePortraitSequenceWithPan(feature, start, end, onComplete, onFrame){
+function playMobilePortraitSequenceWithPan(feature, start, end, onComplete, onFrame, launchState = null){
     if(!isMobilePortraitTouchLayout()){
         playSequence(feature, start, end, onComplete, onFrame);
         return;
@@ -5659,10 +5708,19 @@ function playMobilePortraitSequenceWithPan(feature, start, end, onComplete, onFr
     const direction = start <= end ? 1 : -1;
     const frameCount = Math.abs(end - start) + 1;
     const duration = frameCount * frameHold;
-    const startX = mobilePanCurrentX;
-    const startY = mobilePanCurrentY;
-    const startZoom = mobilePortraitSequenceZoomMultiplier;
     const isForward = direction === 1;
+
+    /* The forward route receives the camera state captured at the exact tap.
+       Reverse deliberately reads the live feature endpoint instead. */
+    const startX = isForward && launchState && Number.isFinite(launchState.x)
+        ? launchState.x
+        : mobilePanCurrentX;
+    const startY = isForward && launchState && Number.isFinite(launchState.y)
+        ? launchState.y
+        : mobilePanCurrentY;
+    const startZoom = isForward && launchState && Number.isFinite(launchState.zoom)
+        ? launchState.zoom
+        : mobilePortraitSequenceZoomMultiplier;
 
     /*
        IMPORTANT — set the portrait upward allowance BEFORE asking the normal
@@ -5714,6 +5772,11 @@ function playMobilePortraitSequenceWithPan(feature, start, end, onComplete, onFr
 
         positionMobilePortraitZoomedScene();
     }
+
+    /* Commit the captured camera before the first animation frame. The
+       continuously-running touch loop therefore cannot interpolate toward an
+       older target and create a one-frame centre snap. */
+    applyState(startX, startY, startZoom);
 
     function presentFrame(frame){
         if(frame === lastFrame){
@@ -6165,6 +6228,13 @@ async function playForwardSequence(featureId){
         resetContactQrPopupForNextContactVisit();
     }
 
+    /* Capture the exact scene transform at tap time, before feature classes
+       suppress touch input and before the asynchronous decode starts. Portrait
+       must animate out of this live view rather than re-centering it. */
+    const portraitSequenceLaunchState = isMobilePortraitTouchLayout()
+        ? captureMobilePortraitSequenceLaunchState()
+        : null;
+
     /* All pre-sequence positioning stays portrait-only. In landscape the
        scene begins at its default left/right framing and remains there. */
     setFeatureHotspotActive(true);
@@ -6240,8 +6310,16 @@ async function playForwardSequence(featureId){
     hideAllHotspots();
     updateTopContactButtonVisibility();
 
-    positionExpandedDefaultImage();
-    positionSequenceImage();
+    /* Hold the tap-time view before revealing frame zero. This is the critical
+       no-snap handoff: default still and first JPG occupy the same live camera
+       position, then the unified timeline moves both together. */
+    if(synchronizePortraitPan){
+        holdMobilePortraitSequenceLaunchState(portraitSequenceLaunchState);
+    }else{
+        positionExpandedDefaultImage();
+        positionSequenceImage();
+    }
+
     const firstFrame = getPreloadedFrame(activeFeature, activeFeature.firstFrame);
     sequenceImage.src = firstFrame ? firstFrame.src : frameName(activeFeature, activeFeature.firstFrame);
     showSequenceImage();
@@ -6282,14 +6360,15 @@ async function playForwardSequence(featureId){
         }
     };
 
-    window.setTimeout(()=>{
+    const startForwardTimeline = ()=>{
         if(synchronizePortraitPan){
             playMobilePortraitSequenceWithPan(
                 activeFeature,
                 activeFeature.firstFrame,
                 activeFeature.lastFrame,
                 finishForwardSequence,
-                handleSequenceFrame
+                handleSequenceFrame,
+                portraitSequenceLaunchState
             );
         }else if(synchronizeLandscapeContactPan){
             playMobileLandscapeContactSequenceWithPan(
@@ -6308,7 +6387,17 @@ async function playForwardSequence(featureId){
                 handleSequenceFrame
             );
         }
-    }, SEQUENCE_FADE_MS);
+    };
+
+    /* Portrait begins on the next paint, not after the opacity-delay timeout.
+       Frame zero is already held at the current live view, so the fade and the
+       first pan/frame advance read as one uninterrupted animation. Keep the
+       original delay for desktop/tablet/landscape behavior. */
+    if(synchronizePortraitPan){
+        requestAnimationFrame(startForwardTimeline);
+    }else{
+        window.setTimeout(startForwardTimeline, SEQUENCE_FADE_MS);
+    }
 }
 
 function goBackToDefaultFrame(){
