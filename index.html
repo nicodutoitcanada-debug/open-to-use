@@ -4210,6 +4210,12 @@ let infoPanelShownDuringSequence = false;
 let currentLogoVideoIndex = 0;
 let isCardSequenceAnimating = false;
 let cardSequenceOpen = false;
+/* The visible card frame is tracked so Back can reverse a partly or fully
+   flipped card before the main Contact JPG sequence begins returning. */
+let currentCardSequenceFrame = CARD_SEQUENCE_FIRST_FRAME;
+/* A separate exit lock prevents repeated Back taps without marking Contact as
+   "leaving" until the card has actually played back to its front frame. */
+let isContactExitTransitioning = false;
 
 /*
    Contact-card lifecycle safeguards:
@@ -4560,7 +4566,7 @@ function hideScreenDefaultImage(immediate = true){
 
 function showSequenceImage(){
     if(!sequenceImage){
-        return;
+        return Promise.resolve();
     }
 
     /*
@@ -4571,9 +4577,11 @@ function showSequenceImage(){
        3. Only after that first JPG is fully visible, fade the expanded default
           out to the black site background outside the 16:9 sequence canvas.
 
-       This avoids the previous all-black frame on tall/square PC, iPad and
-       phone screens. A previously-active stage is preserved for in-feature
-       swaps such as Contact's final-frame refresh.
+       Returning the first-paint promise is especially important in mobile
+       portrait. The first time an image source reaches the visible <img>, a
+       browser may still need one final presentation pass even though the
+       preload image was already decoded. The shared pan/frame timeline waits
+       for that pass instead of competing with it.
     */
     const stageWasAlreadyActive = isSequenceBlackStageActive();
     const stageToken = ++sequenceBlackStageToken;
@@ -4585,27 +4593,29 @@ function showSequenceImage(){
     positionSequenceImage();
     sequenceImage.style.visibility = 'visible';
 
-    requestAnimationFrame(()=>{
-        if(stageToken !== sequenceBlackStageToken || !sequenceImage){
-            return;
-        }
+    return new Promise(resolve=>{
+        requestAnimationFrame(async ()=>{
+            if(stageToken !== sequenceBlackStageToken || !sequenceImage){
+                resolve();
+                return;
+            }
 
-        sequenceImage.classList.add('show');
+            sequenceImage.classList.add('show');
 
-        if(stageWasAlreadyActive){
-            return;
-        }
-
-        const revealBlackBackdropAfterFirstFrame = async ()=>{
             try{
                 if(typeof sequenceImage.decode === 'function'){
                     await sequenceImage.decode();
                 }
             }catch(error){
-                /* Preloaded frame decode failures fall back to the already-set src. */
+                /* The already preloaded source remains a valid display fallback. */
             }
 
             await waitForNextPaint();
+            resolve();
+
+            if(stageWasAlreadyActive){
+                return;
+            }
 
             window.setTimeout(()=>{
                 if(
@@ -4616,9 +4626,7 @@ function showSequenceImage(){
                     setSequenceBlackStage(true);
                 }
             }, SEQUENCE_FADE_MS);
-        };
-
-        revealBlackBackdropAfterFirstFrame();
+        });
     });
 }
 
@@ -4855,6 +4863,7 @@ function forceRemoveCardSequenceOverlay(){
     hideDownloadHotspot();
     hideContactEmailClickArea();
     cardSequenceOpen = false;
+    currentCardSequenceFrame = CARD_SEQUENCE_FIRST_FRAME;
 
     if(!cardSequenceImage){ return; }
 
@@ -4882,6 +4891,7 @@ function showCardSequenceImage(frameIndex = CARD_SEQUENCE_FIRST_FRAME, instant =
 
     positionCardSequenceOverlay();
     const preloadedFrame = getPreloadedCardFrame(frameIndex);
+    currentCardSequenceFrame = frameIndex;
     cardSequenceImage.src = preloadedFrame ? preloadedFrame.src : cardFrameName(frameIndex);
     cardSequenceImage.style.visibility = 'visible';
 
@@ -4949,6 +4959,7 @@ function playCardSequence(start, end, onComplete){
         if(time - lastTime >= frameHold){
             positionCardSequenceOverlay();
             const preloadedFrame = getPreloadedCardFrame(frame);
+            currentCardSequenceFrame = frame;
             cardSequenceImage.src = preloadedFrame ? preloadedFrame.src : cardFrameName(frame);
             frame += direction;
             lastTime = time;
@@ -4960,6 +4971,7 @@ function playCardSequence(start, end, onComplete){
         }else{
             positionCardSequenceOverlay();
             const preloadedEndFrame = getPreloadedCardFrame(end);
+            currentCardSequenceFrame = end;
             cardSequenceImage.src = preloadedEndFrame ? preloadedEndFrame.src : cardFrameName(end);
             cardSequenceAnimationFrame = null;
             isCardSequenceAnimating = false;
@@ -5025,6 +5037,7 @@ async function showContactCardSequence(){
        This prevents the original card from disappearing for a frame.
     */
     showCardSequenceImage(CARD_SEQUENCE_FIRST_FRAME, true);
+    currentCardSequenceFrame = CARD_SEQUENCE_FIRST_FRAME;
     await waitForNextPaint();
 
     if(
@@ -5684,14 +5697,31 @@ async function reverseContactCardBeforeLeaving(){
     hideDownloadHotspot();
     hideContactEmailClickArea();
 
-    if(cardSequenceOpen){
-        await playCardSequenceAsync(CARD_SEQUENCE_LAST_FRAME, CARD_SEQUENCE_FIRST_FRAME);
-        cardSequenceOpen = false;
-        setDownloadHotspotLabel('DOWNLOAD');
-        setContactFrameQrButtonLabel('DOWNLOAD CONTACT');
+    /*
+       Back must visibly flip the contact card to its front before Contact's
+       main JPG sequence begins reversing. This uses the last rendered card
+       frame, so the same rule also recovers cleanly if Back lands during an
+       in-progress flip rather than only after the FLIP BACK label appears.
+    */
+    const frameToReverseFrom = Math.max(
+        CARD_SEQUENCE_FIRST_FRAME,
+        Math.min(CARD_SEQUENCE_LAST_FRAME, currentCardSequenceFrame)
+    );
+
+    if(frameToReverseFrom > CARD_SEQUENCE_FIRST_FRAME){
+        await playCardSequenceAsync(frameToReverseFrom, CARD_SEQUENCE_FIRST_FRAME);
     }
 
+    cardSequenceOpen = false;
+    setDownloadHotspotLabel('DOWNLOAD');
+    setContactFrameQrButtonLabel('DOWNLOAD CONTACT');
+
+    /* Restore the Contact JPG underneath card00 before removing the PNG. */
     await hideContactCardSequence(true);
+
+    /* Only now is it safe to suppress future card frames and begin exiting. */
+    isLeavingContact = true;
+    contactCardLifecycleToken += 1;
 }
 
 async function hideFeatureOverlays(callback){
@@ -6444,6 +6474,7 @@ async function playForwardSequence(featureId){
            visit is invalidated before the forward Contact sequence begins. */
         contactCardLifecycleToken += 1;
         isLeavingContact = false;
+        isContactExitTransitioning = false;
         forceRemoveCardSequenceOverlay();
     }
     infoPanelShownDuringSequence = false;
@@ -6462,7 +6493,15 @@ async function playForwardSequence(featureId){
 
     const firstFrame = getPreloadedFrame(activeFeature, activeFeature.firstFrame);
     sequenceImage.src = firstFrame ? firstFrame.src : frameName(activeFeature, activeFeature.firstFrame);
-    showSequenceImage();
+    const firstSequenceFramePainted = showSequenceImage();
+
+    /* On the first mobile-portrait visit, wait until this particular visible
+       element has displayed frame zero. Preloading/decode still happens during
+       the intro, but this final first-paint gate prevents the pan loop from
+       stealing the same frame on weaker phones. */
+    if(synchronizePortraitPan){
+        await firstSequenceFramePainted;
+    }
 
     const finishForwardSequence = ()=>{
         backBtn.classList.add('show');
@@ -6555,9 +6594,17 @@ function goBackToDefaultFrame(){
     }
 
     if(featureToReverse === features.contact){
-        isLeavingContact = true;
-        contactCardLifecycleToken += 1;
-        cancelCardSequenceAnimation();
+        if(isContactExitTransitioning){
+            return;
+        }
+
+        /* Keep the card eligible to animate until reverseContactCardBeforeLeaving
+           has returned it to card00. We only cancel an unfinished flip so that
+           the tracked live frame can become the correct reverse start point. */
+        isContactExitTransitioning = true;
+        if(isCardSequenceAnimating){
+            cancelCardSequenceAnimation();
+        }
         hideDownloadHotspot();
         hideContactEmailClickArea();
     }
@@ -8162,8 +8209,12 @@ function completeMainHotspotReturn(featureThatClosed = null){
         updateTopContactButtonVisibility();
 
         if(featureThatClosed === features.contact){
-            /* Back at the main hotspot page: allow the QR guidance on a later Contact visit. */
+            /* Back at the main hotspot page: allow the QR guidance and Contact
+               exit controls on a later visit. */
             resetContactQrPopupForNextContactVisit();
+            isContactExitTransitioning = false;
+            isLeavingContact = false;
+            currentCardSequenceFrame = CARD_SEQUENCE_FIRST_FRAME;
         }
     }finally{
         /* These must always run, even if an image/viewport position update was
