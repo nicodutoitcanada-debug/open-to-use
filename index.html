@@ -7442,52 +7442,209 @@ introForegroundDust = createIntroForegroundDust();
 
 
 /* =========================
-   LOTTIE
-========================= */
-
-const animation = lottie.loadAnimation({
-    container: document.getElementById('lottie'),
-    renderer: 'svg',
-    loop: false,
-    autoplay: false,
-    path: 'logo merge.json'
-});
-
-animation.addEventListener('DOMLoaded', () => {
-    animation.goToAndStop(0,true);
-});
-
+   LOTTIE + FAIL-SAFE INTRO HANDOFF
+   =========================
+   The entry button must never be able to disappear without either starting the
+   logo animation or opening the hotspot page. Safari can occasionally dispatch
+   a touch activation before Lottie has finished its first render, and a preload
+   or layout exception must not be allowed to interrupt that handoff.
+*/
 const enterBtn = document.getElementById('enterBtn');
+let animation = null;
 let introLaunchStarted = false;
 let introLaunchCompleted = false;
 let introLaunchFallbackTimer = null;
+let introLaunchHealthTimer = null;
+let introLottieReady = false;
+let introLottiePlayedFrames = false;
+let introLottieStartAttempts = 0;
+let introLaunchStartedAt = 0;
 
-function completeIntroLaunch(){
-    /* Both the Lottie completion and the watchdog can call this safely. */
-    if(introLaunchCompleted){ return; }
-    introLaunchCompleted = true;
+const INTRO_LAUNCH_MIN_FALLBACK_MS = 4600;
+const INTRO_LAUNCH_MAX_FALLBACK_MS = 9000;
+const INTRO_LAUNCH_EARLY_RECOVERY_MS = 2300;
+const INTRO_LAUNCH_HEALTH_INTERVAL_MS = 650;
 
+function safeIntroTask(label, task){
+    try{
+        return task();
+    }catch(error){
+        /* Keep diagnostics available without allowing optional work to strand the intro. */
+        console.warn(`[Intro safeguard] ${label} failed; continuing entry handoff.`, error);
+        return undefined;
+    }
+}
+
+function clearIntroLaunchTimers(){
     if(introLaunchFallbackTimer !== null){
         clearTimeout(introLaunchFallbackTimer);
         introLaunchFallbackTimer = null;
     }
+    if(introLaunchHealthTimer !== null){
+        clearTimeout(introLaunchHealthTimer);
+        introLaunchHealthTimer = null;
+    }
+}
 
+function getIntroLottieDurationMs(){
+    if(!animation || typeof animation.getDuration !== 'function'){
+        return 0;
+    }
+
+    const durationSeconds = safeIntroTask('reading Lottie duration', ()=>animation.getDuration(false));
+    return Number.isFinite(durationSeconds) && durationSeconds > 0
+        ? Math.ceil(durationSeconds * 1000)
+        : 0;
+}
+
+function getIntroFallbackDelayMs(){
+    const durationMs = getIntroLottieDurationMs();
+    const estimatedDelay = durationMs > 0 ? durationMs + 1400 : 5600;
+    return Math.max(
+        INTRO_LAUNCH_MIN_FALLBACK_MS,
+        Math.min(INTRO_LAUNCH_MAX_FALLBACK_MS, estimatedDelay)
+    );
+}
+
+function isMainSiteVisible(){
+    const mainSite = document.getElementById('mainSite');
+    return !!(mainSite && mainSite.classList.contains('show'));
+}
+
+function hasLottieReachedItsLastFrame(){
+    if(!animation){
+        return false;
+    }
+
+    const totalFrames = Number(animation.totalFrames);
+    const currentFrame = Number(animation.currentFrame);
+    return Number.isFinite(totalFrames) && totalFrames > 1 &&
+        Number.isFinite(currentFrame) && currentFrame >= totalFrames - 1;
+}
+
+function lottieLooksAlive(){
+    if(!animation){
+        return false;
+    }
+
+    /* Do not trust isPaused alone: on the affected Safari path it can switch to
+       false even though the SVG never advances from its first frame. */
+    const currentFrame = Number(animation.currentFrame);
+    return introLottiePlayedFrames ||
+        (Number.isFinite(currentFrame) && currentFrame > 0.5);
+}
+
+function prepareMainSiteWithoutBlockingEntry(){
+    /* The main page is made visible first. Every visual refinement below is
+       deliberately isolated, so a single asset or layout problem cannot block
+       access to the interactive site. */
     const intro = document.getElementById('intro');
     const mainSite = document.getElementById('mainSite');
 
-    setMainImageToDefaultFrame();
-    mainSite.classList.add('show');
-    setTimeout(showMobileTouchGuideWhenReady, 650);
-    positionExpandedDefaultImage();
-    positionFeatureVideo();
-    positionAllHotspots();
-    positionLogoVideo();
-    preloadAssets();
-    scheduleTouchMainHotspotRecovery();
+    if(mainSite){
+        mainSite.classList.add('show');
+        mainSite.setAttribute('aria-hidden', 'false');
+    }
 
-    setTimeout(()=>{
-        intro.classList.add('fadeOut');
-    },250);
+    safeIntroTask('restoring the default hotspot frame', ()=>setMainImageToDefaultFrame());
+
+    requestAnimationFrame(()=>{
+        safeIntroTask('positioning the default hotspot frame', ()=>positionExpandedDefaultImage());
+        safeIntroTask('positioning feature video', ()=>positionFeatureVideo());
+        safeIntroTask('positioning hotspots', ()=>positionAllHotspots());
+        safeIntroTask('positioning logo video', ()=>positionLogoVideo());
+        safeIntroTask('positioning contact-card overlays', ()=>positionCardSequenceOverlay());
+        safeIntroTask('positioning download hotspot', ()=>positionDownloadHotspot());
+        safeIntroTask('refreshing Contact button visibility', ()=>updateTopContactButtonVisibility());
+        safeIntroTask('recovering mobile hotspot controls', ()=>scheduleTouchMainHotspotRecovery());
+    });
+
+    /* Asset preloading is useful, but it is intentionally not allowed to run in
+       the same critical path as entering the site. */
+    window.setTimeout(()=>{
+        safeIntroTask('continuing background asset preload', ()=>preloadAssets());
+    }, 0);
+
+    window.setTimeout(()=>{
+        safeIntroTask('showing the touch guide', ()=>showMobileTouchGuideWhenReady());
+    }, 650);
+
+    if(intro){
+        window.setTimeout(()=>{
+            intro.classList.add('fadeOut');
+            intro.setAttribute('aria-hidden', 'true');
+        }, 250);
+    }
+}
+
+function completeIntroLaunch(){
+    /* Lottie completion, a failed Lottie request, and the watchdog can all
+       reach this function. It is intentionally safe to call more than once. */
+    if(introLaunchCompleted){
+        return;
+    }
+
+    introLaunchCompleted = true;
+    clearIntroLaunchTimers();
+    prepareMainSiteWithoutBlockingEntry();
+}
+
+function tryStartIntroLottie(){
+    if(!animation || typeof animation.goToAndPlay !== 'function'){
+        return false;
+    }
+
+    introLottieStartAttempts += 1;
+    const started = safeIntroTask('starting Lottie', ()=>{
+        /* Restarting from frame zero is intentional: a Safari-rendered first
+           frame must never make a second recovery attempt look frozen. */
+        if(typeof animation.goToAndStop === 'function'){
+            animation.goToAndStop(0, true);
+        }
+        animation.goToAndPlay(0, true);
+        return true;
+    });
+
+    return started === true;
+}
+
+function runIntroLaunchHealthCheck(){
+    introLaunchHealthTimer = null;
+
+    if(introLaunchCompleted || isMainSiteVisible()){
+        if(isMainSiteVisible() && !introLaunchCompleted){
+            completeIntroLaunch();
+        }
+        return;
+    }
+
+    const elapsedMs = Math.max(0, performance.now() - introLaunchStartedAt);
+
+    /* A final frame with no completion event is a known failure mode on some
+       touch browsers. Open the site immediately rather than waiting for the
+       hard timeout. */
+    if(hasLottieReachedItsLastFrame()){
+        completeIntroLaunch();
+        return;
+    }
+
+    /* If the button vanished but Lottie has not produced a single frame, retry
+       its first-frame handoff once it is ready. */
+    if(!lottieLooksAlive() && introLottieStartAttempts < 3){
+        tryStartIntroLottie();
+    }
+
+    /* The visitor should not watch a blank intro indefinitely when the Lottie
+       renderer itself is unavailable or stalled. */
+    if(!lottieLooksAlive() && elapsedMs >= INTRO_LAUNCH_EARLY_RECOVERY_MS){
+        completeIntroLaunch();
+        return;
+    }
+
+    introLaunchHealthTimer = window.setTimeout(
+        runIntroLaunchHealthCheck,
+        INTRO_LAUNCH_HEALTH_INTERVAL_MS
+    );
 }
 
 function startExploring(event){
@@ -7496,52 +7653,118 @@ function startExploring(event){
         event.stopPropagation();
     }
 
-    /* Touch browsers can dispatch both pointerup and click. The first one wins;
-       every later event simply verifies that the handoff remains on course. */
-    if(introLaunchCompleted){ return; }
+    if(introLaunchCompleted){
+        return;
+    }
+
+    /* Pointer/touch and synthetic click events can both arrive. The first
+       activation owns the transition; later ones only make sure its watchdog
+       is still alive. */
     if(introLaunchStarted){
-        if(!introLaunchFallbackTimer){
-            introLaunchFallbackTimer = setTimeout(completeIntroLaunch, 8000);
+        if(introLaunchHealthTimer === null){
+            runIntroLaunchHealthCheck();
         }
         return;
     }
 
     introLaunchStarted = true;
+    introLaunchStartedAt = performance.now();
+
+    /* Arm recovery before hiding the button or starting any optional preload.
+       This order is what prevents the old hidden-button dead end. */
+    introLaunchFallbackTimer = window.setTimeout(
+        completeIntroLaunch,
+        getIntroFallbackDelayMs()
+    );
+    introLaunchHealthTimer = window.setTimeout(runIntroLaunchHealthCheck, 700);
+
     if(enterBtn){
         enterBtn.classList.add('hide');
         enterBtn.setAttribute('aria-disabled', 'true');
     }
-    preloadAssets();
 
-    /* If Safari/WebView loses Lottie's complete event, the visitor still enters
-       the site instead of being left with a hidden, inert START EXPLORING button. */
-    const lottieDurationMs = typeof animation.getDuration === 'function'
-        ? Math.ceil(animation.getDuration(false) * 1000)
-        : 0;
-    const fallbackDelayMs = Math.max(6500, Math.min(12000, lottieDurationMs + 1800));
-    introLaunchFallbackTimer = setTimeout(completeIntroLaunch, fallbackDelayMs);
+    safeIntroTask('starting priority asset preload', ()=>preloadAssets());
 
-    try{
-        animation.goToAndPlay(0, true);
-    }catch(error){
-        /* A missing or interrupted animation must never block access to the site. */
-        completeIntroLaunch();
-    }
+    /* A touch can arrive before Lottie emits DOMLoaded. The DOMLoaded listener
+       below makes a second start attempt at the exact moment it becomes ready. */
+    tryStartIntroLottie();
 }
 
-if(enterBtn){
-    /* pointerup catches touch/pen presses before an unreliable synthetic click;
-       click keeps keyboard and desktop activation intact. */
-    enterBtn.addEventListener('pointerup', (event)=>{
-        if(event.pointerType === 'touch' || event.pointerType === 'pen'){
-            startExploring(event);
+/* Lottie itself is non-critical: the entrance always falls back to the main
+   site when the CDN, JSON, or SVG renderer cannot participate. */
+safeIntroTask('creating Lottie animation', ()=>{
+    if(!window.lottie || typeof window.lottie.loadAnimation !== 'function'){
+        return;
+    }
+
+    animation = window.lottie.loadAnimation({
+        container: document.getElementById('lottie'),
+        renderer: 'svg',
+        loop: false,
+        autoplay: false,
+        path: 'logo merge.json'
+    });
+
+    if(!animation || typeof animation.addEventListener !== 'function'){
+        return;
+    }
+
+    animation.addEventListener('DOMLoaded', ()=>{
+        introLottieReady = true;
+        safeIntroTask('preparing the Lottie first frame', ()=>{
+            if(typeof animation.goToAndStop === 'function'){
+                animation.goToAndStop(0, true);
+            }
+        });
+
+        if(introLaunchStarted && !introLaunchCompleted && !lottieLooksAlive()){
+            tryStartIntroLottie();
         }
-    }, { passive:false });
+    });
+
+    animation.addEventListener('enterFrame', (event)=>{
+        const frame = Number(
+            event && Number.isFinite(Number(event.currentTime))
+                ? event.currentTime
+                : animation.currentFrame
+        );
+        if(Number.isFinite(frame) && frame > 0.5){
+            introLottiePlayedFrames = true;
+        }
+    });
+
+    animation.addEventListener('complete', completeIntroLaunch);
+    animation.addEventListener('data_failed', completeIntroLaunch);
+    animation.addEventListener('error', completeIntroLaunch);
+});
+
+if(enterBtn){
+    /* pointerup catches iPad/iPhone interactions before the synthetic click;
+       click retains desktop and keyboard activation. Older touch browsers get
+       a touchend fallback. */
+    if('PointerEvent' in window){
+        enterBtn.addEventListener('pointerup', (event)=>{
+            if(event.pointerType === 'touch' || event.pointerType === 'pen'){
+                startExploring(event);
+            }
+        }, {passive:false});
+    }else{
+        enterBtn.addEventListener('touchend', startExploring, {passive:false});
+    }
+
     enterBtn.addEventListener('click', startExploring);
 }
 
-animation.addEventListener('complete', completeIntroLaunch);
-animation.addEventListener('data_failed', completeIntroLaunch);
+/* A restored iOS page can resume JavaScript after it has been backgrounded.
+   Re-arm the check instead of leaving a previously hidden button on screen. */
+window.addEventListener('pageshow', ()=>{
+    if(introLaunchStarted && !introLaunchCompleted && !isMainSiteVisible()){
+        if(introLaunchHealthTimer !== null){
+            clearTimeout(introLaunchHealthTimer);
+        }
+        introLaunchHealthTimer = window.setTimeout(runIntroLaunchHealthCheck, 0);
+    }
+});
 
 /* Start preloading as early as possible while the first screen is still open. */
 preloadAssets();
