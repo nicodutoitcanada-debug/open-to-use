@@ -1645,8 +1645,23 @@ a,
 .chessSquare{ width:min(8.4vw,68px); height:min(8.4vw,68px); display:flex; align-items:center; justify-content:center; font-size:min(6.4vw,48px); user-select:none; position:relative; transition:box-shadow .22s ease, transform .22s ease, background .22s ease; }
 .chessSquare.light{ background:#d9c49a; }
 .chessSquare.dark{ background:#7f583d; }
-.chessSquare.white-piece{ color:white; text-shadow:0 3px 10px rgba(0,0,0,.75); }
-.chessSquare.black-piece{ color:#050505; text-shadow:0 0 2px rgba(255,255,255,.85), 0 2px 8px rgba(255,255,255,.35); }
+/* Use the same solid glyph set for both sides. Safari renders the Unicode
+   white chess symbols as outlines, which also gives its pawns a different
+   visual size. The black glyphs are solid, so colour that one shared set
+   white or black instead. */
+.chessSquare{
+    font-family:"Segoe UI Symbol", "Apple Symbols", "Arial Unicode MS", sans-serif;
+    font-weight:normal;
+    line-height:1;
+}
+.chessSquare.white-piece{
+    color:#fff;
+    text-shadow:0 2px 8px rgba(0,0,0,.78);
+}
+.chessSquare.black-piece{
+    color:#050505;
+    text-shadow:0 1px 2px rgba(255,255,255,.22), 0 2px 8px rgba(255,255,255,.25);
+}
 .chessSquare.selectable{ cursor:pointer; }
 .chessSquare.selected{ box-shadow:inset 0 0 0 4px rgba(255,255,255,.95), inset 0 0 28px rgba(255,255,255,.35); }
 .chessSquare.legal::after{ content:""; width:24%; height:24%; border-radius:50%; background:rgba(255,255,255,.64); box-shadow:0 0 18px rgba(255,255,255,.55); position:absolute; }
@@ -9507,8 +9522,12 @@ const chessTryAnotherBtn = document.getElementById('chessTryAnotherBtn');
 const bottomBrainBtn = document.querySelector('.bottomBrainBtn');
 
 const chessFilesArray = ['a','b','c','d','e','f','g','h'];
-const whitePieces = {K:'♔', Q:'♕', R:'♖', B:'♗', N:'♘', P:'♙'};
-const blackPieces = {K:'♚', Q:'♛', R:'♜', B:'♝', N:'♞', P:'♟'};
+/* The same filled Unicode glyphs are deliberately used for both colours.
+   Colour is set in CSS, avoiding Safari's outlined white glyph set and
+   guaranteeing matching mobile piece dimensions. */
+const solidChessPieces = {K:'♚', Q:'♛', R:'♜', B:'♝', N:'♞', P:'♟'};
+const whitePieces = solidChessPieces;
+const blackPieces = solidChessPieces;
 const chessStartPosition = {
     f7:{color:'w', type:'N'}, c4:{color:'w', type:'Q'}, b3:{color:'w', type:'P'}, a2:{color:'w', type:'P'}, g2:{color:'w', type:'P'}, h2:{color:'w', type:'P'}, e1:{color:'w', type:'R'}, g1:{color:'w', type:'K'},
     f8:{color:'b', type:'R'}, g8:{color:'b', type:'K'}, a7:{color:'b', type:'P'}, g7:{color:'b', type:'P'}, h7:{color:'b', type:'P'}, b6:{color:'b', type:'P'}, c6:{color:'b', type:'Q'}, c5:{color:'b', type:'P'}, h4:{color:'b', type:'N'}
