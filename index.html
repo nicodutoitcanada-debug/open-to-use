@@ -3633,6 +3633,41 @@ html.contact-qr-popup-open .adaptiveScrollControl{
     }
 }
 
+
+/* =========================
+   CHESS TOUCH INPUT SAFEGUARD
+   The chess overlay must receive direct finger input. The mobile virtual
+   joystick/cursor is suspended while this modal is open, so a chess-square tap
+   is never converted into a second synthetic click.
+========================= */
+#chessOverlay,
+#chessOverlay .chessPanel,
+#chessOverlay .chessBoard,
+#chessOverlay .chessSquare,
+#chessOverlay .chessControlBtn,
+#chessOverlay .closeChessBtn{
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+}
+
+.chessMoveList{
+    max-height:4.2em;
+    overflow:auto;
+    overscroll-behavior:contain;
+    scrollbar-width:none;
+}
+
+.chessMoveList::-webkit-scrollbar{
+    width:0;
+    height:0;
+}
+
+.chessControlBtn:disabled{
+    opacity:.46;
+    cursor:default;
+    pointer-events:none;
+}
+
 </style>
 </head>
 <body>
@@ -8275,10 +8310,12 @@ function restoreMobileVirtualCursorToCenter(){
 }
 
 function isMobileVirtualCursorSuppressed(){
-    return (
-        (document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout())
-        || (document.body.classList.contains('mobileLandscapeHotspotActive') && isMobileLandscapeTouchLayout())
-    );
+    const chessOverlayIsOpen = document.body.classList.contains('mobileChessActive')
+        || document.getElementById('chessOverlay')?.classList.contains('show');
+
+    return chessOverlayIsOpen
+        || (document.body.classList.contains('mobilePortraitHotspotActive') && isMobilePortraitLayout())
+        || (document.body.classList.contains('mobileLandscapeHotspotActive') && isMobileLandscapeTouchLayout());
 }
 
 function setFeatureHotspotActive(isActive){
@@ -9497,14 +9534,248 @@ function clearChessHighlights(){ document.querySelectorAll('.chessSquare').forEa
 function highlightLegalMoves(fromSquare){ clearChessHighlights(); const fromElement=document.querySelector(`[data-square="${fromSquare}"]`); if(fromElement) fromElement.classList.add('selected'); getLegalMoves(fromSquare).forEach(toSquare=>{ const target=document.querySelector(`[data-square="${toSquare}"]`); if(target) target.classList.add(chessPosition[toSquare]?'captureLegal':'legal'); }); }
 function getSlidingMoves(fromSquare,directions){ const piece=chessPosition[fromSquare]; const moves=[]; const {file,rank}=squareToCoords(fromSquare); directions.forEach(([df,dr])=>{ let f=file+df,r=rank+dr; while(f>=0&&f<=7&&r>=0&&r<=7){ const targetSquare=coordsToSquare(f,r); const targetPiece=chessPosition[targetSquare]; if(!targetPiece) moves.push(targetSquare); else{ if(targetPiece.color!==piece.color) moves.push(targetSquare); break; } f+=df; r+=dr; } }); return moves; }
 function getLegalMoves(fromSquare){ const piece=chessPosition[fromSquare]; if(!piece) return []; const {file,rank}=squareToCoords(fromSquare); const moves=[]; function addIfValid(f,r){ const targetSquare=coordsToSquare(f,r); if(!targetSquare) return; const targetPiece=chessPosition[targetSquare]; if(!targetPiece||targetPiece.color!==piece.color) moves.push(targetSquare); } if(piece.type==='N') [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]].forEach(([df,dr])=>addIfValid(file+df,rank+dr)); if(piece.type==='K') [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]].forEach(([df,dr])=>addIfValid(file+df,rank+dr)); if(piece.type==='R') return getSlidingMoves(fromSquare,[[1,0],[-1,0],[0,1],[0,-1]]); if(piece.type==='B') return getSlidingMoves(fromSquare,[[1,1],[1,-1],[-1,1],[-1,-1]]); if(piece.type==='Q') return getSlidingMoves(fromSquare,[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]); if(piece.type==='P'){ const direction=piece.color==='w'?1:-1; const oneForward=coordsToSquare(file,rank+direction); const twoForward=coordsToSquare(file,rank+direction*2); const startRank=piece.color==='w'?1:6; if(oneForward&&!chessPosition[oneForward]){ moves.push(oneForward); if(rank===startRank&&twoForward&&!chessPosition[twoForward]) moves.push(twoForward); } [file-1,file+1].forEach(f=>{ const cap=coordsToSquare(f,rank+direction); if(cap&&chessPosition[cap]&&chessPosition[cap].color!==piece.color) moves.push(cap); }); } return moves; }
-function moveChessPiece(from,to){ chessPosition[to]=chessPosition[from]; delete chessPosition[from]; selectedChessSquare=null; clearChessHighlights(); renderChessBoard(); }
-function handleChessSquareClick(squareName){ if(chessCompleted) return; const piece=chessPosition[squareName]; if(selectedChessSquare){ const legalMoves=getLegalMoves(selectedChessSquare); if(legalMoves.includes(squareName)){ attemptPuzzleMove(selectedChessSquare,squareName); return; } if(piece&&piece.color==='w'){ selectedChessSquare=squareName; highlightLegalMoves(squareName); return; } selectedChessSquare=null; clearChessHighlights(); return; } if(piece&&piece.color==='w'){ selectedChessSquare=squareName; highlightLegalMoves(squareName); } }
-function attemptPuzzleMove(from,to){ const expected=chessSolution[currentPuzzleStep]; if(expected&&from===expected.from&&to===expected.to){ moveChessPiece(from,to); playedChessMoves.push(`${currentPuzzleStep+1}. ${expected.notation}`); updateChessMoveList(); if(expected.black){ chessMessage.textContent='Great! Keep going...'; setTimeout(()=>{ moveChessPiece(expected.black.from,expected.black.to); playedChessMoves.push(`... ${expected.black.notation}`); currentPuzzleStep++; updateChessMoveList(); chessMessage.textContent=`Move ${currentPuzzleStep+1} of 3. Find White's next move.`; },650); }else{ currentPuzzleStep++; completeChessPuzzle(); } }else{ chessMessage.textContent='Not quite. Try another move.'; chessPanel.classList.remove('wrong'); void chessPanel.offsetWidth; chessPanel.classList.add('wrong'); } }
-function updateChessMoveList(){ chessMoveList.innerHTML=playedChessMoves.length?playedChessMoves.join('<br>'):'No moves yet.'; }
-function completeChessPuzzle(){ chessCompleted=true; clearChessHighlights(); renderChessBoard(); chessMessage.textContent='Excellent! Checkmate.'; chessCompleteBox.classList.add('show'); }
-function resetChessPuzzle(){ chessPosition=cloneChessPosition(chessStartPosition); selectedChessSquare=null; currentPuzzleStep=0; playedChessMoves=[]; chessCompleted=false; chessCompleteBox.classList.remove('show'); chessMessage.textContent="Move 1 of 3. Find White's best move."; updateChessMoveList(); renderChessBoard(); }
-function showChessHint(){ if(chessCompleted) return; clearChessHighlights(); const expected=chessSolution[currentPuzzleStep]; const from=document.querySelector(`[data-square="${expected.from}"]`); if(from) from.classList.add('hintFrom'); chessMessage.textContent='Hint: this is the piece to move.'; }
-function showCorrectChessMove(){ if(chessCompleted) return; const expected=chessSolution[currentPuzzleStep]; clearChessHighlights(); const from=document.querySelector(`[data-square="${expected.from}"]`); const to=document.querySelector(`[data-square="${expected.to}"]`); if(from) from.classList.add('hintFrom'); if(to) to.classList.add('hintTo'); setTimeout(()=>attemptPuzzleMove(expected.from,expected.to),520); }
+let chessMoveInProgress = false;
+let chessShowMovePending = false;
+let chessReplyTimer = null;
+
+function setChessControlsBusy(isBusy){
+    const disabled = !!isBusy || chessCompleted;
+
+    if(chessShowMoveBtn){
+        chessShowMoveBtn.disabled = disabled;
+        chessShowMoveBtn.setAttribute('aria-disabled', String(disabled));
+    }
+
+    if(chessHintBtn){
+        chessHintBtn.disabled = disabled;
+        chessHintBtn.setAttribute('aria-disabled', String(disabled));
+    }
+}
+
+function cancelPendingChessMove(){
+    if(chessReplyTimer !== null){
+        window.clearTimeout(chessReplyTimer);
+        chessReplyTimer = null;
+    }
+
+    chessMoveInProgress = false;
+    chessShowMovePending = false;
+}
+
+function moveChessPiece(from, to){
+    const piece = chessPosition[from];
+
+    // A queued or duplicate interaction must never create an empty square move.
+    if(!piece){
+        return false;
+    }
+
+    chessPosition[to] = piece;
+    delete chessPosition[from];
+    selectedChessSquare = null;
+    clearChessHighlights();
+    renderChessBoard();
+    return true;
+}
+
+function handleChessSquareClick(squareName){
+    if(chessCompleted || chessMoveInProgress || chessShowMovePending){
+        return;
+    }
+
+    const piece = chessPosition[squareName];
+
+    if(selectedChessSquare){
+        const legalMoves = getLegalMoves(selectedChessSquare);
+
+        if(legalMoves.includes(squareName)){
+            attemptPuzzleMove(selectedChessSquare, squareName);
+            return;
+        }
+
+        if(piece && piece.color === 'w'){
+            selectedChessSquare = squareName;
+            highlightLegalMoves(squareName);
+            return;
+        }
+
+        selectedChessSquare = null;
+        clearChessHighlights();
+        return;
+    }
+
+    if(piece && piece.color === 'w'){
+        selectedChessSquare = squareName;
+        highlightLegalMoves(squareName);
+    }
+}
+
+function attemptPuzzleMove(from, to){
+    if(chessCompleted || chessMoveInProgress){
+        return;
+    }
+
+    const expected = chessSolution[currentPuzzleStep];
+
+    if(!expected || expected.from !== from || expected.to !== to){
+        showWrongChessMove();
+        return;
+    }
+
+    chessMoveInProgress = true;
+    chessShowMovePending = false;
+    setChessControlsBusy(true);
+
+    if(!moveChessPiece(from, to)){
+        chessMoveInProgress = false;
+        setChessControlsBusy(false);
+        return;
+    }
+
+    playedChessMoves.push(`${currentPuzzleStep + 1}. ${expected.notation}`);
+    updateChessMoveList();
+
+    if(!expected.black){
+        currentPuzzleStep++;
+        chessMoveInProgress = false;
+        completeChessPuzzle();
+        return;
+    }
+
+    const stepAtMoveStart = currentPuzzleStep;
+    chessMessage.textContent = 'Great! Keep going...';
+
+    chessReplyTimer = window.setTimeout(()=>{
+        chessReplyTimer = null;
+
+        // The reset button or closing/reopening the overlay may have changed state
+        // while Black's reply was waiting. Ignore that stale callback.
+        if(
+            chessCompleted
+            || !chessMoveInProgress
+            || currentPuzzleStep !== stepAtMoveStart
+        ){
+            chessMoveInProgress = false;
+            setChessControlsBusy(false);
+            return;
+        }
+
+        if(!moveChessPiece(expected.black.from, expected.black.to)){
+            chessMoveInProgress = false;
+            setChessControlsBusy(false);
+            return;
+        }
+
+        playedChessMoves.push(`... ${expected.black.notation}`);
+        currentPuzzleStep++;
+        chessMoveInProgress = false;
+        updateChessMoveList();
+        chessMessage.textContent = `Move ${currentPuzzleStep + 1} of 3. Find White's next move.`;
+        setChessControlsBusy(false);
+    }, 650);
+}
+
+function showWrongChessMove(){
+    if(chessMoveInProgress || chessShowMovePending){
+        return;
+    }
+
+    chessMessage.textContent = 'Not quite. Try another move.';
+    chessPanel.classList.remove('wrong');
+    void chessPanel.offsetWidth;
+    chessPanel.classList.add('wrong');
+}
+
+function updateChessMoveList(){
+    chessMoveList.innerHTML = playedChessMoves.length
+        ? playedChessMoves.join('<br>')
+        : 'No moves yet.';
+}
+
+function completeChessPuzzle(){
+    chessCompleted = true;
+    cancelPendingChessMove();
+    clearChessHighlights();
+    renderChessBoard();
+    chessMessage.textContent = 'Excellent! Checkmate.';
+    chessCompleteBox.classList.add('show');
+    setChessControlsBusy(true);
+}
+
+function resetChessPuzzle(){
+    cancelPendingChessMove();
+    chessPosition = cloneChessPosition(chessStartPosition);
+    selectedChessSquare = null;
+    currentPuzzleStep = 0;
+    playedChessMoves = [];
+    chessCompleted = false;
+    chessCompleteBox.classList.remove('show');
+    chessMessage.textContent = 'Move 1 of 3. Find White\'s best move.';
+    updateChessMoveList();
+    renderChessBoard();
+    setChessControlsBusy(false);
+}
+
+function showChessHint(){
+    if(chessCompleted || chessMoveInProgress || chessShowMovePending){
+        return;
+    }
+
+    clearChessHighlights();
+    const expected = chessSolution[currentPuzzleStep];
+    const from = document.querySelector(`[data-square="${expected.from}"]`);
+
+    if(from){
+        from.classList.add('hintFrom');
+    }
+
+    chessMessage.textContent = 'Hint: this is the piece to move.';
+}
+
+function showCorrectChessMove(){
+    if(chessCompleted || chessMoveInProgress || chessShowMovePending){
+        return;
+    }
+
+    const stepAtRequest = currentPuzzleStep;
+    const expected = chessSolution[stepAtRequest];
+
+    if(!expected){
+        return;
+    }
+
+    chessShowMovePending = true;
+    setChessControlsBusy(true);
+    clearChessHighlights();
+
+    const from = document.querySelector(`[data-square="${expected.from}"]`);
+    const to = document.querySelector(`[data-square="${expected.to}"]`);
+
+    if(from){
+        from.classList.add('hintFrom');
+    }
+
+    if(to){
+        to.classList.add('hintTo');
+    }
+
+    window.setTimeout(()=>{
+        if(
+            !chessShowMovePending
+            || chessCompleted
+            || chessMoveInProgress
+            || currentPuzzleStep !== stepAtRequest
+        ){
+            chessShowMovePending = false;
+            setChessControlsBusy(false);
+            return;
+        }
+
+        chessShowMovePending = false;
+        attemptPuzzleMove(expected.from, expected.to);
+    }, 520);
+}
+
 function openChessOverlay(event){
     if(event){
         event.preventDefault();
