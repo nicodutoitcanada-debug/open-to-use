@@ -3683,6 +3683,74 @@ html.contact-qr-popup-open .adaptiveScrollControl{
     pointer-events:none;
 }
 
+
+
+/* =========================
+   PRODUCT VIDEO LOADER + CONTROLLED MEDIA WARMUP
+   The loader is deliberately lightweight and never captures taps. It appears
+   only when the selected MP4 still needs a usable playback buffer.
+========================= */
+#productVideoLoader{
+    position:fixed;
+    left:50%;
+    top:50%;
+    z-index:224;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:11px;
+    min-width:172px;
+    padding:13px 17px;
+    border:1px solid rgba(255,255,255,.22);
+    border-radius:999px;
+    background:rgba(4,8,14,.68);
+    box-shadow:0 18px 56px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.12);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    color:rgba(255,255,255,.95);
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:1.25px;
+    pointer-events:none;
+    opacity:0;
+    visibility:hidden;
+    transform:translate3d(-50%, -50%, 0) scale(.90);
+    transition:opacity .20s ease, transform .28s cubic-bezier(.22, 1, .36, 1), visibility .20s ease;
+}
+
+#productVideoLoader.show{
+    opacity:1;
+    visibility:visible;
+    transform:translate3d(-50%, -50%, 0) scale(1);
+}
+
+.productVideoLoaderSpinner{
+    width:19px;
+    height:19px;
+    flex:0 0 19px;
+    border:2px solid rgba(255,255,255,.22);
+    border-top-color:rgba(255,255,255,.96);
+    border-radius:50%;
+    animation:productVideoLoaderSpin .76s linear infinite;
+}
+
+@keyframes productVideoLoaderSpin{
+    to{ transform:rotate(360deg); }
+}
+
+/* These one-pixel media elements provide a controlled one-at-a-time warmup for
+   upcoming MP4s. They are visually and interaction-wise inert. */
+.productVideoWarmup{
+    position:fixed;
+    left:-4px;
+    top:-4px;
+    width:1px;
+    height:1px;
+    opacity:0;
+    pointer-events:none;
+    visibility:hidden;
+}
+
 </style>
 </head>
 <body>
@@ -3695,6 +3763,12 @@ html.contact-qr-popup-open .adaptiveScrollControl{
     <div class="sequenceTumblerGlass">
         <div class="sequenceTumblerCore"></div>
     </div>
+</div>
+
+<!-- Shown only while a chosen product MP4 is buffering enough to begin playback. -->
+<div id="productVideoLoader" role="status" aria-live="polite" aria-hidden="true">
+    <span class="productVideoLoaderSpinner" aria-hidden="true"></span>
+    <span>LOADING VIDEO</span>
 </div>
 
 <!-- INTRO -->
@@ -4249,6 +4323,36 @@ const sequencePreloadTumbler = document.getElementById('sequencePreloadTumbler')
 const SEQUENCE_PRELOAD_TUMBLER_DELAY_MS = 900;
 let sequencePreloadTumblerTimer = null;
 
+/* Product video buffering: first MP4 gets an earlier warm start; later clips
+   use one background request at a time so they do not swamp image sequences. */
+const productVideoLoader = document.getElementById('productVideoLoader');
+const PRODUCT_VIDEO_LOADER_DELAY_MS = 260;
+const PRODUCT_VIDEO_WARMUP_DELAY_MS = 900;
+const PRODUCT_VIDEO_WARMUP_CONCURRENCY = 1;
+let productVideoLoaderTimer = null;
+let productVideoPlaybackToken = 0;
+let productVideoLoading = false;
+let firstProductVideoWarmupScheduled = false;
+let productVideoWarmupsInFlight = 0;
+const productVideoWarmQueue = [];
+const productVideoWarmQueuedFiles = new Set();
+const productVideoWarmElements = new Map();
+
+/* Contact-card PNGs are queued with a small concurrency cap. Frame 00 is first
+   so the card is immediately stable when the Contact scene arrives; the rest
+   continue quietly while the visitor reads the page. */
+const CARD_PRELOAD_CONCURRENCY = 2;
+const CARD_PRELOAD_LOADER_DELAY_MS = 420;
+const cardPreloadHighQueue = [];
+const cardPreloadLowQueue = [];
+const cardFramePreloadState = [];
+const cardFramePreloadPromises = [];
+const cardFramePreloadResolvers = [];
+let cardPreloadsInFlight = 0;
+let isPreparingCardSequence = false;
+let cardSequencePreparationToken = 0;
+let cardPreloadTumblerTimer = null;
+
 let activeFeature = null;
 let sequenceStarted = false;
 let isAnimatingSequence = false;
@@ -4708,41 +4812,201 @@ function cardFrameName(index){
     return `${CARD_SEQUENCE_FOLDER}/${CARD_SEQUENCE_PREFIX}${String(index).padStart(2,'0')}.png`;
 }
 
+function removeCardFrameFromQueue(queue, index){
+    const queueIndex = queue.indexOf(index);
+    if(queueIndex >= 0){
+        queue.splice(queueIndex, 1);
+    }
+}
+
+function createCardFramePreloadPromise(index){
+    if(cardFramePreloadPromises[index]){
+        return cardFramePreloadPromises[index];
+    }
+
+    cardFramePreloadPromises[index] = new Promise(resolve=>{
+        cardFramePreloadResolvers[index] = resolve;
+    });
+
+    return cardFramePreloadPromises[index];
+}
+
+function resolveCardFramePreload(index){
+    const resolve = cardFramePreloadResolvers[index];
+    if(resolve){
+        cardFramePreloadResolvers[index] = null;
+        resolve();
+    }
+}
+
+function queueCardFramePreload(index, priority = 'low'){
+    if(index < CARD_SEQUENCE_FIRST_FRAME || index > CARD_SEQUENCE_LAST_FRAME){
+        return;
+    }
+
+    const currentState = cardFramePreloadState[index];
+    if(currentState === 'loaded' || currentState === 'error' || currentState === 'loading'){
+        return;
+    }
+
+    createCardFramePreloadPromise(index);
+
+    if(currentState === 'queued-low' && priority === 'high'){
+        removeCardFrameFromQueue(cardPreloadLowQueue, index);
+        cardPreloadHighQueue.push(index);
+        cardFramePreloadState[index] = 'queued-high';
+    }else if(!currentState){
+        if(priority === 'high'){
+            cardPreloadHighQueue.push(index);
+            cardFramePreloadState[index] = 'queued-high';
+        }else{
+            cardPreloadLowQueue.push(index);
+            cardFramePreloadState[index] = 'queued-low';
+        }
+    }
+
+    pumpCardPreloadQueue();
+}
+
+function startCardFramePreload(index){
+    cardFramePreloadState[index] = 'loading';
+    const img = new Image();
+    img.decoding = 'async';
+    cardSequenceImages[index] = img;
+
+    let settled = false;
+    const finish = (state)=>{
+        if(settled){ return; }
+        settled = true;
+        cardFramePreloadState[index] = state;
+        cardPreloadsInFlight = Math.max(0, cardPreloadsInFlight - 1);
+        resolveCardFramePreload(index);
+        pumpCardPreloadQueue();
+    };
+
+    img.onload = ()=>{
+        if(typeof img.decode === 'function'){
+            img.decode().then(()=>finish('loaded')).catch(()=>finish('loaded'));
+        }else{
+            finish('loaded');
+        }
+    };
+    img.onerror = ()=>finish('error');
+    img.src = cardFrameName(index);
+
+    /* A cached image can already be complete before the next event turn. */
+    if(img.complete){
+        if(img.naturalWidth > 0){
+            if(typeof img.decode === 'function'){
+                img.decode().then(()=>finish('loaded')).catch(()=>finish('loaded'));
+            }else{
+                finish('loaded');
+            }
+        }else{
+            finish('error');
+        }
+    }
+}
+
+function pumpCardPreloadQueue(){
+    while(
+        cardPreloadsInFlight < CARD_PRELOAD_CONCURRENCY
+        && (cardPreloadHighQueue.length || cardPreloadLowQueue.length)
+    ){
+        const index = cardPreloadHighQueue.length
+            ? cardPreloadHighQueue.shift()
+            : cardPreloadLowQueue.shift();
+
+        if(cardFramePreloadState[index] !== 'queued-high' && cardFramePreloadState[index] !== 'queued-low'){
+            continue;
+        }
+
+        cardPreloadsInFlight += 1;
+        startCardFramePreload(index);
+    }
+}
+
 function preloadCardSequence(){
-    for(let i = CARD_SEQUENCE_FIRST_FRAME; i <= CARD_SEQUENCE_LAST_FRAME; i++){
-        if(cardSequenceImages[i]){ continue; }
-        const img = new Image();
-        img.src = cardFrameName(i);
-        cardSequenceImages[i] = img;
+    /* The visible front card is critical. Everything else follows in a small
+       background queue instead of launching 34 simultaneous image requests. */
+    queueCardFramePreload(CARD_SEQUENCE_FIRST_FRAME, 'high');
+
+    for(let i = CARD_SEQUENCE_FIRST_FRAME + 1; i <= CARD_SEQUENCE_LAST_FRAME; i++){
+        queueCardFramePreload(i, 'low');
     }
 }
 
 function waitForCardFrame(index){
-    preloadCardSequence();
-    const img = cardSequenceImages[index];
+    queueCardFramePreload(index, 'high');
+    return createCardFramePreloadPromise(index);
+}
 
-    if(img && img.complete && img.naturalWidth > 0){
-        if(typeof img.decode === 'function'){
-            return img.decode().catch(()=>{});
-        }
-        return Promise.resolve();
+function waitForCardSequenceFrames(){
+    for(let i = CARD_SEQUENCE_FIRST_FRAME; i <= CARD_SEQUENCE_LAST_FRAME; i++){
+        /* A deliberate click upgrades outstanding frames so the flip begins
+           smoothly rather than trying to play through missing PNGs. */
+        queueCardFramePreload(i, 'high');
     }
 
-    return new Promise(resolve=>{
-        if(!img){ resolve(); return; }
-        img.onload = ()=>{
-            if(typeof img.decode === 'function'){
-                img.decode().then(resolve).catch(resolve);
-            }else{
-                resolve();
-            }
-        };
-        img.onerror = resolve;
-    });
+    return Promise.all(
+        Array.from({length:CARD_SEQUENCE_LAST_FRAME - CARD_SEQUENCE_FIRST_FRAME + 1}, (_, offset)=>
+            createCardFramePreloadPromise(CARD_SEQUENCE_FIRST_FRAME + offset)
+        )
+    );
 }
 
 function getPreloadedCardFrame(index){
-    return cardSequenceImages[index] || null;
+    const image = cardSequenceImages[index];
+    return image && image.complete && image.naturalWidth > 0 ? image : null;
+}
+
+function beginCardPreloadTumbler(){
+    if(!sequencePreloadTumbler){
+        return ()=>{};
+    }
+
+    window.clearTimeout(cardPreloadTumblerTimer);
+    cardPreloadTumblerTimer = window.setTimeout(()=>{
+        if(isPreparingCardSequence){
+            sequencePreloadTumbler.classList.add('show');
+        }
+    }, CARD_PRELOAD_LOADER_DELAY_MS);
+
+    return ()=>{
+        window.clearTimeout(cardPreloadTumblerTimer);
+        cardPreloadTumblerTimer = null;
+        sequencePreloadTumbler.classList.remove('show');
+    };
+}
+
+function cancelCardSequencePreparation(){
+    cardSequencePreparationToken += 1;
+    isPreparingCardSequence = false;
+    window.clearTimeout(cardPreloadTumblerTimer);
+    cardPreloadTumblerTimer = null;
+    if(sequencePreloadTumbler){
+        sequencePreloadTumbler.classList.remove('show');
+    }
+}
+
+async function prepareCardSequenceForPlayback(){
+    if(isPreparingCardSequence){
+        return false;
+    }
+
+    isPreparingCardSequence = true;
+    const preparationToken = ++cardSequencePreparationToken;
+    const stopTumbler = beginCardPreloadTumbler();
+
+    try{
+        await waitForCardSequenceFrames();
+        return preparationToken === cardSequencePreparationToken;
+    }finally{
+        if(preparationToken === cardSequencePreparationToken){
+            isPreparingCardSequence = false;
+            stopTumbler();
+        }
+    }
 }
 
 function positionCardSequenceOverlay(){
@@ -5564,6 +5828,190 @@ function scheduleRemainingIntroSequenceFrames(){
     }
 }
 
+function getResolvedMediaUrl(src){
+    try{
+        return new URL(src, document.baseURI).href;
+    }catch(error){
+        return src || '';
+    }
+}
+
+function logoVideoIsUsing(file){
+    if(!logoVideo || !file){ return false; }
+    const wanted = getResolvedMediaUrl(file);
+    return [logoVideo.currentSrc, logoVideo.src]
+        .filter(Boolean)
+        .some(candidate=>getResolvedMediaUrl(candidate) === wanted);
+}
+
+function showProductVideoLoaderDelayed(){
+    productVideoLoading = true;
+
+    if(!productVideoLoader){
+        return ()=>{};
+    }
+
+    window.clearTimeout(productVideoLoaderTimer);
+    productVideoLoader.classList.remove('show');
+    productVideoLoader.setAttribute('aria-hidden', 'true');
+
+    productVideoLoaderTimer = window.setTimeout(()=>{
+        if(productVideoLoading){
+            productVideoLoader.classList.add('show');
+            productVideoLoader.setAttribute('aria-hidden', 'false');
+        }
+    }, PRODUCT_VIDEO_LOADER_DELAY_MS);
+
+    return ()=>{
+        window.clearTimeout(productVideoLoaderTimer);
+        productVideoLoaderTimer = null;
+        productVideoLoader.classList.remove('show');
+        productVideoLoader.setAttribute('aria-hidden', 'true');
+    };
+}
+
+function hideProductVideoLoader(){
+    productVideoLoading = false;
+    window.clearTimeout(productVideoLoaderTimer);
+    productVideoLoaderTimer = null;
+
+    if(productVideoLoader){
+        productVideoLoader.classList.remove('show');
+        productVideoLoader.setAttribute('aria-hidden', 'true');
+    }
+}
+
+function enqueueProductVideoWarmup(file){
+    if(!file || productVideoWarmElements.has(file) || productVideoWarmQueuedFiles.has(file)){
+        return;
+    }
+
+    productVideoWarmQueuedFiles.add(file);
+    productVideoWarmQueue.push(file);
+    pumpProductVideoWarmupQueue();
+}
+
+function pumpProductVideoWarmupQueue(){
+    while(
+        productVideoWarmupsInFlight < PRODUCT_VIDEO_WARMUP_CONCURRENCY
+        && productVideoWarmQueue.length
+    ){
+        const file = productVideoWarmQueue.shift();
+        productVideoWarmQueuedFiles.delete(file);
+
+        if(productVideoWarmElements.has(file)){
+            continue;
+        }
+
+        productVideoWarmupsInFlight += 1;
+
+        const warmupVideo = document.createElement('video');
+        warmupVideo.className = 'productVideoWarmup';
+        warmupVideo.preload = 'auto';
+        warmupVideo.muted = true;
+        warmupVideo.playsInline = true;
+        warmupVideo.setAttribute('aria-hidden', 'true');
+        warmupVideo.disablePictureInPicture = true;
+        warmupVideo.disableRemotePlayback = true;
+        productVideoWarmElements.set(file, warmupVideo);
+        document.body.appendChild(warmupVideo);
+
+        let settled = false;
+        const finish = ()=>{
+            if(settled){ return; }
+            settled = true;
+            productVideoWarmupsInFlight = Math.max(0, productVideoWarmupsInFlight - 1);
+
+            /* Keep the element in the document so browser media caches retain
+               their buffered range for the later visible player. */
+            const next = ()=>pumpProductVideoWarmupQueue();
+            if('requestIdleCallback' in window){
+                window.requestIdleCallback(next, {timeout:800});
+            }else{
+                window.setTimeout(next, 120);
+            }
+        };
+
+        warmupVideo.addEventListener('canplay', finish, {once:true});
+        warmupVideo.addEventListener('error', finish, {once:true});
+        warmupVideo.src = file;
+        warmupVideo.load();
+
+        /* Do not block the queue forever in browsers that neither emit canplay
+           nor error until a later media interaction. */
+        window.setTimeout(finish, 9000);
+    }
+}
+
+function scheduleFirstProductVideoWarmup(){
+    if(firstProductVideoWarmupScheduled || !logoVideo){
+        return;
+    }
+
+    firstProductVideoWarmupScheduled = true;
+    const firstFile = productSteps[0].videos[0];
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const isVerySlow = connection && /(^|-)2g/.test(connection.effectiveType || '');
+    const warmupDelay = isVerySlow ? PRODUCT_VIDEO_WARMUP_DELAY_MS * 2 : PRODUCT_VIDEO_WARMUP_DELAY_MS;
+
+    const warmFirst = ()=>{
+        /* Reuse the actual visible player for the priority MP4. Unlike a
+           detached prefetch, this reliably carries its buffer into playback.
+           Never reset it after the visitor has already opened the Product view. */
+        const isVisibleProductPlayback = activeFeature === features.finishes
+            && logoVideoMaskPlane
+            && logoVideoMaskPlane.style.display === 'block';
+
+        if(isVisibleProductPlayback){
+            return;
+        }
+
+        logoVideo.preload = 'auto';
+        if(!logoVideoIsUsing(firstFile)){
+            logoVideo.pause();
+            logoVideo.src = firstFile;
+        }
+        logoVideo.load();
+    };
+
+    const deferWarmup = ()=>window.setTimeout(warmFirst, warmupDelay);
+    if('requestIdleCallback' in window){
+        window.requestIdleCallback(deferWarmup, {timeout:1800});
+    }else{
+        deferWarmup();
+    }
+}
+
+function warmUpcomingProductVideos(stepIndex){
+    const step = productSteps[stepIndex];
+    if(!step){ return; }
+
+    /* While a visitor watches the current clip, only warm the next clip in
+       that step plus the first clip of the next step. This is enough to remove
+       most handoff stalls without downloading every MP4 at once. */
+    step.videos.slice(1).forEach(enqueueProductVideoWarmup);
+
+    const followingStep = productSteps[stepIndex + 1];
+    if(followingStep && followingStep.videos[0]){
+        enqueueProductVideoWarmup(followingStep.videos[0]);
+    }
+}
+
+function prepareLogoVideoSource(file){
+    if(!logoVideo || !file){ return; }
+
+    logoVideo.preload = 'auto';
+    if(!logoVideoIsUsing(file)){
+        logoVideo.pause();
+        logoVideo.src = file;
+        logoVideo.load();
+    }
+
+    try{
+        logoVideo.currentTime = 0;
+    }catch(error){}
+}
+
 function preloadAssets(){
     if(preloadStarted){
         return;
@@ -5592,23 +6040,16 @@ function preloadAssets(){
     scheduleRemainingIntroSequenceFrames();
 
     /*
-       Keep MP4 requests light during the intro. Full video bytes load only after
-       the visitor opens the Product path, leaving bandwidth for JPG sequences.
+       Give the first product MP4 a genuine early head start, but do not begin
+       every product movie during the intro. This preserves bandwidth for the
+       hotspot image sequences on slow mobile connections.
     */
     if(logoVideo){
         logoVideo.preload = 'metadata';
         logoVideo.src = productSteps[0].videos[0];
         logoVideo.load();
+        scheduleFirstProductVideoWarmup();
     }
-
-    productSteps.flatMap(step=>step.videos).forEach(file=>{
-        const preloadVideo = document.createElement('video');
-        preloadVideo.preload = 'metadata';
-        preloadVideo.muted = true;
-        preloadVideo.playsInline = true;
-        preloadVideo.src = file;
-        preloadVideo.load();
-    });
 }
 
 
@@ -5697,16 +6138,63 @@ function showInfoPanel(){
 }
 
 function playLogoVideo(index){
+    const files = currentProductVideoFiles && currentProductVideoFiles.length
+        ? currentProductVideoFiles
+        : productSteps[productStepIndex].videos;
+    const file = files[index] || files[0];
+
+    if(!logoVideo || !file){
+        return;
+    }
+
     currentLogoVideoIndex = index;
-    const files = currentProductVideoFiles && currentProductVideoFiles.length ? currentProductVideoFiles : productSteps[productStepIndex].videos;
-    logoVideo.src = files[index] || files[0];
-    logoVideo.load();
-    logoVideo.currentTime = 0;
+    const playbackToken = ++productVideoPlaybackToken;
+    const needsBuffer = !logoVideoIsUsing(file) || logoVideo.readyState < 3;
+    const stopLoader = needsBuffer ? showProductVideoLoaderDelayed() : ()=>{};
+
+    const finishLoading = ()=>{
+        if(playbackToken !== productVideoPlaybackToken){ return; }
+        productVideoLoading = false;
+        stopLoader();
+    };
+
+    const removeListeners = ()=>{
+        logoVideo.removeEventListener('playing', onPlaying);
+        logoVideo.removeEventListener('error', onError);
+    };
+
+    const onPlaying = ()=>{
+        removeListeners();
+        finishLoading();
+    };
+
+    const onError = ()=>{
+        removeListeners();
+        finishLoading();
+        /* Restore the Play hotspot rather than leaving the visitor on an empty
+           monitor if a network interruption prevents this MP4 from starting. */
+        if(playbackToken === productVideoPlaybackToken){
+            showProductPlayHotspot();
+        }
+    };
+
+    logoVideo.addEventListener('playing', onPlaying, {once:true});
+    logoVideo.addEventListener('error', onError, {once:true});
+    prepareLogoVideoSource(file);
+
+    /* Queue only the natural next choices. The active video starts immediately
+       from the click gesture; the queue works in the background afterwards. */
+    warmUpcomingProductVideos(productStepIndex);
 
     const playPromise = logoVideo.play();
-
     if(playPromise !== undefined){
-        playPromise.catch(()=>{});
+        playPromise.catch(()=>{
+            removeListeners();
+            finishLoading();
+            if(playbackToken === productVideoPlaybackToken){
+                showProductPlayHotspot();
+            }
+        });
     }
 }
 
@@ -5721,15 +6209,15 @@ function showLogoVideo(){
 }
 
 function hideLogoVideo(callback){
+    productVideoPlaybackToken += 1;
+    hideProductVideoLoader();
     if(logoVideoMaskPlane){ logoVideoMaskPlane.classList.remove('show'); }
 
     setTimeout(()=>{
         logoVideo.pause();
         currentLogoVideoIndex = 0;
         currentProductVideoFiles = productSteps[productStepIndex].videos.slice();
-        logoVideo.src = currentProductVideoFiles[0];
-        logoVideo.load();
-        logoVideo.currentTime = 0;
+        prepareLogoVideoSource(currentProductVideoFiles[0]);
         if(logoVideoMaskPlane){ logoVideoMaskPlane.style.display = 'none'; }
 
         if(typeof callback === 'function'){
@@ -6132,6 +6620,7 @@ function playMobileLandscapeContactSequenceWithPan(feature, start, end, onComple
 let reverseVideoAnimationFrame = null;
 
 function showDefaultFeatureVideoFirstFrame(){
+    hideProductVideoLoader();
     if(!featureVideo){
         return;
     }
@@ -6509,9 +6998,9 @@ async function playForwardSequence(featureId){
     }
 
     /*
-       Start the smaller contact-card PNG sequence only after the main Contact
-       frames are ready. It can load while the Contact camera move plays without
-       competing with the large main sequence during the nebula intro.
+       Start the Contact-card PNG queue as soon as the Contact route is ready.
+       Frame 00 is prioritised and the rest advance in two controlled requests
+       while the camera move plays, so Download is usually ready on arrival.
     */
     if(featureToPlay === features.contact){
         preloadCardSequence();
@@ -6647,6 +7136,8 @@ function goBackToDefaultFrame(){
         if(isContactExitTransitioning){
             return;
         }
+
+        cancelCardSequencePreparation();
 
         /* Keep the card eligible to animate until reverseContactCardBeforeLeaving
            has returned it to card00. We only cancel an unfinished flip so that
@@ -6815,6 +7306,7 @@ function setProductStep(index, animateText = false){
     const step = productSteps[productStepIndex];
     currentProductVideoFiles = step.videos.slice();
     updateProductStepIndicator();
+    warmUpcomingProductVideos(productStepIndex);
 
     if(animateText && infoPanel && infoPanel.classList.contains('show')){
         animateProductStepText(step);
@@ -6959,8 +7451,26 @@ if(moviePauseBtn){
     moviePauseBtn.addEventListener('click', pauseProductMovieFromControls);
 }
 
-function toggleContactCardSequence(onQrCardOpened){
-    if(isCardSequenceAnimating || !activeFeature || activeFeature !== features.contact){
+async function toggleContactCardSequence(onQrCardOpened){
+    if(
+        isCardSequenceAnimating
+        || isPreparingCardSequence
+        || !activeFeature
+        || activeFeature !== features.contact
+    ){
+        return;
+    }
+
+    const lifecycleToken = contactCardLifecycleToken;
+    const sequenceReady = await prepareCardSequenceForPlayback();
+
+    if(
+        !sequenceReady
+        || lifecycleToken !== contactCardLifecycleToken
+        || isLeavingContact
+        || !sequenceStarted
+        || activeFeature !== features.contact
+    ){
         return;
     }
 
